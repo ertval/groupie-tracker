@@ -1,0 +1,142 @@
+# Groupie Tracker – Project Plan
+
+## 🎯 Στόχος
+Το project **Groupie Tracker** βασίζεται σε ένα API που περιέχει πληροφορίες για καλλιτέχνες, τοποθεσίες και ημερομηνίες συναυλιών.  
+Στόχος είναι η δημιουργία μιας user-friendly ιστοσελίδας που θα εμφανίζει αυτά τα δεδομένα μέσω διαφορετικών visualizations (cards, tables, lists, pages, graphics).
+
+---
+
+## 🏗️ Αρχιτεκτονική
+- **Server:** Go `net/http` + `html/template`
+- **Data layer:** Fetch του API JSON στην εκκίνηση (και με manual “refresh”), κανονικοποίηση σε structs, αποθήκευση σε in-memory indexes.
+- **Views:** Server-rendered HTML templates (cards, tables). Λίγο JS για search/filter & το “event/action”.
+- **Event/Action (client → server):**
+  - `/api/search?q=...` (AJAX live search)
+  - `/api/suggest?q=...` (autocomplete)
+  - `/api/refresh` button → server re-fetch JSON → UI update
+
+---
+
+## 🔗 Endpoints
+- `GET /` — dashboard (σύνολα, filters, quick links)  
+- `GET /artists` — λίστα (search + filters)  
+- `GET /artists/{id}` — detail page (bio, first album, members, locations/dates)  
+- `GET /locations` — λίστα με unique locations + counts  
+- `GET /api/search` — JSON με query params  
+- `GET /api/suggest` — JSON με προτάσεις ονομάτων  
+- `POST /api/refresh` — re-fetch JSON  
+- `GET /healthz` — health check  
+- Custom 404/500 pages  
+
+---
+
+## 🗂️ Data Model (παράδειγμα)
+```go
+type Artist struct {
+    ID           int
+    Name         string
+    Image        string
+    Members      []string
+    CreationYear int
+    FirstAlbum   time.Time
+}
+
+type Gig struct {
+    ArtistID  int
+    Location  string
+    Date      time.Time
+}
+
+💻 Σελίδες & UI
+
+    Artists list: responsive cards (εικόνα, όνομα, έτος, first album) + search bar + filters.
+
+    Artist detail: εικόνα, μέλη, πίνακας με (date, location).
+
+    Locations: table [location | #artists | #gigs] με link σε filtered λίστα.
+
+    Dashboard: counts (artists, members, locations), μικρό chart με vanilla JS/Canvas.
+
+⚡ Event/Action
+
+    Live search: typing → fetch('/api/suggest?q=...') → autocomplete → update DOM.
+
+    Manual refresh: κουμπί → POST /api/refresh → re-download data → UI toast.
+
+🛡️ Error Handling
+
+    Να μην κάνει crash ποτέ: recover middleware.
+
+    Validation στα query params.
+
+    “No results” states.
+
+    Timeouts/retries στο API fetch.
+
+✅ Tests
+
+    Unit: JSON parsing, date parsing, normalization, search filtering.
+
+    Handler tests: httptest για /api/search, /artists/{id}, 404.
+
+    Index tests: correctness & case-insensitive lookups.
+
+📂 Repo Layout
+
+/cmd/server/main.go
+/internal/
+  fetch/
+  model/
+  store/
+  search/
+  web/
+/templates/
+  base.tmpl, artists.tmpl, artist_detail.tmpl, locations.tmpl, error.tmpl
+/static/
+  css/, js/, img/
+/testdata/
+
+🏁 Definition of Done (DoD)
+
+    Όλες οι routes λειτουργούν, χωρίς panics.
+
+    Search + τουλάχιστον 1 event/action.
+
+    Σωστά error pages, /healthz.
+
+    go test ./... περνάει, go vet clean.
+
+    README με οδηγίες & screenshots.
+
+👥 Work Breakdown (3 άτομα)
+Sprint 1 (Core)
+
+    Data ingestion & models (A) — Fetch API, decode JSON, normalize, indexes, unit tests.
+
+    HTTP skeleton & templates (B) — Router, middleware, templates, static, βασικές σελίδες.
+
+    Search + API routes (C) — /api/search, /api/suggest, JS integration.
+
+Sprint 2 (UX + robustness)
+
+    Filters & Locations page (C).
+
+    Event/Action (B).
+
+    Errors, tests, polish (A).
+
+Stretch goals
+
+    SSE για refresh progress.
+
+    Mini charts.
+
+    Pagination, favorites.
+
+🛠️ Run Book
+
+    Dev: go run ./cmd/server (env: PORT, UPSTREAM_BASE_URL)
+
+    Refresh: κουμπί ή curl -X POST /api/refresh
+
+    Search: curl "/api/search?q=queen&year_from=1970&location=London"
