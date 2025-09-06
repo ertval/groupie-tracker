@@ -107,12 +107,26 @@
 ## Current Sprint: Phase 5 - Integration Testing & Audit Compliance
 
 ### Next Immediate Steps:
-1. Create comprehensive audit compliance tests
-2. Test specific data points from audit.md
-3. Implement frontend JavaScript for live search
-4. Add data refresh functionality (/api/refresh endpoint)
-5. Create proper HTML templates with CSS
-6. Add more sophisticated UI components
+1. Convert placeholder HTML into real Go templates
+  - Convert `templates/placeholder_base.html` -> `templates/base.html` and wrap page content with `{{define "content"}}...{{end}}`.
+  - Convert each `templates/placeholder_*.html` into the corresponding template file (`home.html`, `artists.html`, `artist_detail.html`, `locations.html`, `404.html`, `500.html`) using the `base.html` template pattern.
+2. Consolidate CSS and update static paths
+  - Merge or adapt placeholder CSS into `static/css/main.css` and page-specific files as needed.
+  - Ensure `cmd/server/main.go` serves `/static/` (already present) and templates refer to `/static/css/main.css`.
+3. Wire templates into the server
+  - Update `internal/handlers/loadTemplates()` (or use `SetTemplates`) to parse the new template files and handle missing templates with the existing fallback.
+  - Add simple smoke routes or temporary handler wiring to render the new templates for visual verification.
+4. Add template rendering tests (TDD)
+  - Add handler tests that load a test store and call handlers to assert templates render without error (use `httptest.ResponseRecorder`).
+  - Add a lightweight integration test that starts the server and checks a few routes return 200 and contain expected strings.
+5. Visual smoke test and polish
+  - Run the server locally and verify `/`, `/artists`, `/artists/{id}`, `/locations`, `/healthz` render correctly.
+  - Verify search/suggest still function after template changes.
+
+Notes:
+- Keep changes small and test-driven: implement one template at a time and add a focused test before updating handlers.
+- The project includes fallback template logic in `internal/handlers/loadTemplates()` — leverage it during the conversion to avoid runtime crashes.
+- After templates are integrated, remove or archive placeholder files (rename with `.bak` or move to a `placeholders/` folder) to avoid confusion.
 
 ### Notes:
 - Core backend functionality is complete and working

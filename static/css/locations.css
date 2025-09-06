@@ -1,0 +1,16 @@
+/* Locations placeholder styles */
+@import url('base.css');
+
+.page.locations {
+    padding: 2rem
+}
+
+.locations-list {
+    list-style: none;
+    padding: 0
+}
+
+.locations-list li {
+    padding: .6rem 0;
+    border-bottom: 1px solid #f1f5f9
+}

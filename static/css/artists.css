@@ -1,0 +1,21 @@
+/* Artists list placeholder styles */
+@import url('base.css');
+
+.page.artists {
+    padding: 2rem
+}
+
+.artist-list {
+    list-style: none;
+    padding: 0
+}
+
+.artist-list li {
+    padding: .75rem 0;
+    border-bottom: 1px solid #f1f5f9
+}
+
+.artist-list a {
+    color: var(--accent);
+    text-decoration: none
+}

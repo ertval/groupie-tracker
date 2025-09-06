@@ -225,6 +225,33 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
+## Next steps: implementing templates & CSS
+
+This repository includes lightweight placeholder HTML files in `templates/` (files named `placeholder_*.html`) and matching CSS in `static/css/` to speed UI development.
+
+Follow these steps to convert placeholders into production Go templates and wire them into the server:
+
+1. Convert placeholders to Go templates
+   - Rename or copy `templates/placeholder_base.html` -> `templates/base.html` and wrap page content with `{{define "content"}}...{{end}}`.
+   - Convert each `templates/placeholder_*.html` into its corresponding template file (`home.html`, `artists.html`, `artist_detail.html`, `locations.html`, `404.html`, `500.html`) and ensure each uses `{{template "content" .}}` within `base.html`.
+
+2. Consolidate and reference CSS
+   - Consolidate styles into `static/css/main.css` and keep small page-specific files if desired.
+   - Ensure templates reference `/static/css/main.css` (absolute path) so the server's static file handler serves assets correctly.
+
+3. Parse templates in handlers
+   - `internal/handlers/loadTemplates()` currently attempts to parse template files and falls back to a minimal template on error. Update it to include the new `base.html` and page templates.
+
+4. Add template rendering tests
+   - Use `httptest.ResponseRecorder` in handler tests to assert templates render without errors and responses contain expected content.
+
+5. Smoke test locally
+   - Start the server and visit: `/`, `/artists`, `/artists/1`, `/locations`, `/healthz`.
+
+Tips:
+- Proceed template-by-template and run tests frequently.
+- Keep placeholder files until the templates are fully integrated; then remove or move them to a `placeholders/` folder.
+
 ## Development Status
 
 🚧 **Current Phase**: Initial Setup and Core Implementation

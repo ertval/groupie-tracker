@@ -1,0 +1,29 @@
+/* Artist detail placeholder styles */
+@import url('base.css');
+
+.page.artist-detail {
+    padding: 2rem
+}
+
+.artist-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center
+}
+
+.artist-image {
+    width: 140px;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 8px;
+    background: #e2e8f0
+}
+
+.meta p {
+    margin: .25rem 0
+}
+
+.artist-members ul {
+    list-style: none;
+    padding: 0
+}

@@ -1,0 +1,21 @@
+/* Error page placeholder styles */
+@import url('base.css');
+
+.page.error-404,
+.page.error-500 {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 70vh
+}
+
+.page.error-404 h1,
+.page.error-500 h1 {
+    font-size: 1.75rem;
+    margin-bottom: .5rem
+}
+
+.page.error-404 p,
+.page.error-500 p {
+    color: #6b7280
+}

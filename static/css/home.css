@@ -1,0 +1,40 @@
+/* Home page placeholder styles */
+@import url('base.css');
+
+.page.home {
+    padding: 2rem
+}
+
+.page-header h1 {
+    margin: 0 0 .5rem 0
+}
+
+.muted {
+    color: #6b7280
+}
+
+.search-placeholder {
+    margin: 1rem 0
+}
+
+.search-placeholder input {
+    width: 100%;
+    padding: .5rem;
+    border: 1px solid #e6e6e6;
+    border-radius: 6px
+}
+
+.artists-sample {
+    margin-top: 1.5rem
+}
+
+.artists-sample ul {
+    list-style: none;
+    padding: 0;
+    margin: 0
+}
+
+.artists-sample li {
+    padding: .5rem 0;
+    border-bottom: 1px solid #f1f5f9
+}
