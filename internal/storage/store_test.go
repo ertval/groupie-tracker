@@ -8,7 +8,7 @@ import (
 
 func TestStore_AddAndGetArtist(t *testing.T) {
 	store := NewStore()
-	
+
 	artist := models.Artist{
 		ID:           1,
 		Name:         "Queen",
@@ -39,7 +39,7 @@ func TestStore_AddAndGetArtist(t *testing.T) {
 
 func TestStore_GetAllArtists(t *testing.T) {
 	store := NewStore()
-	
+
 	artists := []models.Artist{
 		{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury"}, CreationYear: 1970},
 		{ID: 2, Name: "Gorillaz", Members: []string{"Damon Albarn"}, CreationYear: 1998},
@@ -57,7 +57,7 @@ func TestStore_GetAllArtists(t *testing.T) {
 
 func TestStore_SearchArtists(t *testing.T) {
 	store := NewStore()
-	
+
 	artists := []models.Artist{
 		{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May"}, CreationYear: 1970},
 		{ID: 2, Name: "Gorillaz", Members: []string{"Damon Albarn"}, CreationYear: 1998},
@@ -92,7 +92,7 @@ func TestStore_SearchArtists(t *testing.T) {
 
 func TestStore_FilterArtistsByYear(t *testing.T) {
 	store := NewStore()
-	
+
 	artists := []models.Artist{
 		{ID: 1, Name: "Queen", CreationYear: 1970},
 		{ID: 2, Name: "Gorillaz", CreationYear: 1998},
@@ -187,7 +187,7 @@ func TestStore_GetUniqueLocations(t *testing.T) {
 	}
 
 	uniqueLocations := store.GetUniqueLocations()
-	
+
 	expected := 3 // london-uk, manchester-uk, new_york-usa
 	if len(uniqueLocations) != expected {
 		t.Errorf("Expected %d unique locations, got %d", expected, len(uniqueLocations))
@@ -248,7 +248,7 @@ func TestStore_LoadData(t *testing.T) {
 
 func TestStore_ConcurrentAccess(t *testing.T) {
 	store := NewStore()
-	
+
 	// Test concurrent writes and reads
 	done := make(chan bool, 2)
 

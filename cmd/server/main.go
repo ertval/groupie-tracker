@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	defaultPort       = ":8080"
-	defaultAPIURL     = "https://groupietrackers.herokuapp.com"
-	requestTimeout    = 30 * time.Second
-	shutdownTimeout   = 10 * time.Second
+	defaultPort     = ":8080"
+	defaultAPIURL   = "https://groupietrackers.herokuapp.com"
+	requestTimeout  = 30 * time.Second
+	shutdownTimeout = 10 * time.Second
 )
 
 func main() {
@@ -42,6 +42,7 @@ func main() {
 
 	// Initialize handlers
 	h := handlers.NewHandlers(store)
+	h.SetAPIClient(apiClient)
 
 	// Create router
 	mux := createRouter(h)
@@ -116,6 +117,7 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	// API routes
 	mux.HandleFunc("/api/search", h.SearchHandler)
 	mux.HandleFunc("/api/suggest", h.SuggestHandler)
+	mux.HandleFunc("/api/refresh", h.RefreshHandler)
 
 	// Health check
 	mux.HandleFunc("/healthz", h.HealthHandler)
@@ -127,14 +129,14 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 // wrapWithMiddleware wraps the entire mux with middleware.
 func wrapWithMiddleware(handler http.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
-	
+
 	// Wrap all requests with middleware
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		loggingMiddleware(
 			recoveryMiddleware(handler),
 		).ServeHTTP(w, r)
 	})
-	
+
 	return mux
 }
 
@@ -168,10 +170,10 @@ func recoveryMiddlewareWithHandler(next http.Handler, h *handlers.Handlers) http
 func loggingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		
+
 		// Call the next handler
 		next.ServeHTTP(w, r)
-		
+
 		// Log the request
 		log.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(start))
 	})
@@ -195,7 +197,7 @@ func loadDataFromAPI(store *storage.Store, client *api.Client) error {
 	}
 
 	store.LoadData(storeData)
-	
+
 	log.Printf("Loaded %d artists, %d locations, %d dates, %d relations",
 		len(data.Artists), len(data.Locations), len(data.Dates), len(data.Relations))
 
@@ -208,11 +210,11 @@ func getPort() string {
 	if port == "" {
 		return defaultPort
 	}
-	
+
 	// Add colon if not present
 	if !strings.HasPrefix(port, ":") {
 		port = ":" + port
 	}
-	
+
 	return port
 }

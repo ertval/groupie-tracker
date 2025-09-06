@@ -30,7 +30,7 @@ func NewClient(baseURL string, timeout time.Duration) *Client {
 // FetchArtists retrieves all artists from the API.
 func (c *Client) FetchArtists(ctx context.Context) ([]models.Artist, error) {
 	url := c.baseURL + "/api/artists"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -57,7 +57,7 @@ func (c *Client) FetchArtists(ctx context.Context) ([]models.Artist, error) {
 // FetchLocations retrieves all locations from the API.
 func (c *Client) FetchLocations(ctx context.Context) ([]models.Location, error) {
 	url := c.baseURL + "/api/locations"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -76,7 +76,7 @@ func (c *Client) FetchLocations(ctx context.Context) ([]models.Location, error) 
 	var response struct {
 		Index []models.Location `json:"index"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
@@ -87,7 +87,7 @@ func (c *Client) FetchLocations(ctx context.Context) ([]models.Location, error) 
 // FetchDates retrieves all dates from the API.
 func (c *Client) FetchDates(ctx context.Context) ([]models.Date, error) {
 	url := c.baseURL + "/api/dates"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -106,7 +106,7 @@ func (c *Client) FetchDates(ctx context.Context) ([]models.Date, error) {
 	var response struct {
 		Index []models.Date `json:"index"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
@@ -117,7 +117,7 @@ func (c *Client) FetchDates(ctx context.Context) ([]models.Date, error) {
 // FetchRelations retrieves all relations from the API.
 func (c *Client) FetchRelations(ctx context.Context) ([]models.Relation, error) {
 	url := c.baseURL + "/api/relation"
-	
+
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("creating request: %w", err)
@@ -136,7 +136,7 @@ func (c *Client) FetchRelations(ctx context.Context) ([]models.Relation, error) 
 	var response struct {
 		Index []models.Relation `json:"index"`
 	}
-	
+
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}

@@ -12,7 +12,7 @@ import (
 
 func setupTestStore() *storage.Store {
 	store := storage.NewStore()
-	
+
 	// Add test data
 	artists := []models.Artist{
 		{

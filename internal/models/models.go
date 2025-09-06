@@ -49,15 +49,15 @@ func (a *Artist) Validate() error {
 	if a.Name == "" {
 		return errors.New("artist name cannot be empty")
 	}
-	
+
 	if a.CreationYear <= 0 {
 		return errors.New("creation year must be greater than 0")
 	}
-	
+
 	if len(a.Members) == 0 {
 		return errors.New("artist must have at least one member")
 	}
-	
+
 	return nil
 }
 
@@ -67,13 +67,13 @@ func (a *Artist) GetFirstAlbumDate() (time.Time, error) {
 	if a.FirstAlbum == "" {
 		return time.Time{}, errors.New("first album date is empty")
 	}
-	
+
 	// Parse the date in DD-MM-YYYY format
 	parsedTime, err := time.Parse("02-01-2006", a.FirstAlbum)
 	if err != nil {
 		return time.Time{}, errors.New("invalid date format, expected DD-MM-YYYY")
 	}
-	
+
 	return parsedTime, nil
 }
 
@@ -82,11 +82,11 @@ func (l *Location) Validate() error {
 	if l.ID <= 0 {
 		return errors.New("location ID must be greater than 0")
 	}
-	
+
 	if len(l.Locations) == 0 {
 		return errors.New("location must have at least one location")
 	}
-	
+
 	return nil
 }
 
@@ -95,11 +95,11 @@ func (d *Date) Validate() error {
 	if d.ID <= 0 {
 		return errors.New("date ID must be greater than 0")
 	}
-	
+
 	if len(d.Dates) == 0 {
 		return errors.New("date must have at least one date")
 	}
-	
+
 	return nil
 }
 
@@ -108,10 +108,10 @@ func (r *Relation) Validate() error {
 	if r.ID <= 0 {
 		return errors.New("relation ID must be greater than 0")
 	}
-	
+
 	if len(r.DatesLocations) == 0 {
 		return errors.New("relation must have at least one dates-location mapping")
 	}
-	
+
 	return nil
 }

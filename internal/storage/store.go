@@ -54,7 +54,7 @@ func (s *Store) GetArtist(id int) (models.Artist, bool) {
 func (s *Store) GetAllArtists() []models.Artist {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	artists := make([]models.Artist, 0, len(s.artists))
 	for _, artist := range s.artists {
 		artists = append(artists, artist)
@@ -146,7 +146,7 @@ func (s *Store) GetLocation(id int) (models.Location, bool) {
 func (s *Store) GetAllLocations() []models.Location {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	locations := make([]models.Location, 0, len(s.locations))
 	for _, location := range s.locations {
 		locations = append(locations, location)
@@ -160,7 +160,7 @@ func (s *Store) GetUniqueLocations() []string {
 	defer s.mu.RUnlock()
 
 	locationSet := make(map[string]bool)
-	
+
 	for _, location := range s.locations {
 		for _, loc := range location.Locations {
 			locationSet[loc] = true
@@ -194,7 +194,7 @@ func (s *Store) GetDate(id int) (models.Date, bool) {
 func (s *Store) GetAllDates() []models.Date {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	dates := make([]models.Date, 0, len(s.dates))
 	for _, date := range s.dates {
 		dates = append(dates, date)
@@ -221,7 +221,7 @@ func (s *Store) GetRelation(id int) (models.Relation, bool) {
 func (s *Store) GetAllRelations() []models.Relation {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	
+
 	relations := make([]models.Relation, 0, len(s.relations))
 	for _, relation := range s.relations {
 		relations = append(relations, relation)
