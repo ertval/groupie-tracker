@@ -58,9 +58,9 @@ groupie-tracker/
 └── docs/                      # Documentation
 ```
 
-## 🎨 Template System (✅ COMPLETED)
+## 🎨 Template System (✅ COMPLETED & DEBUGGED)
 
-The application uses a sophisticated Go HTML template system with inheritance and conditional rendering:
+The application uses a sophisticated Go HTML template system with inheritance and conditional rendering. **All template issues have been resolved** as of September 2025:
 
 ### Template Architecture
 - **Master Layout**: `base.tmpl` provides the common HTML structure
@@ -103,9 +103,24 @@ The base template conditionally includes content:
 ```
 
 ### Custom Template Functions
-- `sub` - Subtraction: `{{sub .Total 1}}`
+- `sub` - Subtraction with safety checks: `{{sub .Total 1}}`
 - `add` - Addition: `{{add .Index 1}}`
-- `contains` - String matching: `{{contains .Title "Artist"}}`
+- `contains` - Case-insensitive string matching: `{{contains .Title "Artist"}}`
+- `safeLen` - Safe length calculation for arrays/slices: `{{safeLen .Artists}}`
+
+### Template Troubleshooting & Fixes (September 2025)
+
+**Issues Resolved:**
+1. **Template Path Resolution** - Fixed incorrect relative paths that caused "template not found" errors
+2. **Enhanced Error Handling** - Added robust error handling to custom template functions
+3. **Improved Conditional Logic** - Enhanced base template routing for more reliable page selection
+4. **Safety Functions** - Added `safeLen` and improved `sub` function to prevent runtime errors
+
+**Common Issues & Solutions:**
+- **Template Loading Errors**: Ensure templates are in `templates/` directory relative to binary
+- **Function Errors**: All custom functions now handle edge cases (empty strings, negative numbers)
+- **Page Routing**: Base template uses explicit error page detection instead of string matching
+- **Fallback System**: Graceful degradation when templates fail to load
 
 ## 🚀 Quick Start
 
