@@ -81,7 +81,6 @@ func NewServer() (*Server, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start cache for periodic updates
-	log.Println(colorCyan + "🔄 Starting cache with periodic updates..." + colorReset)
 	store.StartCache(ctx)
 
 	// Wait for initial data load with timeout
@@ -102,7 +101,7 @@ func NewServer() (*Server, error) {
 		return nil, fmt.Errorf("failed to load initial data from API")
 	}
 
-	log.Printf(colorGreen+"✅ Cache started successfully - loaded %d artists, %d locations, %d dates, %d relations"+colorReset,
+	log.Printf(colorCyan+"✅ Cache started successfully - loaded %d artists, %d locations, %d dates, %d relations"+colorReset,
 		stats["artists"], stats["locations"], stats["dates"], stats["relations"])
 
 	// Initialize handlers

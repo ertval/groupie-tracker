@@ -12,6 +12,15 @@ import (
 	"groupie-tracker/internal/models"
 )
 
+// ANSI color codes for pretty CLI output (standard library only)
+const (
+	colorReset  = "\033[0m"
+	colorRed    = "\033[31m"
+	colorGreen  = "\033[32m"
+	colorYellow = "\033[33m"
+	colorCyan   = "\033[36m"
+)
+
 const (
 	// CacheUpdateInterval is the interval at which the cache updates from the API
 	CacheUpdateInterval = 30 * time.Second
@@ -92,8 +101,10 @@ func (s *Store) StartCache(ctx context.Context) {
 		return
 	}
 
+	// Single colored start log with emoji and update interval appended.
+	log.Println(colorCyan + "🔄 Starting Cache with periodic updates... " + colorReset + s.updateInterval.String() + " interval.")
+
 	s.cacheRunning.Store(true)
-	log.Printf("Starting cache with update interval: %v", s.updateInterval)
 
 	go s.cacheUpdateLoop(ctx)
 }
@@ -104,7 +115,8 @@ func (s *Store) StopCache() {
 		return
 	}
 
-	log.Printf("Stopping cache...")
+	// Only close the stop channel and mark as not running. The higher-level
+	// server will print a single stopping message; avoid duplicate logs here.
 	close(s.stopCache)
 	s.cacheRunning.Store(false)
 }
@@ -115,21 +127,21 @@ func (s *Store) cacheUpdateLoop(ctx context.Context) {
 	defer ticker.Stop()
 	defer s.cacheRunning.Store(false) // Ensure we mark as not running when loop exits
 
-	// Initial load
-	if err := s.updateFromAPI(ctx); err != nil {
+	// Initial load: perform initial fetch but do not print the periodic "Cache updated" message.
+	if err := s.updateFromAPI(ctx, true); err != nil {
 		log.Printf("Initial cache load failed: %v", err)
 	}
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Printf("Cache update loop stopped due to context cancellation")
+			// Silent stop on context cancellation to avoid duplicate stopping messages.
 			return
 		case <-s.stopCache:
-			log.Printf("Cache update loop stopped")
+			// Silent stop when StopCache is called; server already prints stopping message.
 			return
 		case <-ticker.C:
-			if err := s.updateFromAPI(ctx); err != nil {
+			if err := s.updateFromAPI(ctx, false); err != nil {
 				log.Printf("Cache update failed: %v", err)
 			}
 		}
@@ -137,7 +149,9 @@ func (s *Store) cacheUpdateLoop(ctx context.Context) {
 }
 
 // updateFromAPI fetches fresh data from the API and updates the store.
-func (s *Store) updateFromAPI(ctx context.Context) error {
+// If initial is true, this is the first load and will not emit the periodic
+// "Cache updated" success log (so the server can announce startup first).
+func (s *Store) updateFromAPI(ctx context.Context, initial bool) error {
 	if s.apiClient == nil {
 		return nil
 	}
@@ -158,9 +172,13 @@ func (s *Store) updateFromAPI(ctx context.Context) error {
 
 	s.cacheMu.Lock()
 	s.lastUpdate = time.Now()
+	lu := s.lastUpdate
 	s.cacheMu.Unlock()
 
-	log.Printf("Cache updated successfully at %v", s.lastUpdate.Format(time.RFC3339))
+	// Only print the colorful periodic update message for non-initial updates.
+	if !initial {
+		log.Println(colorGreen + "✅ Cache Updated" + colorReset + " successfully at " + lu.Format(time.RFC3339))
+	}
 	return nil
 }
 
