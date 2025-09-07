@@ -3,19 +3,20 @@ package storage
 
 import (
 	"groupie-tracker/internal/models"
+	svc "groupie-tracker/internal/service"
 )
 
 // Store represents a unified data store that combines base storage operations
 // with advanced data manipulation services.
 type Store struct {
 	*BaseStore
-	*Service
+	*svc.Service
 }
 
 // NewStore creates a new empty store with service layer.
 func NewStore() *Store {
 	baseStore := NewBaseStore()
-	service := NewService(baseStore)
+	service := svc.NewService(baseStore)
 
 	return &Store{
 		BaseStore: baseStore,
@@ -26,7 +27,7 @@ func NewStore() *Store {
 // NewStoreWithCache creates a new store with cache functionality enabled.
 func NewStoreWithCache(apiClient APIClient) *Store {
 	baseStore := NewBaseStoreWithCache(apiClient)
-	service := NewService(baseStore)
+	service := svc.NewService(baseStore)
 
 	return &Store{
 		BaseStore: baseStore,

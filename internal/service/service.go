@@ -1,6 +1,5 @@
-// Package storage provides data manipulation and service operations for Groupie Tracker.
-// This file contains search, filtering, ordering, and other data manipulation operations.
-package storage
+// Package service provides advanced data manipulation and service operations for Groupie Tracker.
+package service
 
 import (
 	"sort"

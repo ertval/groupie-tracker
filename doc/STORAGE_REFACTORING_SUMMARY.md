@@ -17,17 +17,9 @@ This document consolidates the recent refactor of the `internal/storage` package
 
 ## Files Changed / Added
 
-- `internal/storage/base_store.go` — Core storage and cache logic (thread-safe maps, cache lifecycle, LoadData, derived data computation).
-- `internal/storage/service.go` — Search, filtering, sorting, analytics and other data-manipulation features.
-- `internal/storage/store.go` — Public unified `Store` that composes `BaseStore` and `Service` to maintain compatibility.
-- `internal/storage/service_test.go` — Focused tests for service layer logic.
-- `internal/storage/store_test.go` — Updated tests to validate backward compatibility and cache behaviors.
-- `internal/storage/README.md` — Developer documentation for the new architecture.
 
-## Design Notes
-
-- BaseStore responsibilities:
-    - Hold maps for `Artist`, `Location`, `Date`, `Relation` using `sync.RWMutex` for concurrency.
+- `internal/service/service.go` — Search, filtering, sorting, analytics and other data-manipulation features.
+- `internal/service/service_test.go` — Focused tests for service layer logic.
     - Provide safe CRUD operations and `LoadData` bulk update.
     - Compute derived results (unique locations/dates) when data is loaded.
     - Optional cache goroutine that calls an `APIClient` to refresh data periodically.
