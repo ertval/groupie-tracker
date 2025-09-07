@@ -181,9 +181,9 @@ func TestService_FilterArtistsByMemberCount(t *testing.T) {
 		exact       bool
 		expected    int
 	}{
-		{"exactly 1 member", 1, true, 1},  // Gorillaz
-		{"exactly 2 members", 2, true, 1}, // Arctic Monkeys
-		{"exactly 4 members", 4, true, 2}, // Queen and Beatles
+		{"exactly 1 member", 1, true, 1},    // Gorillaz
+		{"exactly 2 members", 2, true, 1},   // Arctic Monkeys
+		{"exactly 4 members", 4, true, 2},   // Queen and Beatles
 		{"at least 2 members", 2, false, 3}, // Arctic Monkeys, Queen, Beatles
 		{"at least 5 members", 5, false, 0}, // None
 	}
@@ -246,7 +246,7 @@ func TestService_SortingMethods(t *testing.T) {
 	t.Run("SortArtistsByName", func(t *testing.T) {
 		sorted := service.SortArtistsByName(artists)
 		expected := []string{"Arctic Monkeys", "Beatles", "Gorillaz", "Queen"}
-		
+
 		if len(sorted) != len(expected) {
 			t.Errorf("Expected %d artists, got %d", len(expected), len(sorted))
 		}
@@ -261,7 +261,7 @@ func TestService_SortingMethods(t *testing.T) {
 	t.Run("SortArtistsByYear", func(t *testing.T) {
 		sorted := service.SortArtistsByYear(artists)
 		expected := []int{1960, 1970, 1998, 2002} // Beatles, Queen, Gorillaz, Arctic Monkeys
-		
+
 		for i, artist := range sorted {
 			if artist.CreationYear != expected[i] {
 				t.Errorf("Expected artist %d to have year %d, got %d", i, expected[i], artist.CreationYear)
@@ -272,7 +272,7 @@ func TestService_SortingMethods(t *testing.T) {
 	t.Run("SortArtistsByMemberCount", func(t *testing.T) {
 		sorted := service.SortArtistsByMemberCount(artists)
 		expected := []int{1, 2, 4, 4} // Gorillaz, Arctic Monkeys, Queen, Beatles
-		
+
 		for i, artist := range sorted {
 			memberCount := len(artist.Members)
 			if memberCount != expected[i] {
@@ -351,7 +351,7 @@ func TestService_ImmutabilityOfResults(t *testing.T) {
 	// Get artists and modify the slice
 	results1 := service.SearchArtists("")
 	originalLen := len(results1)
-	
+
 	// Modify the returned slice
 	if len(results1) > 0 {
 		results1[0].Name = "Modified Name"
