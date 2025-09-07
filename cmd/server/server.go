@@ -89,21 +89,12 @@ func NewServer() (*Server, error) {
 	loadCtx, loadCancel := context.WithTimeout(ctx, 10*time.Second)
 	defer loadCancel()
 
-	for {
-		select {
-		case <-loadCtx.Done():
-			cancel()
-			return nil, fmt.Errorf("timeout waiting for initial data load from API")
-		default:
-			stats := store.GetStats()
-			if stats["artists"] > 0 {
-				goto dataLoaded
-			}
-			time.Sleep(50 * time.Millisecond)
-		}
+	// Wait for data to be loaded
+	if err := waitForDataLoad(store, loadCtx); err != nil {
+		cancel()
+		return nil, err
 	}
 
-dataLoaded:
 	// Check if data was loaded
 	stats := store.GetStats()
 	if stats["artists"] == 0 {
@@ -139,6 +130,22 @@ dataLoaded:
 		ctx:       ctx,
 		cancel:    cancel,
 	}, nil
+}
+
+// waitForDataLoad waits for the store to load initial data
+func waitForDataLoad(store *storage.Store, ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for initial data load from API")
+		default:
+			stats := store.GetStats()
+			if stats["artists"] > 0 {
+				return nil
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
 }
 
 // Start starts the server and handles graceful shutdown.
