@@ -70,8 +70,10 @@ func TestServer_Middleware(t *testing.T) {
 		panic("test panic")
 	})
 
-	// Wrap with recovery middleware
-	handler := recoveryMiddleware(panicHandler)
+	// Wrap with recovery middleware (use handler-aware variant)
+	store := storage.NewStore()
+	h := handlers.NewHandlers(store)
+	handler := recoveryMiddlewareWithHandler(panicHandler, h)
 
 	req, err := http.NewRequest("GET", "/panic", nil)
 	if err != nil {

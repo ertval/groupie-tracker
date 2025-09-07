@@ -225,19 +225,6 @@ func wrapWithMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeM
 	return mux
 }
 
-// recoveryMiddleware recovers from panics and returns a 500 error.
-func recoveryMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Printf("Panic recovered: %v", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
-}
-
 // recoveryMiddlewareWithHandler recovers from panics using custom error handler.
 func recoveryMiddlewareWithHandler(next http.Handler, h *handlers.Handlers) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

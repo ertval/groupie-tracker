@@ -394,8 +394,10 @@ func TestMiddleware_Recovery(t *testing.T) {
 		panic("test panic")
 	})
 
-	// Wrap with recovery middleware
-	wrapped := recoveryMiddleware(panicHandler)
+	// Wrap with recovery middleware (use handler-aware variant)
+	store := storage.NewStore()
+	h := handlers.NewHandlers(store)
+	wrapped := recoveryMiddlewareWithHandler(panicHandler, h)
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
@@ -487,8 +489,10 @@ func TestRecoveryMiddleware(t *testing.T) {
 		panic("test panic for recovery")
 	})
 
-	// Wrap with basic recovery middleware
-	wrapped := recoveryMiddleware(panicHandler)
+	// Wrap with basic recovery middleware (use handler-aware variant)
+	store := storage.NewStore()
+	h := handlers.NewHandlers(store)
+	wrapped := recoveryMiddlewareWithHandler(panicHandler, h)
 
 	req := httptest.NewRequest("GET", "/test", nil)
 	w := httptest.NewRecorder()
