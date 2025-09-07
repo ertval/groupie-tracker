@@ -15,6 +15,11 @@ type Store struct {
 	locations map[int]models.Location
 	dates     map[int]models.Date
 	relations map[int]models.Relation
+
+	// Cached derived data to avoid recomputation
+	derivedDirty          bool
+	cachedUniqueLocations []string
+	cachedUniqueDates     []string
 }
 
 // StoreData represents a complete dataset for bulk loading.
@@ -28,11 +33,45 @@ type StoreData struct {
 // NewStore creates a new empty store.
 func NewStore() *Store {
 	return &Store{
-		artists:   make(map[int]models.Artist),
-		locations: make(map[int]models.Location),
-		dates:     make(map[int]models.Date),
-		relations: make(map[int]models.Relation),
+		artists:      make(map[int]models.Artist),
+		locations:    make(map[int]models.Location),
+		dates:        make(map[int]models.Date),
+		relations:    make(map[int]models.Relation),
+		derivedDirty: true, // Mark as dirty so first access computes cache
 	}
+}
+
+// recomputeDerived recomputes cached derived data. Must be called with write lock held.
+func (s *Store) recomputeDerived() {
+	if !s.derivedDirty {
+		return
+	}
+
+	// Compute unique location strings
+	locationSet := make(map[string]bool)
+	for _, location := range s.locations {
+		for _, loc := range location.Locations {
+			locationSet[loc] = true
+		}
+	}
+	s.cachedUniqueLocations = make([]string, 0, len(locationSet))
+	for loc := range locationSet {
+		s.cachedUniqueLocations = append(s.cachedUniqueLocations, loc)
+	}
+
+	// Compute unique date strings
+	dateSet := make(map[string]bool)
+	for _, date := range s.dates {
+		for _, d := range date.Dates {
+			dateSet[d] = true
+		}
+	}
+	s.cachedUniqueDates = make([]string, 0, len(dateSet))
+	for d := range dateSet {
+		s.cachedUniqueDates = append(s.cachedUniqueDates, d)
+	}
+
+	s.derivedDirty = false
 }
 
 // AddArtist adds an artist to the store.
@@ -132,6 +171,7 @@ func (s *Store) AddLocation(location models.Location) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.locations[location.ID] = location
+	s.derivedDirty = true
 }
 
 // GetLocation retrieves a location by ID.
@@ -156,23 +196,28 @@ func (s *Store) GetAllLocations() []models.Location {
 
 // GetUniqueLocations returns a slice of unique location strings.
 func (s *Store) GetUniqueLocations() []string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	locationSet := make(map[string]bool)
+	s.recomputeDerived()
 
-	for _, location := range s.locations {
-		for _, loc := range location.Locations {
-			locationSet[loc] = true
-		}
-	}
+	// Return a copy to prevent external modification
+	result := make([]string, len(s.cachedUniqueLocations))
+	copy(result, s.cachedUniqueLocations)
+	return result
+}
 
-	uniqueLocations := make([]string, 0, len(locationSet))
-	for loc := range locationSet {
-		uniqueLocations = append(uniqueLocations, loc)
-	}
+// GetUniqueDates returns a slice of unique date strings.
+func (s *Store) GetUniqueDates() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	return uniqueLocations
+	s.recomputeDerived()
+
+	// Return a copy to prevent external modification
+	result := make([]string, len(s.cachedUniqueDates))
+	copy(result, s.cachedUniqueDates)
+	return result
 }
 
 // AddDate adds a date to the store.
@@ -180,6 +225,7 @@ func (s *Store) AddDate(date models.Date) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.dates[date.ID] = date
+	s.derivedDirty = true
 }
 
 // GetDate retrieves a date by ID.
@@ -256,37 +302,23 @@ func (s *Store) LoadData(data StoreData) {
 	for _, relation := range data.Relations {
 		s.relations[relation.ID] = relation
 	}
+
+	// Mark derived data as dirty and recompute
+	s.derivedDirty = true
+	s.recomputeDerived()
 }
 
 // GetStats returns statistics about the stored data.
 func (s *Store) GetStats() map[string]int {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
-	// Count unique location strings across all Location entries.
-	locSet := make(map[string]bool)
-	for _, location := range s.locations {
-		for _, loc := range location.Locations {
-			locSet[loc] = true
-		}
-	}
-
-	// Count unique date strings across all Date entries.
-	dateSet := make(map[string]bool)
-	for _, date := range s.dates {
-		for _, d := range date.Dates {
-			dateSet[d] = true
-		}
-	}
+	s.recomputeDerived()
 
 	return map[string]int{
-		"artists": len(s.artists),
-		// Report number of unique location strings (e.g. unique venues/cities),
-		// which aligns with what the UI reports via GetUniqueLocations().
-		"locations": len(locSet),
-		// Report number of unique date strings (e.g. individual concert dates),
-		// rather than number of Date records.
-		"dates":     len(dateSet),
+		"artists":   len(s.artists),
+		"locations": len(s.cachedUniqueLocations),
+		"dates":     len(s.cachedUniqueDates),
 		"relations": len(s.relations),
 	}
 }

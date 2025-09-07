@@ -161,18 +161,19 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	// Health check
 	mux.HandleFunc("/healthz", h.HealthHandler)
 
-	// Wrap with middleware
-	return wrapWithMiddleware(mux)
+	// Wrap with middleware (pass handlers so recovery can use InternalErrorHandler)
+	return wrapWithMiddleware(mux, h)
 }
 
 // wrapWithMiddleware wraps the entire mux with middleware.
-func wrapWithMiddleware(handler http.Handler) *http.ServeMux {
+// It accepts handlers so the recovery middleware can render errors via InternalErrorHandler.
+func wrapWithMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Wrap all requests with middleware
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		loggingMiddleware(
-			recoveryMiddleware(handler),
+			recoveryMiddlewareWithHandler(handler, h),
 		).ServeHTTP(w, r)
 	})
 
@@ -237,8 +238,11 @@ func loadDataFromAPI(store *storage.Store, client *api.Client) error {
 
 	store.LoadData(storeData)
 
+	// Get computed stats from store (calculated once and cached)
+	stats := store.GetStats()
+
 	log.Printf("Loaded %d artists, %d locations, %d dates, %d relations",
-		len(data.Artists), len(data.Locations), len(data.Dates), len(data.Relations))
+		stats["artists"], stats["locations"], stats["dates"], stats["relations"])
 
 	return nil
 }
