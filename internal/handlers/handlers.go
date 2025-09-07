@@ -41,6 +41,14 @@ type HealthResponse struct {
 	Stats  map[string]int `json:"stats"`
 }
 
+// LocationStat represents statistics for a location
+type LocationStat struct {
+	Name         string
+	ArtistCount  int
+	ConcertCount int
+	Artists      []models.Artist
+}
+
 // NewHandlers creates a new handlers instance with the given store and API client.
 func NewHandlers(store *storage.Store) *Handlers {
 	h := &Handlers{
@@ -53,17 +61,29 @@ func NewHandlers(store *storage.Store) *Handlers {
 // loadTemplates loads all HTML templates
 func (h *Handlers) loadTemplates() {
 	templateFiles := []string{
-		"templates/base.html",
-		"templates/home.html",
-		"templates/artists.html",
-		"templates/artist_detail.html",
-		"templates/locations.html",
-		"templates/404.html",
-		"templates/500.html",
+		"../../templates/base.tmpl",
+		"../../templates/home.tmpl",
+		"../../templates/artists.tmpl",
+		"../../templates/artist_detail.tmpl",
+		"../../templates/locations.tmpl",
+		"../../templates/error.tmpl",
+	}
+
+	// Define custom template functions
+	funcMap := template.FuncMap{
+		"sub": func(a, b int) int {
+			return a - b
+		},
+		"add": func(a, b int) int {
+			return a + b
+		},
+		"contains": func(s, substr string) bool {
+			return strings.Contains(s, substr)
+		},
 	}
 
 	var err error
-	h.templates, err = template.ParseFiles(templateFiles...)
+	h.templates, err = template.New("").Funcs(funcMap).ParseFiles(templateFiles...)
 	if err != nil {
 		log.Printf("Warning: Could not load templates: %v", err)
 		// Create a simple fallback template
@@ -95,18 +115,26 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	artists := h.store.GetAllArtists()
 
 	data := struct {
-		Title   string
-		Artists []models.Artist
+		Title        string
+		Artists      []models.Artist
+		ExtraCSS     string
+		ExtraJS      string
+		TotalMembers int
+		TotalLocations int
 	}{
-		Title:   "Home",
-		Artists: artists,
+		Title:          "Home",
+		Artists:        artists,
+		ExtraCSS:       "home.css",
+		ExtraJS:        "",
+		TotalMembers:   calculateTotalMembers(artists),
+		TotalLocations: len(h.store.GetUniqueLocations()),
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Try to execute the home template, fall back to simple response if it fails
+	// Execute the base template which will include the home content
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.html", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Home", fmt.Sprintf("Found %d artists", len(artists)))
@@ -137,33 +165,30 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 
 	artists := h.store.GetAllArtists()
 
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-
-	html := `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Artists - Groupie Tracker</title>
-</head>
-<body>
-    <h1>Artists</h1>
-    <ul>`
-
-	for _, artist := range artists {
-		html += fmt.Sprintf(`
-        <li>
-            <a href="/artists/%d">%s</a> (%d)
-        </li>`, artist.ID, artist.Name, artist.CreationYear)
+	data := struct {
+		Title    string
+		Artists  []models.Artist
+		ExtraCSS string
+		ExtraJS  string
+	}{
+		Title:    "Artists",
+		Artists:  artists,
+		ExtraCSS: "artists.css",
+		ExtraJS:  "",
 	}
 
-	html += `
-    </ul>
-    <p><a href="/">Back to Home</a></p>
-</body>
-</html>`
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	w.Write([]byte(html))
+	// Execute the base template which will include the artists content
+	if h.templates != nil {
+		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+			log.Printf("Template execution error: %v", err)
+			// Fallback to simple HTML
+			h.writeSimpleHTML(w, "Artists", fmt.Sprintf("Found %d artists", len(artists)))
+		}
+	} else {
+		h.writeSimpleHTML(w, "Artists", fmt.Sprintf("Found %d artists", len(artists)))
+	}
 }
 
 // ArtistDetailHandler handles individual artist detail pages.
@@ -192,34 +217,62 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
+	// Get relations data for this artist
+	relations, _ := h.store.GetRelation(id)
 
-	html := fmt.Sprintf(`
-<!DOCTYPE html>
-<html>
-<head>
-    <title>%s - Groupie Tracker</title>
-</head>
-<body>
-    <h1>%s</h1>
-    <img src="%s" alt="%s" style="max-width: 300px;">
-    <p><strong>Creation Year:</strong> %d</p>
-    <p><strong>First Album:</strong> %s</p>
-    <p><strong>Members:</strong></p>
-    <ul>`, artist.Name, artist.Name, artist.Image, artist.Name, artist.CreationYear, artist.FirstAlbum)
-
-	for _, member := range artist.Members {
-		html += fmt.Sprintf("<li>%s</li>", member)
+	// Calculate total concerts
+	totalConcerts := 0
+	for _, dates := range relations.DatesLocations {
+		totalConcerts += len(dates)
 	}
 
-	html += `
-    </ul>
-    <p><a href="/artists">Back to Artists</a></p>
-</body>
-</html>`
+	// Get previous and next artists for navigation
+	allArtists := h.store.GetAllArtists()
+	var prevArtist, nextArtist *models.Artist
+	for i, a := range allArtists {
+		if a.ID == id {
+			if i > 0 {
+				prevArtist = &allArtists[i-1]
+			}
+			if i < len(allArtists)-1 {
+				nextArtist = &allArtists[i+1]
+			}
+			break
+		}
+	}
 
-	w.Write([]byte(html))
+	data := struct {
+		Title         string
+		Artist        models.Artist
+		Relations     *models.Relation
+		TotalConcerts int
+		PrevArtist    *models.Artist
+		NextArtist    *models.Artist
+		ExtraCSS      string
+		ExtraJS       string
+	}{
+		Title:         artist.Name,
+		Artist:        artist,
+		Relations:     &relations,
+		TotalConcerts: totalConcerts,
+		PrevArtist:    prevArtist,
+		NextArtist:    nextArtist,
+		ExtraCSS:      "artist_detail.css",
+		ExtraJS:       "",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Execute the base template which will include the artist detail content
+	if h.templates != nil {
+		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+			log.Printf("Template execution error: %v", err)
+			// Fallback to simple HTML
+			h.writeSimpleHTML(w, artist.Name, fmt.Sprintf("Artist: %s (%d)", artist.Name, artist.CreationYear))
+		}
+	} else {
+		h.writeSimpleHTML(w, artist.Name, fmt.Sprintf("Artist: %s (%d)", artist.Name, artist.CreationYear))
+	}
 }
 
 // SearchHandler handles search API requests.
@@ -329,46 +382,74 @@ func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 
 // NotFoundHandler handles 404 errors.
 func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "text/html")
+	data := struct {
+		Title        string
+		ErrorCode    int
+		ErrorMessage string
+		RequestedURL string
+		Timestamp    string
+		ExtraCSS     string
+		ExtraJS      string
+	}{
+		Title:        "Page Not Found",
+		ErrorCode:    404,
+		ErrorMessage: "The page you're looking for doesn't exist or has been moved.",
+		RequestedURL: r.URL.Path,
+		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+		ExtraCSS:     "errors.css",
+		ExtraJS:      "",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
 
-	html := `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Page Not Found - Groupie Tracker</title>
-</head>
-<body>
-    <h1>404 - Page Not Found</h1>
-    <p>The page you requested could not be found.</p>
-    <p><a href="/">Go to Home</a></p>
-</body>
-</html>`
-
-	w.Write([]byte(html))
+	// Execute the base template which will include the error content
+	if h.templates != nil {
+		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+			log.Printf("Template execution error: %v", err)
+			// Fallback to simple HTML
+			h.writeSimpleHTML(w, "Page Not Found", "The page you requested could not be found.")
+		}
+	} else {
+		h.writeSimpleHTML(w, "Page Not Found", "The page you requested could not be found.")
+	}
 }
 
 // InternalErrorHandler handles 500 errors.
 func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, message string) {
 	log.Printf("Internal server error: %s", message)
 
-	w.Header().Set("Content-Type", "text/html")
+	data := struct {
+		Title        string
+		ErrorCode    int
+		ErrorMessage string
+		RequestedURL string
+		Timestamp    string
+		ExtraCSS     string
+		ExtraJS      string
+	}{
+		Title:        "Internal Server Error",
+		ErrorCode:    500,
+		ErrorMessage: message,
+		RequestedURL: r.URL.Path,
+		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+		ExtraCSS:     "errors.css",
+		ExtraJS:      "",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusInternalServerError)
 
-	html := `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Internal Server Error - Groupie Tracker</title>
-</head>
-<body>
-    <h1>500 - Internal Server Error</h1>
-    <p>Something went wrong on our end. Please try again later.</p>
-    <p><a href="/">Go to Home</a></p>
-</body>
-</html>`
-
-	w.Write([]byte(html))
+	// Execute the base template which will include the error content
+	if h.templates != nil {
+		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+			log.Printf("Template execution error: %v", err)
+			// Fallback to simple HTML
+			h.writeSimpleHTML(w, "Internal Server Error", "Something went wrong on our end. Please try again later.")
+		}
+	} else {
+		h.writeSimpleHTML(w, "Internal Server Error", "Something went wrong on our end. Please try again later.")
+	}
 }
 
 // LocationsHandler handles the locations page.
@@ -379,32 +460,40 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	locations := h.store.GetUniqueLocations()
+	locationStats := h.calculateLocationStats()
 
-	w.Header().Set("Content-Type", "text/html")
-	w.WriteHeader(http.StatusOK)
-
-	html := `
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Locations - Groupie Tracker</title>
-</head>
-<body>
-    <h1>Concert Locations</h1>
-    <ul>`
-
-	for _, location := range locations {
-		html += fmt.Sprintf(`
-        <li>%s</li>`, location)
+	data := struct {
+		Title          string
+		Locations      []string
+		LocationStats  []LocationStat
+		TopLocations   []LocationStat
+		TotalCountries int
+		TotalConcerts  int
+		ExtraCSS       string
+		ExtraJS        string
+	}{
+		Title:          "Locations",
+		Locations:      locations,
+		LocationStats:  locationStats,
+		TopLocations:   locationStats, // Same data, template will limit to top 10
+		TotalCountries: h.calculateTotalCountries(locationStats),
+		TotalConcerts:  h.calculateTotalConcerts(),
+		ExtraCSS:       "locations.css",
+		ExtraJS:        "",
 	}
 
-	html += `
-    </ul>
-    <p><a href="/">Back to Home</a></p>
-</body>
-</html>`
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	w.Write([]byte(html))
+	// Execute the base template which will include the locations content
+	if h.templates != nil {
+		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+			log.Printf("Template execution error: %v", err)
+			// Fallback to simple HTML
+			h.writeSimpleHTML(w, "Locations", fmt.Sprintf("Found %d locations", len(locations)))
+		}
+	} else {
+		h.writeSimpleHTML(w, "Locations", fmt.Sprintf("Found %d locations", len(locations)))
+	}
 }
 
 // RefreshHandler handles data refresh requests (POST /api/refresh).
@@ -460,4 +549,87 @@ func (h *Handlers) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Data refreshed: %d artists, %d locations, %d dates, %d relations",
 		len(data.Artists), len(data.Locations), len(data.Dates), len(data.Relations))
+}
+
+// calculateTotalMembers calculates the total number of members across all artists
+func calculateTotalMembers(artists []models.Artist) int {
+	total := 0
+	for _, artist := range artists {
+		total += len(artist.Members)
+	}
+	return total
+}
+
+// calculateLocationStats calculates statistics for each location
+func (h *Handlers) calculateLocationStats() []LocationStat {
+	locationMap := make(map[string]*LocationStat)
+	allArtists := h.store.GetAllArtists()
+	allRelations := h.store.GetAllRelations()
+
+	// Create a map of artist ID to artist for quick lookup
+	artistMap := make(map[int]models.Artist)
+	for _, artist := range allArtists {
+		artistMap[artist.ID] = artist
+	}
+
+	// Process each relation to build location statistics
+	for _, relation := range allRelations {
+		artist, exists := artistMap[relation.ID]
+		if !exists {
+			continue
+		}
+
+		for location, dates := range relation.DatesLocations {
+			if locationMap[location] == nil {
+				locationMap[location] = &LocationStat{
+					Name:         location,
+					ArtistCount:  0,
+					ConcertCount: 0,
+					Artists:      []models.Artist{},
+				}
+			}
+
+			locationMap[location].ArtistCount++
+			locationMap[location].ConcertCount += len(dates)
+			locationMap[location].Artists = append(locationMap[location].Artists, artist)
+		}
+	}
+
+	// Convert map to slice
+	var locationStats []LocationStat
+	for _, stat := range locationMap {
+		locationStats = append(locationStats, *stat)
+	}
+
+	return locationStats
+}
+
+// calculateTotalCountries calculates the total number of unique countries
+func (h *Handlers) calculateTotalCountries(locationStats []LocationStat) int {
+	countrySet := make(map[string]bool)
+
+	for _, stat := range locationStats {
+		// Extract country from location (assuming format "city-country")
+		parts := strings.Split(stat.Name, "-")
+		if len(parts) >= 2 {
+			country := strings.TrimSpace(parts[len(parts)-1])
+			countrySet[country] = true
+		}
+	}
+
+	return len(countrySet)
+}
+
+// calculateTotalConcerts calculates the total number of concerts across all artists
+func (h *Handlers) calculateTotalConcerts() int {
+	total := 0
+	allRelations := h.store.GetAllRelations()
+
+	for _, relation := range allRelations {
+		for _, dates := range relation.DatesLocations {
+			total += len(dates)
+		}
+	}
+
+	return total
 }

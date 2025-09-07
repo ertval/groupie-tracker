@@ -1,4 +1,6 @@
-{{define "content"}}
+{{template "base.tmpl" .}}
+
+{{define "error-content"}}
 <div class="page error">
     <main class="error-container">
         {{if eq .ErrorCode 404}}

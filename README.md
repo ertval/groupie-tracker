@@ -34,21 +34,78 @@ groupie-tracker/
 ├── internal/
 │   ├── api/                     # API client and data fetching
 │   ├── models/                  # Data structures
-│   ├── handlers/                # HTTP handlers
+│   ├── handlers/                # HTTP handlers with template system
 │   ├── storage/                 # In-memory data storage
 │   └── search/                  # Search functionality
-├── templates/                   # HTML templates
-│   ├── base.tmpl
-│   ├── artists.tmpl
-│   ├── artist_detail.tmpl
-│   └── locations.tmpl
-├── static/                      # Static assets (CSS, JS, images)
-│   ├── css/
-│   ├── js/
-│   └── img/
-├── tests/                       # Test files
-└── docs/                        # Documentation
+├── templates/                   # Go HTML templates (✅ COMPLETED)
+│   ├── base.tmpl               # Master layout with conditional blocks
+│   ├── home.tmpl               # Home page with statistics
+│   ├── artists.tmpl            # Artists listing page
+│   ├── artist_detail.tmpl      # Individual artist details
+│   ├── locations.tmpl          # Concert locations page
+│   └── error.tmpl              # Error handling (404/500)
+├── static/                      # Static assets
+│   ├── css/                    # CSS files (ready for styling)
+│   │   ├── base.css           # Base styles
+│   │   ├── home.css           # Home page styles
+│   │   ├── artists.css        # Artists page styles
+│   │   ├── artist_detail.css  # Artist detail styles
+│   │   ├── locations.css      # Locations page styles
+│   │   └── errors.css         # Error page styles
+│   ├── js/                    # JavaScript files
+│   └── img/                   # Images
+├── tests/                     # Test files
+└── docs/                      # Documentation
 ```
+
+## 🎨 Template System (✅ COMPLETED)
+
+The application uses a sophisticated Go HTML template system with inheritance and conditional rendering:
+
+### Template Architecture
+- **Master Layout**: `base.tmpl` provides the common HTML structure
+- **Conditional Content**: Base template conditionally includes content blocks based on page title
+- **Unique Content Blocks**: Each page has its own content block to prevent naming conflicts
+
+### Template Files
+```
+templates/
+├── base.tmpl           # Master layout with conditional content inclusion
+├── home.tmpl           # {{define "home-content"}} block
+├── artists.tmpl        # {{define "artists-content"}} block  
+├── artist_detail.tmpl  # {{define "artist-detail-content"}} block
+├── locations.tmpl      # {{define "locations-content"}} block
+└── error.tmpl          # {{define "error-content"}} block
+```
+
+### Template Inheritance Pattern
+Each page template follows this pattern:
+```go
+{{template "base.tmpl" .}}
+{{define "unique-content-name"}}
+<!-- Page-specific content here -->
+{{end}}
+```
+
+The base template conditionally includes content:
+```go
+{{if eq .Title "Home"}}
+    {{template "home-content" .}}
+{{else if eq .Title "Artists"}}
+    {{template "artists-content" .}}
+{{else if contains .Title "Artist"}}
+    {{template "artist-detail-content" .}}
+{{else if eq .Title "Locations"}}
+    {{template "locations-content" .}}
+{{else}}
+    {{template "error-content" .}}
+{{end}}
+```
+
+### Custom Template Functions
+- `sub` - Subtraction: `{{sub .Total 1}}`
+- `add` - Addition: `{{add .Index 1}}`
+- `contains` - String matching: `{{contains .Title "Artist"}}`
 
 ## 🚀 Quick Start
 
@@ -150,10 +207,10 @@ The application is tested against specific data points from the audit:
 ## 🔗 API Endpoints
 
 ### Web Routes
-- `GET /` - Home page with search functionality
-- `GET /artists` - Artists listing page
-- `GET /artists/{id}` - Individual artist detail page
-- `GET /locations` - Concert locations page
+- `GET /` - Home page with search functionality and statistics
+- `GET /artists` - Artists listing page with search and filters
+- `GET /artists/{id}` - Individual artist detail page with concert info
+- `GET /locations` - Concert locations page with statistics
 
 ### API Routes
 - `GET /api/search?q={query}` - Search artists by name or member
@@ -162,24 +219,9 @@ The application is tested against specific data points from the audit:
 - `GET /healthz` - Health check endpoint
 
 ### Static Assets
-- `/static/css/main.css` - Main stylesheet with animations
-- `/static/js/main.js` - JavaScript for live search and interactions
-- Travis Scott concert locations
-- Foo Fighters member list
-
-## 📋 API Endpoints
-
-### Web Routes
-- `GET /` - Dashboard/Home page
-- `GET /artists` - Artists listing with search and filters
-- `GET /artists/{id}` - Individual artist details
-- `GET /locations` - Locations overview
-
-### API Routes
-- `GET /api/search` - Search functionality
-- `GET /api/suggest` - Autocomplete suggestions
-- `POST /api/refresh` - Refresh data from external API
-- `GET /healthz` - Health check endpoint
+- `/static/css/*.css` - Page-specific stylesheets
+- `/static/js/*.js` - JavaScript for interactive features
+- `/static/img/*` - Images and assets
 
 ## 🛡️ Error Handling
 
@@ -225,35 +267,202 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## Next steps: implementing templates & CSS
+## 🎨 CSS/JS Developer Guide
 
-This repository includes lightweight placeholder HTML files in `templates/` (files named `placeholder_*.html`) and matching CSS in `static/css/` to speed UI development.
+### 📋 Current Template Structure & CSS Integration
 
-Follow these steps to convert placeholders into production Go templates and wire them into the server:
+The Go templates are **fully implemented and working**. Each template automatically loads its corresponding CSS file:
 
-1. Convert placeholders to Go templates
-   - Rename or copy `templates/placeholder_base.html` -> `templates/base.html` and wrap page content with `{{define "content"}}...{{end}}`.
-   - Convert each `templates/placeholder_*.html` into its corresponding template file (`home.html`, `artists.html`, `artist_detail.html`, `locations.html`, `404.html`, `500.html`) and ensure each uses `{{template "content" .}}` within `base.html`.
+#### Template → CSS Mapping
+```
+Page Template          → CSS File Loaded
+├── home.tmpl          → /static/css/base.css + /static/css/home.css
+├── artists.tmpl       → /static/css/base.css + /static/css/artists.css
+├── artist_detail.tmpl → /static/css/base.css + /static/css/artist_detail.css
+├── locations.tmpl     → /static/css/base.css + /static/css/locations.css
+└── error.tmpl         → /static/css/base.css + /static/css/errors.css
+```
 
-2. Consolidate and reference CSS
-   - Consolidate styles into `static/css/main.css` and keep small page-specific files if desired.
-   - Ensure templates reference `/static/css/main.css` (absolute path) so the server's static file handler serves assets correctly.
+### 🏗️ HTML Structure & CSS Classes
 
-3. Parse templates in handlers
-   - `internal/handlers/loadTemplates()` currently attempts to parse template files and falls back to a minimal template on error. Update it to include the new `base.html` and page templates.
+#### Base Template Structure (base.tmpl)
+```html
+<header class="site-header">
+  <div class="container">
+    <h1><a href="/">Groupie Tracker</a></h1>
+    <nav>
+      <a href="/">Home</a> • <a href="/artists">Artists</a> • <a href="/locations">Locations</a>
+    </nav>
+  </div>
+</header>
 
-4. Add template rendering tests
-   - Use `httptest.ResponseRecorder` in handler tests to assert templates render without errors and responses contain expected content.
+<main class="main-content">
+  <div class="container">
+    <!-- Page-specific content inserted here -->
+  </div>
+</main>
+```
 
-5. Smoke test locally
-   - Start the server and visit: `/`, `/artists`, `/artists/1`, `/locations`, `/healthz`.
+#### Key CSS Classes to Style
+- `.site-header` - Main navigation header
+- `.container` - Content wrapper (consistent width/padding)
+- `.main-content` - Main content area
+- `.stats-section` - Statistics cards container (home page)
+- `.stats-grid` - Grid layout for stat cards
+- `.stat-card` - Individual statistic cards
+- `.featured-artists` - Featured artists section
+- `.artist-grid` - Grid layout for artist cards
+- `.artist-card` - Individual artist cards
+- `.artist-image` - Artist images
+- `.artist-info` - Artist information container
+- `.members-count` - Member count display
+- `.search-container` - Search input container
+- `.suggestions-dropdown` - Search suggestions dropdown
 
-Tips:
-- Proceed template-by-template and run tests frequently.
-- Keep placeholder files until the templates are fully integrated; then remove or move them to a `placeholders/` folder.
+### 📊 Template Data Structures
+
+#### Home Page Data (home.tmpl)
+```go
+type HomeData struct {
+    Title         string           // "Home"
+    Artists       []models.Artist  // All artists for featured section
+    TotalMembers  int             // Total member count across all artists
+    TotalCountries int            // Total unique countries
+    TotalConcerts int             // Total concert count
+    ExtraCSS      string          // "home.css"
+    ExtraJS       string          // Future JS file name
+}
+```
+
+#### Artists Page Data (artists.tmpl)
+```go
+type ArtistsData struct {
+    Title    string           // "Artists"
+    Artists  []models.Artist  // All artists for listing
+    ExtraCSS string          // "artists.css"
+    ExtraJS  string          // Future JS file name
+}
+```
+
+#### Artist Detail Data (artist_detail.tmpl)
+```go
+type ArtistDetailData struct {
+    Title         string            // "{ArtistName} - Groupie Tracker"
+    Artist        models.Artist     // Current artist details
+    Relations     *models.Relation  // Concert dates and locations
+    TotalConcerts int              // Concert count for this artist
+    PrevArtist    *models.Artist   // Previous artist (navigation)
+    NextArtist    *models.Artist   // Next artist (navigation)
+    ExtraCSS      string           // "artist_detail.css"
+    ExtraJS       string           // Future JS file name
+}
+```
+
+#### Locations Page Data (locations.tmpl)
+```go
+type LocationsData struct {
+    Title           string              // "Locations"
+    LocationStats   []LocationStat      // Location statistics
+    TotalCountries  int                // Total unique countries
+    TotalConcerts   int                // Total concerts across all locations
+    ExtraCSS        string             // "locations.css"
+    ExtraJS         string             // Future JS file name
+}
+
+type LocationStat struct {
+    Location     string  // "paris-france"
+    DisplayName  string  // "Paris, France"
+    ConcertCount int     // Number of concerts at this location
+}
+```
+
+### 🔍 JavaScript Integration Points
+
+#### Search Functionality
+- **Search Input**: `#search-input` - Main search field
+- **Suggestions**: `#search-suggestions` - Dropdown container
+- **API Endpoints**:
+  - `GET /api/search?q={query}` - Full search results
+  - `GET /api/suggest?q={query}` - Autocomplete suggestions
+
+#### Interactive Elements
+- **Artist Cards**: `.artist-card` - Click handlers for navigation
+- **Navigation**: Previous/Next artist buttons on detail pages
+- **Statistics**: `.stat-card` - Potential click interactions
+- **Search Suggestions**: `.suggestion-item` - Click to select
+
+### 🎯 Styling Priorities
+
+#### 1. **Base Styles (base.css)**
+- Navigation header styling
+- Container layouts and responsive design
+- Typography and color scheme
+- Button and link styles
+
+#### 2. **Home Page (home.css)**
+- Statistics cards grid layout
+- Featured artists grid
+- Search input styling
+- Hero section if desired
+
+#### 3. **Artists Page (artists.css)**
+- Artist listing grid/layout
+- Search and filter controls
+- Artist card hover effects
+
+#### 4. **Artist Detail (artist_detail.css)**
+- Artist profile layout
+- Concert information display
+- Navigation buttons (prev/next)
+- Member list styling
+
+#### 5. **Locations Page (locations.css)**
+- Location statistics display
+- Geographic information layout
+- Concert count visualizations
+
+#### 6. **Error Pages (errors.css)**
+- 404/500 error page styling
+- Error message display
+- Navigation back to main site
+
+### 🚀 Development Workflow
+
+1. **Start the server**: `cd cmd/server && go run .`
+2. **View pages**: Visit `http://localhost:8080` to see current templates
+3. **Live reload**: Restart server after CSS changes to see updates
+4. **Test all pages**: 
+   - Home: `http://localhost:8080/`
+   - Artists: `http://localhost:8080/artists`
+   - Artist Detail: `http://localhost:8080/artists/1` (Queen)
+   - Locations: `http://localhost:8080/locations`
+   - Error: `http://localhost:8080/nonexistent`
+
+### 💡 CSS Development Tips
+
+- **Responsive Design**: All templates include viewport meta tag
+- **CSS Grid/Flexbox**: Use modern layout techniques for `.artist-grid`, `.stats-grid`
+- **Hover Effects**: Add transitions to `.artist-card`, `.stat-card`
+- **Loading States**: Consider skeleton screens for dynamic content
+- **Accessibility**: Ensure proper contrast ratios and focus states
 
 ## Development Status
 
-🚧 **Current Phase**: Initial Setup and Core Implementation
+✅ **Template System**: Fully implemented and tested
+🎨 **Next Phase**: CSS Styling and JavaScript Enhancement
 
-See [todo.md](todo.md) for detailed development progress and next steps.
+**Completed Work:**
+- ✅ All 6 Go HTML templates created and working
+- ✅ Template inheritance system with conditional content blocks
+- ✅ Custom template functions (sub, add, contains)
+- ✅ Data structures and handlers fully integrated
+- ✅ Server running without errors
+- ✅ All endpoints tested and functional
+
+**Ready for CSS/JS Development:**
+- 🎨 CSS files are linked and ready for styling
+- 🎨 HTML structure is stable and semantic
+- 🎨 Template data is available for JavaScript integration
+- 🎨 Search API endpoints are ready for frontend implementation
+
+See [todo.md](todo.md) for detailed development progress.

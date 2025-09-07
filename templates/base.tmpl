@@ -24,7 +24,17 @@
     </header>
 
     <main class="container">
-        {{template "content" .}}
+        {{if eq .Title "Home"}}
+            {{template "home-content" .}}
+        {{else if eq .Title "Artists"}}
+            {{template "artists-content" .}}
+        {{else if contains .Title "Artist"}}
+            {{template "artist-detail-content" .}}
+        {{else if eq .Title "Locations"}}
+            {{template "locations-content" .}}
+        {{else}}
+            {{template "error-content" .}}
+        {{end}}
     </main>
 
     <footer class="site-footer">
