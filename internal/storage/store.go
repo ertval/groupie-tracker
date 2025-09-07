@@ -27,17 +27,9 @@ const (
 	CacheUpdateInterval = 30 * time.Second
 )
 
-// StoreData represents all the data needed to populate the store.
-type StoreData struct {
-	Artists   []models.Artist   `json:"artists"`
-	Locations []models.Location `json:"locations"`
-	Dates     []models.Date     `json:"dates"`
-	Relations []models.Relation `json:"relations"`
-}
-
 // APIClient defines the interface for fetching data from external API
 type APIClient interface {
-	FetchAllData(ctx context.Context) (*StoreData, error)
+	FetchAllData(ctx context.Context) (*models.APIResponse, error)
 }
 
 // Store represents an in-memory data store with thread-safe operations and cache functionality.
@@ -154,6 +146,7 @@ func (s *Store) updateFromAPI(ctx context.Context, initial bool) error {
 		return err
 	}
 
+	// data is *models.APIResponse
 	s.LoadData(*data)
 
 	s.cacheMu.Lock()
@@ -409,7 +402,7 @@ func (s *Store) GetAllRelations() []models.Relation {
 }
 
 // LoadData loads a complete dataset into the store, replacing existing data.
-func (s *Store) LoadData(data StoreData) {
+func (s *Store) LoadData(data models.APIResponse) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

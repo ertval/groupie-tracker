@@ -11,14 +11,14 @@ import (
 
 // MockAPIClient implements APIClient for testing
 type MockAPIClient struct {
-	data          *StoreData
+	data          *models.APIResponse
 	err           error
 	callCount     int
 	mu            sync.Mutex
 	responseDelay time.Duration
 }
 
-func (m *MockAPIClient) FetchAllData(ctx context.Context) (*StoreData, error) {
+func (m *MockAPIClient) FetchAllData(ctx context.Context) (*models.APIResponse, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -54,8 +54,8 @@ func (m *MockAPIClient) SetResponseDelay(delay time.Duration) {
 	m.responseDelay = delay
 }
 
-func createMockAPIData() *StoreData {
-	return &StoreData{
+func createMockAPIData() *models.APIResponse {
+	return &models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May"}, CreationYear: 1970},
 			{ID: 2, Name: "Gorillaz", Members: []string{"Damon Albarn"}, CreationYear: 1998},
@@ -324,7 +324,7 @@ func TestStore_ComputeDerivedData(t *testing.T) {
 func TestStore_LoadDataComputesDerivatives(t *testing.T) {
 	store := NewStore()
 
-	testData := StoreData{
+	testData := models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", CreationYear: 1970},
 		},
@@ -598,7 +598,7 @@ func TestStore_GetUniqueLocations(t *testing.T) {
 func TestStore_LoadData(t *testing.T) {
 	store := NewStore()
 
-	testData := StoreData{
+	testData := models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", CreationYear: 1970},
 		},
@@ -741,7 +741,7 @@ func TestGetAllLocations(t *testing.T) {
 		{ID: 2, Locations: []string{"New York", "Tokyo"}},
 	}
 
-	store.LoadData(StoreData{
+	store.LoadData(models.APIResponse{
 		Locations: testLocations,
 	})
 
@@ -776,7 +776,7 @@ func TestGetAllDates(t *testing.T) {
 		{ID: 2, Dates: []string{"01-02-2020", "02-02-2020"}},
 	}
 
-	store.LoadData(StoreData{
+	store.LoadData(models.APIResponse{
 		Dates: testDates,
 	})
 
@@ -811,7 +811,7 @@ func TestGetAllRelations(t *testing.T) {
 		{ID: 2, DatesLocations: map[string][]string{"Paris": {"02-01-2020"}}},
 	}
 
-	store.LoadData(StoreData{
+	store.LoadData(models.APIResponse{
 		Relations: testRelations,
 	})
 

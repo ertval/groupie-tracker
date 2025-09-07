@@ -139,7 +139,7 @@ func TestWaitForDataLoadVariousScenarios(t *testing.T) {
 			setupStore: func() *storage.Store {
 				store := storage.NewStore()
 				// Load some test data
-				store.LoadData(storage.StoreData{
+				store.LoadData(models.APIResponse{
 					Artists: []models.Artist{{ID: 1, Name: "Test"}},
 				})
 				return store

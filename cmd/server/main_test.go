@@ -16,7 +16,7 @@ import (
 func TestServer_Routes(t *testing.T) {
 	// Setup test store with data
 	store := storage.NewStore()
-	testData := storage.StoreData{
+	testData := models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},

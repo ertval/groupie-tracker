@@ -102,7 +102,7 @@ func setupServer() {
 ```go
 // Force immediate update
 data := fetchFromAPI()
-store.LoadData(storage.StoreData{
+store.LoadData(models.APIResponse{
     Artists:   data.Artists,
     Locations: data.Locations,
     Dates:     data.Dates,

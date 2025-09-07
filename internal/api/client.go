@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"groupie-tracker/internal/models"
-	"groupie-tracker/internal/storage"
 )
 
 // Client represents an HTTP client for the Groupie Tracker API.
@@ -146,8 +145,8 @@ func (c *Client) FetchRelations(ctx context.Context) ([]models.Relation, error) 
 }
 
 // FetchAllData retrieves all data from the API endpoints.
-func (c *Client) FetchAllData(ctx context.Context) (*storage.StoreData, error) {
-	data := &storage.StoreData{}
+func (c *Client) FetchAllData(ctx context.Context) (*models.APIResponse, error) {
+	data := &models.APIResponse{}
 
 	// Fetch artists
 	artists, err := c.FetchArtists(ctx)

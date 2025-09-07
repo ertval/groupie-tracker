@@ -630,7 +630,7 @@ func setupE2EStore(t *testing.T) *storage.Store {
 		t.Fatalf("Failed to load data from API: %v", err)
 	}
 
-	storeData := storage.StoreData{
+	storeData := models.APIResponse{
 		Artists:   data.Artists,
 		Locations: data.Locations,
 		Dates:     data.Dates,

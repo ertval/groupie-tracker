@@ -25,7 +25,7 @@ func TestAuditCompliance(t *testing.T) {
 		t.Fatalf("Failed to load data from API: %v", err)
 	}
 
-	storeData := storage.StoreData{
+	storeData := models.APIResponse{
 		Artists:   data.Artists,
 		Locations: data.Locations,
 		Dates:     data.Dates,

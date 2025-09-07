@@ -316,7 +316,7 @@ func TestGetPort_Environment(t *testing.T) {
 func TestCreateRouter_RoutesExist(t *testing.T) {
 	// Setup test store with minimal data
 	store := storage.NewStore()
-	testData := storage.StoreData{
+	testData := models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},
@@ -621,7 +621,7 @@ func TestCreateRouter_RefreshEndpoint(t *testing.T) {
 func TestWaitForDataLoad_Success(t *testing.T) {
 	// Create a store with data
 	store := storage.NewStore()
-	testData := storage.StoreData{
+	testData := models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Test Artist", CreationYear: 2000},
 		},
@@ -773,7 +773,7 @@ func TestServer_ContextCancellation(t *testing.T) {
 
 func TestCreateRouter_AllRoutes(t *testing.T) {
 	store := storage.NewStore()
-	testData := storage.StoreData{
+	testData := models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},
