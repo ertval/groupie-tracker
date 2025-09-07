@@ -60,87 +60,54 @@ func (h *Handlers) SomeHandler(w http.ResponseWriter, r *http.Request) {
 ```
 
 ### Template System
-- Use `base.html` with `{{template "content" .}}` pattern
-- Load templates in `handlers.go` with fallback HTML for resilience
-- All pages must work even if templates fail to load
+## Copilot: quick onboarding for this repo
 
-## Development Workflow
+Purpose: give AI agents the minimal, actionable knowledge needed to be productive in this Go web app.
 
-### Running & Testing
-```bash
-# Start server
-go run cmd/server/main.go
+Key constraints
+- Standard-library-only Go project — do not add third-party modules.
+- Follow Test-Driven Development: write `*_test.go` in the same package before implementation.
 
-# Run all tests (must pass before any commit)
-go test ./...
+Quick commands
+- Run server: `go run ./cmd/server/` (defaults to PORT=8080)
+- Run tests: `go test ./...`
+- Coverage: `go test -cover ./...`
+- Build: `go build -o groupie-tracker ./cmd/server`
 
-# Run with coverage
-go test -cover ./...
+High-level architecture (read these files first)
+- Entry: `cmd/server/main.go`
+- External API client: `internal/api/client.go` (handles inconsistent JSON shapes)
+- Storage/cache: `internal/storage/store.go` (uses `sync.RWMutex`, must be thread-safe)
+- HTTP handlers & templates: `internal/handlers/handlers.go`, `templates/` (base template + page blocks)
+- Models: `internal/models/models.go`
+- Tests & audits: `tests/` and `internal/*_test.go`
 
-# Build for production
-go build -o groupie-tracker cmd/server/main.go
-```
+Important patterns and examples
+- Data flow: API client -> in-memory store (lock/unlock) -> handlers -> templates/JSON handlers.
+- Storage pattern: use `s.mu.RLock()`/`defer s.mu.RUnlock()` for reads and `s.mu.Lock()`/`defer s.mu.Unlock()` for writes.
+- Template pattern: `templates/base.tmpl` selects page blocks by `.Title` (e.g. Title == "Artists" -> `artists-content`).
+- Template funcs: `add`, `sub`, `contains` are used in templates; preserve their behavior when refactoring.
 
-### Adding New Features
-1. **Write test first** in appropriate `*_test.go` file
-2. **Implement minimum code** to make test pass
-3. **Update `todo.md`** with current status
-4. **Test against audit requirements** before considering complete
+API quirks to handle (explicit)
+- `/api/artists` returns a direct array.
+- `/api/locations`, `/api/dates`, `/api/relation` return objects like `{"index": [...]}` — normalize in `internal/api/client.go`.
 
-### API Integration
-The external API has specific response structures:
-- `/api/artists` - direct array
-- `/api/locations` - wrapped in `{"index": [...]}` 
-- `/api/dates` - wrapped in `{"index": [...]}`
-- `/api/relation` - wrapped in `{"index": [...]}`
+Core endpoints the agent may need to implement or test
+- `GET /api/search?q=` (full search)
+- `GET /api/suggest?q=` (autocomplete)
+- `POST /api/refresh` (refresh cached data)
 
-Handle these inconsistencies in `internal/api/client.go`.
+Zone01 audit checks (must be satisfied by tests)
+- Queen must have 7 members.
+- Gorillaz first album date == "26-03-2001".
+- Travis Scott should show 10+ concert locations.
+- Foo Fighters should show 6 members.
 
-## Common Patterns & Conventions
+Developer notes for PRs
+- Always include tests that reproduce the audit condition you are fixing.
+- Preserve existing public function signatures where possible.
+- Update `todo.md` and `doc/` when behavior or API shapes change.
 
-### Storage Layer
-```go
-// Thread-safe operations required
-s.mu.RLock()
-defer s.mu.RUnlock()
-// Read operations
+If something is ambiguous, open `internal/api/client.go`, `internal/storage/store.go`, and `internal/handlers/handlers.go` — they contain the project-specific behaviors an agent must follow.
 
-s.mu.Lock()  
-defer s.mu.Unlock()
-// Write operations
-```
-
-### Handler Structure
-```go
-func (h *Handlers) ExampleHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodGET {
-        http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-        return
-    }
-    // handler logic with proper error handling
-}
-```
-
-### Frontend Integration
-- JavaScript lives in `static/js/main.js` with ES6+ features
-- CSS animations and responsive design in `static/css/main.css`
-- No external frontend libraries - vanilla JavaScript only
-
-## Zone01 Audit Requirements
-The final implementation must pass audit tests that verify:
-- Queen has exactly 7 members (including Freddie Mercury)
-- Gorillaz first album date is "26-03-2001"  
-- Travis Scott concert locations (10+ venues)
-- Foo Fighters has 6 current members
-- Client-server interaction works (live search, suggestions, refresh)
-- Server stability (no crashes, proper error handling)
-
-## Performance & Quality Standards
-- All tests must complete in <5 seconds
-- Server startup in <2 seconds with data loaded
-- Thread-safe concurrent operations
-- Memory-efficient data structures
-- Proper HTTP status codes and Content-Type headers
-- Graceful shutdown handling SIGTERM/SIGINT
-
-When implementing features, prioritize Zone01 audit compliance and TDD practices over code elegance.
+Please review this file and tell me which parts you'd like expanded (template loading, example tests, or common refactor-safe patterns).
