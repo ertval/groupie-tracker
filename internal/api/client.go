@@ -145,7 +145,11 @@ func (c *Client) FetchRelations(ctx context.Context) ([]models.Relation, error) 
 }
 
 // AllData represents the complete dataset from the API.
-type AllData struct {
+// This type alias maintains compatibility with the storage package.
+type AllData = APIData
+
+// APIData represents the complete dataset from the API.
+type APIData struct {
 	Artists   []models.Artist
 	Locations []models.Location
 	Dates     []models.Date
@@ -153,8 +157,8 @@ type AllData struct {
 }
 
 // FetchAllData retrieves all data from the API endpoints.
-func (c *Client) FetchAllData(ctx context.Context) (*AllData, error) {
-	data := &AllData{}
+func (c *Client) FetchAllData(ctx context.Context) (*APIData, error) {
+	data := &APIData{}
 
 	// Fetch artists
 	artists, err := c.FetchArtists(ctx)

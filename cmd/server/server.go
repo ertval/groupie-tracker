@@ -36,28 +36,66 @@ const (
 	colorCyan   = "\033[36m"
 )
 
+// apiClientAdapter adapts the api.Client to the storage.APIClient interface
+type apiClientAdapter struct {
+	client *api.Client
+}
+
+func (a *apiClientAdapter) FetchAllData(ctx context.Context) (*storage.APIData, error) {
+	data, err := a.client.FetchAllData(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert api.APIData to storage.APIData
+	return &storage.APIData{
+		Artists:   data.Artists,
+		Locations: data.Locations,
+		Dates:     data.Dates,
+		Relations: data.Relations,
+	}, nil
+}
+
 // Server represents the HTTP server with all its dependencies.
 type Server struct {
 	store     *storage.Store
 	apiClient *api.Client
 	handlers  *handlers.Handlers
 	server    *http.Server
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 // NewServer creates and configures a new server instance.
 func NewServer() (*Server, error) {
-	// Initialize store
-	store := storage.NewStore()
-
 	// Initialize API client
 	apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
 
-	// Load data from API
-	log.Println(colorCyan + "🔄 Loading data from API..." + colorReset)
-	if err := loadDataFromAPI(store, apiClient); err != nil {
-		return nil, fmt.Errorf("failed to load data from API: %w", err)
+	// Create adapter for storage interface
+	adapter := &apiClientAdapter{client: apiClient}
+
+	// Initialize store with cache
+	store := storage.NewStoreWithCache(adapter)
+
+	// Create context for cache management
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start cache for periodic updates
+	log.Println(colorCyan + "🔄 Starting cache with periodic updates..." + colorReset)
+	store.StartCache(ctx)
+
+	// Wait a moment for initial data load
+	time.Sleep(100 * time.Millisecond)
+
+	// Check if data was loaded
+	stats := store.GetStats()
+	if stats["artists"] == 0 {
+		cancel()
+		return nil, fmt.Errorf("failed to load initial data from API")
 	}
-	log.Println(colorGreen + "✅ Data loaded successfully" + colorReset)
+
+	log.Printf(colorGreen+"✅ Cache started successfully - loaded %d artists, %d locations, %d dates, %d relations"+colorReset,
+		stats["artists"], stats["locations"], stats["dates"], stats["relations"])
 
 	// Initialize handlers
 	h := handlers.NewHandlers(store)
@@ -81,6 +119,8 @@ func NewServer() (*Server, error) {
 		apiClient: apiClient,
 		handlers:  h,
 		server:    server,
+		ctx:       ctx,
+		cancel:    cancel,
 	}, nil
 }
 
@@ -108,6 +148,11 @@ func (s *Server) Start() error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println(colorYellow + "🛑 Server is shutting down..." + colorReset)
+
+	// Stop the cache first
+	log.Println(colorYellow + "🛑 Stopping cache..." + colorReset)
+	s.store.StopCache()
+	s.cancel() // Cancel the context
 
 	// Create a deadline to wait for
 	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
@@ -217,34 +262,6 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		// Log the request
 		log.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(start))
 	})
-}
-
-// loadDataFromAPI loads all data from the API into the store.
-func loadDataFromAPI(store *storage.Store, client *api.Client) error {
-	ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout)
-	defer cancel()
-
-	data, err := client.FetchAllData(ctx)
-	if err != nil {
-		return fmt.Errorf("fetching data: %w", err)
-	}
-
-	storeData := storage.StoreData{
-		Artists:   data.Artists,
-		Locations: data.Locations,
-		Dates:     data.Dates,
-		Relations: data.Relations,
-	}
-
-	store.LoadData(storeData)
-
-	// Get computed stats from store (calculated once and cached)
-	stats := store.GetStats()
-
-	log.Printf("Loaded %d artists, %d locations, %d dates, %d relations",
-		stats["artists"], stats["locations"], stats["dates"], stats["relations"])
-
-	return nil
 }
 
 // getPort returns the port to run the server on.

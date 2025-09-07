@@ -1,14 +1,36 @@
-// Package storage provides in-memory storage for Groupie Tracker data.
+// Package storage provides in-memory storage with cache functionality for Groupie Tracker data.
 package storage
 
 import (
+	"context"
+	"log"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 
 	"groupie-tracker/internal/models"
 )
 
-// Store represents an in-memory data store with thread-safe operations.
+const (
+	// CacheUpdateInterval is the interval at which the cache updates from the API
+	CacheUpdateInterval = 30 * time.Second
+)
+
+// APIClient defines the interface for fetching data from external API
+type APIClient interface {
+	FetchAllData(ctx context.Context) (*APIData, error)
+}
+
+// APIData represents the complete dataset from the API.
+type APIData struct {
+	Artists   []models.Artist
+	Locations []models.Location
+	Dates     []models.Date
+	Relations []models.Relation
+}
+
+// Store represents an in-memory data store with thread-safe operations and cache functionality.
 type Store struct {
 	mu        sync.RWMutex
 	artists   map[int]models.Artist
@@ -16,10 +38,17 @@ type Store struct {
 	dates     map[int]models.Date
 	relations map[int]models.Relation
 
-	// Cached derived data to avoid recomputation
-	derivedDirty          bool
-	cachedUniqueLocations []string
-	cachedUniqueDates     []string
+	// Cache functionality
+	apiClient      APIClient
+	cacheRunning   atomic.Bool
+	stopCache      chan struct{}
+	cacheMu        sync.RWMutex
+	lastUpdate     time.Time
+	updateInterval time.Duration
+
+	// Computed data (updated through cache)
+	uniqueLocations []string
+	uniqueDates     []string
 }
 
 // StoreData represents a complete dataset for bulk loading.
@@ -33,20 +62,122 @@ type StoreData struct {
 // NewStore creates a new empty store.
 func NewStore() *Store {
 	return &Store{
-		artists:      make(map[int]models.Artist),
-		locations:    make(map[int]models.Location),
-		dates:        make(map[int]models.Date),
-		relations:    make(map[int]models.Relation),
-		derivedDirty: true, // Mark as dirty so first access computes cache
+		artists:         make(map[int]models.Artist),
+		locations:       make(map[int]models.Location),
+		dates:           make(map[int]models.Date),
+		relations:       make(map[int]models.Relation),
+		stopCache:       make(chan struct{}),
+		updateInterval:  CacheUpdateInterval,
+		uniqueLocations: make([]string, 0),
+		uniqueDates:     make([]string, 0),
 	}
 }
 
-// recomputeDerived recomputes cached derived data. Must be called with write lock held.
-func (s *Store) recomputeDerived() {
-	if !s.derivedDirty {
+// NewStoreWithCache creates a new store with cache functionality enabled.
+func NewStoreWithCache(apiClient APIClient) *Store {
+	store := NewStore()
+	store.apiClient = apiClient
+	return store
+}
+
+// StartCache begins the periodic cache update goroutine.
+func (s *Store) StartCache(ctx context.Context) {
+	if s.apiClient == nil {
+		log.Printf("Warning: Cannot start cache without API client")
 		return
 	}
 
+	if s.cacheRunning.Load() {
+		log.Printf("Cache already running")
+		return
+	}
+
+	s.cacheRunning.Store(true)
+	log.Printf("Starting cache with update interval: %v", s.updateInterval)
+
+	go s.cacheUpdateLoop(ctx)
+}
+
+// StopCache stops the periodic cache update goroutine.
+func (s *Store) StopCache() {
+	if !s.cacheRunning.Load() {
+		return
+	}
+
+	log.Printf("Stopping cache...")
+	close(s.stopCache)
+	s.cacheRunning.Store(false)
+}
+
+// cacheUpdateLoop runs the periodic cache update in a goroutine.
+func (s *Store) cacheUpdateLoop(ctx context.Context) {
+	ticker := time.NewTicker(s.updateInterval)
+	defer ticker.Stop()
+	defer s.cacheRunning.Store(false) // Ensure we mark as not running when loop exits
+
+	// Initial load
+	if err := s.updateFromAPI(ctx); err != nil {
+		log.Printf("Initial cache load failed: %v", err)
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("Cache update loop stopped due to context cancellation")
+			return
+		case <-s.stopCache:
+			log.Printf("Cache update loop stopped")
+			return
+		case <-ticker.C:
+			if err := s.updateFromAPI(ctx); err != nil {
+				log.Printf("Cache update failed: %v", err)
+			}
+		}
+	}
+}
+
+// updateFromAPI fetches fresh data from the API and updates the store.
+func (s *Store) updateFromAPI(ctx context.Context) error {
+	if s.apiClient == nil {
+		return nil
+	}
+
+	data, err := s.apiClient.FetchAllData(ctx)
+	if err != nil {
+		return err
+	}
+
+	storeData := StoreData{
+		Artists:   data.Artists,
+		Locations: data.Locations,
+		Dates:     data.Dates,
+		Relations: data.Relations,
+	}
+
+	s.LoadData(storeData)
+
+	s.cacheMu.Lock()
+	s.lastUpdate = time.Now()
+	s.cacheMu.Unlock()
+
+	log.Printf("Cache updated successfully at %v", s.lastUpdate.Format(time.RFC3339))
+	return nil
+}
+
+// GetLastUpdate returns the timestamp of the last cache update.
+func (s *Store) GetLastUpdate() time.Time {
+	s.cacheMu.RLock()
+	defer s.cacheMu.RUnlock()
+	return s.lastUpdate
+}
+
+// IsRunning returns whether the cache is currently running.
+func (s *Store) IsRunning() bool {
+	return s.cacheRunning.Load()
+}
+
+// computeDerivedData computes unique locations and dates from the current data.
+func (s *Store) computeDerivedData() {
 	// Compute unique location strings
 	locationSet := make(map[string]bool)
 	for _, location := range s.locations {
@@ -54,9 +185,9 @@ func (s *Store) recomputeDerived() {
 			locationSet[loc] = true
 		}
 	}
-	s.cachedUniqueLocations = make([]string, 0, len(locationSet))
+	s.uniqueLocations = make([]string, 0, len(locationSet))
 	for loc := range locationSet {
-		s.cachedUniqueLocations = append(s.cachedUniqueLocations, loc)
+		s.uniqueLocations = append(s.uniqueLocations, loc)
 	}
 
 	// Compute unique date strings
@@ -66,12 +197,10 @@ func (s *Store) recomputeDerived() {
 			dateSet[d] = true
 		}
 	}
-	s.cachedUniqueDates = make([]string, 0, len(dateSet))
+	s.uniqueDates = make([]string, 0, len(dateSet))
 	for d := range dateSet {
-		s.cachedUniqueDates = append(s.cachedUniqueDates, d)
+		s.uniqueDates = append(s.uniqueDates, d)
 	}
-
-	s.derivedDirty = false
 }
 
 // AddArtist adds an artist to the store.
@@ -171,7 +300,6 @@ func (s *Store) AddLocation(location models.Location) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.locations[location.ID] = location
-	s.derivedDirty = true
 }
 
 // GetLocation retrieves a location by ID.
@@ -196,27 +324,23 @@ func (s *Store) GetAllLocations() []models.Location {
 
 // GetUniqueLocations returns a slice of unique location strings.
 func (s *Store) GetUniqueLocations() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.recomputeDerived()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	// Return a copy to prevent external modification
-	result := make([]string, len(s.cachedUniqueLocations))
-	copy(result, s.cachedUniqueLocations)
+	result := make([]string, len(s.uniqueLocations))
+	copy(result, s.uniqueLocations)
 	return result
 }
 
 // GetUniqueDates returns a slice of unique date strings.
 func (s *Store) GetUniqueDates() []string {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.recomputeDerived()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	// Return a copy to prevent external modification
-	result := make([]string, len(s.cachedUniqueDates))
-	copy(result, s.cachedUniqueDates)
+	result := make([]string, len(s.uniqueDates))
+	copy(result, s.uniqueDates)
 	return result
 }
 
@@ -225,7 +349,6 @@ func (s *Store) AddDate(date models.Date) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.dates[date.ID] = date
-	s.derivedDirty = true
 }
 
 // GetDate retrieves a date by ID.
@@ -303,22 +426,19 @@ func (s *Store) LoadData(data StoreData) {
 		s.relations[relation.ID] = relation
 	}
 
-	// Mark derived data as dirty and recompute
-	s.derivedDirty = true
-	s.recomputeDerived()
+	// Recompute derived data
+	s.computeDerivedData()
 }
 
 // GetStats returns statistics about the stored data.
 func (s *Store) GetStats() map[string]int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	s.recomputeDerived()
+	s.mu.RLock()
+	defer s.mu.RUnlock()
 
 	return map[string]int{
 		"artists":   len(s.artists),
-		"locations": len(s.cachedUniqueLocations),
-		"dates":     len(s.cachedUniqueDates),
+		"locations": len(s.uniqueLocations),
+		"dates":     len(s.uniqueDates),
 		"relations": len(s.relations),
 	}
 }

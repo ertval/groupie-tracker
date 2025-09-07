@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -86,7 +87,7 @@ func TestServer_Middleware(t *testing.T) {
 	}
 }
 
-func TestLoadDataFromAPI_Success(t *testing.T) {
+func TestCacheDataLoad_Success(t *testing.T) {
 	// Mock API server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -108,13 +109,21 @@ func TestLoadDataFromAPI_Success(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	store := storage.NewStore()
 	client := api.NewClient(mockServer.URL, 5*time.Second)
-
-	err := loadDataFromAPI(store, client)
-	if err != nil {
-		t.Fatalf("loadDataFromAPI failed: %v", err)
-	}
+	
+	// Create adapter for storage interface
+	adapter := &apiClientAdapter{client: client}
+	
+	// Initialize store with cache
+	store := storage.NewStoreWithCache(adapter)
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	// Start cache for initial data load
+	store.StartCache(ctx)
+	time.Sleep(100 * time.Millisecond) // Wait for initial load
+	store.StopCache()
 
 	// Verify data was loaded
 	artists := store.GetAllArtists()
@@ -127,14 +136,28 @@ func TestLoadDataFromAPI_Success(t *testing.T) {
 	}
 }
 
-func TestLoadDataFromAPI_Error(t *testing.T) {
+func TestCacheDataLoad_Error(t *testing.T) {
 	// Test with non-existent server
-	store := storage.NewStore()
 	client := api.NewClient("http://localhost:99999", 1*time.Second)
-
-	err := loadDataFromAPI(store, client)
-	if err == nil {
-		t.Error("Expected error when API is unreachable, got nil")
+	
+	// Create adapter for storage interface
+	adapter := &apiClientAdapter{client: client}
+	
+	// Initialize store with cache
+	store := storage.NewStoreWithCache(adapter)
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	
+	// Try to start cache with unreachable API - should not panic
+	store.StartCache(ctx)
+	time.Sleep(100 * time.Millisecond)
+	store.StopCache()
+	
+	// Verify no data was loaded due to API failure
+	stats := store.GetStats()
+	if stats["artists"] > 0 {
+		t.Error("Expected no artists to be loaded when API is unreachable")
 	}
 }
 
