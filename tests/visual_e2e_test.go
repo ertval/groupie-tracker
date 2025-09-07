@@ -4,7 +4,7 @@ package tests
 import (
 	"context"
 	"fmt"
-	"os/exec"
+	"net/http"
 	"testing"
 	"time"
 )
@@ -54,8 +54,19 @@ func isServerRunning(url string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "curl", "-f", "-s", url)
-	return cmd.Run() == nil
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return false
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK
 }
 
 // testHomepage tests the homepage visual elements and functionality
