@@ -731,3 +731,75 @@ func TestStore_ConcurrentCacheOperations(t *testing.T) {
 		t.Error("Expected artists to be present after concurrent operations")
 	}
 }
+
+func TestGetAllLocations(t *testing.T) {
+	store := NewStore()
+
+	// Add test data
+	testLocations := []models.Location{
+		{ID: 1, Locations: []string{"London", "Paris"}},
+		{ID: 2, Locations: []string{"New York", "Tokyo"}},
+	}
+
+	store.LoadData(StoreData{
+		Locations: testLocations,
+	})
+
+	// Test GetAllLocations
+	locations := store.GetAllLocations()
+	if len(locations) != 2 {
+		t.Errorf("Expected 2 locations, got %d", len(locations))
+	}
+
+	if locations[0].ID != 1 || locations[1].ID != 2 {
+		t.Error("Locations not returned in correct order")
+	}
+}
+
+func TestGetAllDates(t *testing.T) {
+	store := NewStore()
+
+	// Add test data
+	testDates := []models.Date{
+		{ID: 1, Dates: []string{"01-01-2020", "02-01-2020"}},
+		{ID: 2, Dates: []string{"01-02-2020", "02-02-2020"}},
+	}
+
+	store.LoadData(StoreData{
+		Dates: testDates,
+	})
+
+	// Test GetAllDates
+	dates := store.GetAllDates()
+	if len(dates) != 2 {
+		t.Errorf("Expected 2 dates, got %d", len(dates))
+	}
+
+	if dates[0].ID != 1 || dates[1].ID != 2 {
+		t.Error("Dates not returned in correct order")
+	}
+}
+
+func TestGetAllRelations(t *testing.T) {
+	store := NewStore()
+
+	// Add test data
+	testRelations := []models.Relation{
+		{ID: 1, DatesLocations: map[string][]string{"London": {"01-01-2020"}}},
+		{ID: 2, DatesLocations: map[string][]string{"Paris": {"02-01-2020"}}},
+	}
+
+	store.LoadData(StoreData{
+		Relations: testRelations,
+	})
+
+	// Test GetAllRelations
+	relations := store.GetAllRelations()
+	if len(relations) != 2 {
+		t.Errorf("Expected 2 relations, got %d", len(relations))
+	}
+
+	if relations[0].ID != 1 || relations[1].ID != 2 {
+		t.Error("Relations not returned in correct order")
+	}
+}

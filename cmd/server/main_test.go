@@ -110,16 +110,16 @@ func TestCacheDataLoad_Success(t *testing.T) {
 	defer mockServer.Close()
 
 	client := api.NewClient(mockServer.URL, 5*time.Second)
-	
+
 	// Create adapter for storage interface
 	adapter := &apiClientAdapter{client: client}
-	
+
 	// Initialize store with cache
 	store := storage.NewStoreWithCache(adapter)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	// Start cache for initial data load
 	store.StartCache(ctx)
 	time.Sleep(100 * time.Millisecond) // Wait for initial load
@@ -139,21 +139,21 @@ func TestCacheDataLoad_Success(t *testing.T) {
 func TestCacheDataLoad_Error(t *testing.T) {
 	// Test with non-existent server
 	client := api.NewClient("http://localhost:99999", 1*time.Second)
-	
+
 	// Create adapter for storage interface
 	adapter := &apiClientAdapter{client: client}
-	
+
 	// Initialize store with cache
 	store := storage.NewStoreWithCache(adapter)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	
+
 	// Try to start cache with unreachable API - should not panic
 	store.StartCache(ctx)
 	time.Sleep(100 * time.Millisecond)
 	store.StopCache()
-	
+
 	// Verify no data was loaded due to API failure
 	stats := store.GetStats()
 	if stats["artists"] > 0 {

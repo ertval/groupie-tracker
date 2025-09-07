@@ -84,9 +84,26 @@ func NewServer() (*Server, error) {
 	log.Println(colorCyan + "🔄 Starting cache with periodic updates..." + colorReset)
 	store.StartCache(ctx)
 
-	// Wait a moment for initial data load
-	time.Sleep(100 * time.Millisecond)
+	// Wait for initial data load with timeout
+	log.Println(colorCyan + "⏳ Waiting for initial data load..." + colorReset)
+	loadCtx, loadCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer loadCancel()
 
+	for {
+		select {
+		case <-loadCtx.Done():
+			cancel()
+			return nil, fmt.Errorf("timeout waiting for initial data load from API")
+		default:
+			stats := store.GetStats()
+			if stats["artists"] > 0 {
+				goto dataLoaded
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+
+dataLoaded:
 	// Check if data was loaded
 	stats := store.GetStats()
 	if stats["artists"] == 0 {

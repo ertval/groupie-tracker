@@ -286,3 +286,167 @@ func TestClient_InvalidJSON(t *testing.T) {
 		t.Error("Expected JSON parsing error, got nil")
 	}
 }
+
+func TestClient_Timeout(t *testing.T) {
+	// Test timeout with slow server
+	slowServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer slowServer.Close()
+
+	client := NewClient(slowServer.URL, 100*time.Millisecond) // Very short timeout
+
+	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
+	defer cancel()
+
+	_, err := client.FetchArtists(ctx)
+	if err == nil {
+		t.Error("Expected timeout error, got nil")
+	}
+}
+
+func TestClient_ContextCancellation(t *testing.T) {
+	// Test context cancellation
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(1 * time.Second)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, 5*time.Second)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	go func() {
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	_, err := client.FetchArtists(ctx)
+	if err == nil {
+		t.Error("Expected context cancellation error, got nil")
+	}
+}
+
+func TestClient_EmptyResponse(t *testing.T) {
+	// Test empty response handling
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/artists":
+			w.Write([]byte(`[]`))
+		case "/api/locations":
+			w.Write([]byte(`{"index":[]}`))
+		case "/api/dates":
+			w.Write([]byte(`{"index":[]}`))
+		case "/api/relation":
+			w.Write([]byte(`{"index":[]}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, 5*time.Second)
+
+	// Test all endpoints with empty responses
+	artists, err := client.FetchArtists(context.Background())
+	if err != nil {
+		t.Errorf("FetchArtists() error = %v", err)
+	}
+	if len(artists) != 0 {
+		t.Errorf("Expected 0 artists, got %d", len(artists))
+	}
+
+	locations, err := client.FetchLocations(context.Background())
+	if err != nil {
+		t.Errorf("FetchLocations() error = %v", err)
+	}
+	if len(locations) != 0 {
+		t.Errorf("Expected 0 locations, got %d", len(locations))
+	}
+
+	dates, err := client.FetchDates(context.Background())
+	if err != nil {
+		t.Errorf("FetchDates() error = %v", err)
+	}
+	if len(dates) != 0 {
+		t.Errorf("Expected 0 dates, got %d", len(dates))
+	}
+
+	relations, err := client.FetchRelations(context.Background())
+	if err != nil {
+		t.Errorf("FetchRelations() error = %v", err)
+	}
+	if len(relations) != 0 {
+		t.Errorf("Expected 0 relations, got %d", len(relations))
+	}
+}
+
+func TestClient_ServerError(t *testing.T) {
+	// Test server error handling
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("Internal server error"))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, 5*time.Second)
+
+	_, err := client.FetchArtists(context.Background())
+	if err == nil {
+		t.Error("Expected 500 error, got nil")
+	}
+}
+
+func TestClient_InvalidBaseURL(t *testing.T) {
+	// Test invalid base URL
+	client := NewClient("invalid-url", 5*time.Second)
+
+	_, err := client.FetchArtists(context.Background())
+	if err == nil {
+		t.Error("Expected URL error, got nil")
+	}
+}
+
+func TestClient_NoNetwork(t *testing.T) {
+	// Test unreachable server
+	client := NewClient("http://localhost:99999", 1*time.Second)
+
+	_, err := client.FetchArtists(context.Background())
+	if err == nil {
+		t.Error("Expected network error, got nil")
+	}
+}
+
+func TestNewClient_Parameters(t *testing.T) {
+	baseURL := "https://example.com"
+	timeout := 10 * time.Second
+
+	client := NewClient(baseURL, timeout)
+
+	if client.baseURL != baseURL {
+		t.Errorf("Expected baseURL %s, got %s", baseURL, client.baseURL)
+	}
+
+	if client.httpClient.Timeout != timeout {
+		t.Errorf("Expected timeout %v, got %v", timeout, client.httpClient.Timeout)
+	}
+}
+
+func TestClient_WrongContentType(t *testing.T) {
+	// Test wrong content type response
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html")
+		w.Write([]byte(`<html>Not JSON</html>`))
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, 5*time.Second)
+
+	_, err := client.FetchArtists(context.Background())
+	if err == nil {
+		t.Error("Expected JSON parsing error for HTML response, got nil")
+	}
+}
