@@ -14,7 +14,7 @@ import (
 
 const (
 	// CacheUpdateInterval is the interval at which the cache updates from the API
-	CacheUpdateInterval = 30 * time.Second
+	CacheUpdateInterval = 60 * time.Second
 )
 
 // APIClient defines the interface for fetching data from external API
