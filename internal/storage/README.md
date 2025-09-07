@@ -2,7 +2,162 @@
 
 ## Overview
 
-The storage package provides a high-performance, thread-safe in-memory data store with automatic cache functionality for the Groupie Tracker application. It has been refactored to include production-ready features like periodic data updates, concurrent access management, and efficient derived data computation.
+# Storage Package Refactoring
+
+This document describes the refactoring of the storage package, which has been split into two main components: base storage operations and advanced data manipulation services.
+
+## Architecture Overview
+
+The storage package now consists of three main files:
+
+### 1. `base_store.go` - Core Storage & Cache Operations
+- **BaseStore**: Thread-safe in-memory storage with cache functionality
+- **Cache Management**: Periodic updates from external API
+- **CRUD Operations**: Basic create, read, update, delete operations
+- **Data Loading**: Bulk data loading and derived data computation
+
+### 2. `service.go` - Data Manipulation & Business Logic
+- **Service**: Advanced data operations on top of BaseStore
+- **Search Operations**: Text-based search across artists and members
+- **Filtering**: Year-based, member count, and location filtering
+- **Sorting**: Multiple sorting strategies (name, year, member count)
+- **Analytics**: Popular locations and detailed statistics
+
+### 3. `store.go` - Unified Interface
+- **Store**: Combines BaseStore and Service using composition
+- **Backward Compatibility**: Maintains existing API for handlers
+- **Enhanced Functionality**: Adds consistent sorting to existing methods
+
+## Key Benefits
+
+### Separation of Concerns
+- **Base operations** are isolated from **business logic**
+- **Cache management** is separate from **data manipulation**
+- **Thread safety** is handled at the base level
+- **Service operations** can focus on algorithms and logic
+
+### Testability
+- Each component can be tested independently
+- Mock interfaces for testing service layer without storage
+- Cleaner test structure with focused responsibilities
+
+### Maintainability
+- Easier to add new search/filter operations
+- Cache logic changes don't affect business operations
+- Clear boundaries between different types of operations
+
+### Performance
+- Service operations work on copies to prevent data races
+- Immutable results prevent accidental modifications
+- Consistent sorting improves user experience
+
+## Interface Definitions
+
+### DataReader Interface
+```go
+type DataReader interface {
+    GetAllArtists() []models.Artist
+    GetArtist(id int) (models.Artist, bool)
+    GetAllLocations() []models.Location
+    // ... other read operations
+}
+```
+
+### APIClient Interface (unchanged)
+```go
+type APIClient interface {
+    FetchAllData(ctx context.Context) (*models.APIResponse, error)
+}
+```
+
+## Usage Examples
+
+### Basic Usage (Backward Compatible)
+```go
+// Existing code continues to work
+store := storage.NewStore()
+artists := store.GetAllArtists()
+results := store.SearchArtists("Queen")
+```
+
+### Advanced Service Operations
+```go
+// New functionality through service layer
+store := storage.NewStore()
+
+// Advanced filtering
+artists := store.Service.FilterArtistsByMemberCount(4, true)
+sorted := store.Service.SortArtistsByYear(artists)
+
+// Analytics
+popular := store.Service.GetMostPopularLocations(5)
+stats := store.Service.GetDetailedStats()
+```
+
+### Cache Operations (Unchanged)
+```go
+// Cache functionality remains the same
+store := storage.NewStoreWithCache(apiClient)
+store.StartCache(ctx)
+defer store.StopCache()
+```
+
+## Migration Notes
+
+### For Handlers
+- **No changes required** - existing handler code continues to work
+- **Enhanced sorting** - `GetAllArtists()` now returns alphabetically sorted results
+- **New features available** - can access advanced operations via `store.Service`
+
+### For Tests
+- **Existing tests** continue to work with minimal changes
+- **New test files** added for service layer testing
+- **Mock interfaces** available for isolated testing
+
+## New Features Added
+
+### Advanced Filtering
+- `FilterArtistsByMemberCount(count int, exact bool)` - Filter by band size
+- `SearchArtistsByLocation(query string)` - Find artists by performance locations
+
+### Enhanced Sorting
+- `SortArtistsByName(artists)` - Alphabetical sorting
+- `SortArtistsByYear(artists)` - Chronological sorting  
+- `SortArtistsByMemberCount(artists)` - Sort by band size
+
+### Analytics & Statistics
+- `GetMostPopularLocations(limit int)` - Most frequent concert venues
+- `GetDetailedStats()` - Comprehensive data analysis
+
+### Data Integrity
+- All service methods return **copies** of data
+- **Immutable results** prevent accidental modifications
+- **Thread-safe operations** at all levels
+
+## Future Extensibility
+
+The new architecture makes it easy to add:
+- **New search algorithms** (fuzzy matching, phonetic search)
+- **Additional filtering criteria** (genre, album count, etc.)
+- **Complex analytics** (tour patterns, collaboration networks)
+- **Caching strategies** for expensive operations
+- **Data export/import** functionality
+
+## Testing Strategy
+
+### Base Store Tests (`store_test.go`)
+- Cache functionality and thread safety
+- Basic CRUD operations
+- Data loading and integrity
+- Backward compatibility verification
+
+### Service Tests (`service_test.go`)
+- Search and filter algorithms
+- Sorting consistency
+- Analytics accuracy
+- Result immutability
+
+This refactoring maintains full backward compatibility while providing a cleaner, more maintainable architecture for future development. It has been refactored to include production-ready features like periodic data updates, concurrent access management, and efficient derived data computation.
 
 ## Key Features
 

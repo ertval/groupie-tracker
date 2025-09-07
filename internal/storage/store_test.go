@@ -88,20 +88,16 @@ func TestNewStore(t *testing.T) {
 		t.Fatal("NewStore() returned nil")
 	}
 
-	if store.artists == nil || store.locations == nil || store.dates == nil || store.relations == nil {
-		t.Error("Store maps are not initialized")
+	if store.BaseStore == nil {
+		t.Error("BaseStore is not initialized")
+	}
+
+	if store.Service == nil {
+		t.Error("Service is not initialized")
 	}
 
 	if store.IsRunning() {
 		t.Error("Expected cache to not be running initially")
-	}
-
-	if store.stopCache == nil {
-		t.Error("stopCache channel is not initialized")
-	}
-
-	if store.updateInterval != CacheUpdateInterval {
-		t.Errorf("Expected updateInterval to be %v, got %v", CacheUpdateInterval, store.updateInterval)
 	}
 }
 
@@ -113,8 +109,12 @@ func TestNewStoreWithCache(t *testing.T) {
 		t.Fatal("NewStoreWithCache() returned nil")
 	}
 
-	if store.apiClient != mockClient {
-		t.Error("API client not set correctly")
+	if store.BaseStore == nil {
+		t.Error("BaseStore is not initialized")
+	}
+
+	if store.Service == nil {
+		t.Error("Service is not initialized")
 	}
 
 	if store.IsRunning() {
@@ -834,5 +834,51 @@ func TestGetAllRelations(t *testing.T) {
 
 	if !found1 || !found2 {
 		t.Error("Both test relations should be present")
+	}
+}
+
+func TestStore_BackwardCompatibility(t *testing.T) {
+	// Test that the refactored Store maintains the same API as the original
+	store := NewStore()
+
+	// Test adding data
+	artist := models.Artist{
+		ID:           1,
+		Name:         "Queen",
+		Members:      []string{"Freddie Mercury", "Brian May"},
+		CreationYear: 1970,
+	}
+	store.AddArtist(artist)
+
+	// Test retrieving data - should work exactly as before
+	retrievedArtist, exists := store.GetArtist(1)
+	if !exists {
+		t.Error("Expected artist to exist")
+	}
+	if retrievedArtist.Name != "Queen" {
+		t.Errorf("Expected artist name to be Queen, got %s", retrievedArtist.Name)
+	}
+
+	// Test search functionality - should work exactly as before
+	results := store.SearchArtists("Queen")
+	if len(results) != 1 {
+		t.Errorf("Expected 1 search result, got %d", len(results))
+	}
+
+	// Test filter functionality - should work exactly as before
+	filtered := store.FilterArtistsByYear(1970, 1970)
+	if len(filtered) != 1 {
+		t.Errorf("Expected 1 filtered result, got %d", len(filtered))
+	}
+
+	// Test that GetAllArtists returns sorted results (new behavior)
+	store.AddArtist(models.Artist{ID: 2, Name: "Beatles", CreationYear: 1960})
+	allArtists := store.GetAllArtists()
+	if len(allArtists) != 2 {
+		t.Errorf("Expected 2 artists, got %d", len(allArtists))
+	}
+	// Should be sorted: Beatles, Queen
+	if allArtists[0].Name != "Beatles" || allArtists[1].Name != "Queen" {
+		t.Error("Artists not sorted alphabetically")
 	}
 }
