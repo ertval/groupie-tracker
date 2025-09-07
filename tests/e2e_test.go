@@ -1,4 +1,4 @@
-`// Package tests contains end-to-end tests for the Groupie Tracker application.
+// Package tests contains end-to-end tests for the Groupie Tracker application.
 package tests
 
 import (
@@ -62,33 +62,33 @@ func TestCompleteE2E(t *testing.T) {
 // testTemplateLoading tests that all templates load correctly
 func testTemplateLoading(t *testing.T, server *httptest.Server) {
 	testCases := []struct {
-		name         string
-		url          string
-		expectedCode int
+		name          string
+		url           string
+		expectedCode  int
 		shouldContain string
 	}{
 		{
-			name:         "Home Page Template",
-			url:          "/",
-			expectedCode: http.StatusOK,
+			name:          "Home Page Template",
+			url:           "/",
+			expectedCode:  http.StatusOK,
 			shouldContain: "Groupie Tracker",
 		},
 		{
-			name:         "Artists Page Template",
-			url:          "/artists",
-			expectedCode: http.StatusOK,
+			name:          "Artists Page Template",
+			url:           "/artists",
+			expectedCode:  http.StatusOK,
 			shouldContain: "Artists",
 		},
 		{
-			name:         "Artist Detail Template",
-			url:          "/artists/1",
-			expectedCode: http.StatusOK,
+			name:          "Artist Detail Template",
+			url:           "/artists/1",
+			expectedCode:  http.StatusOK,
 			shouldContain: "Artist",
 		},
 		{
-			name:         "Locations Page Template",
-			url:          "/locations",
-			expectedCode: http.StatusOK,
+			name:          "Locations Page Template",
+			url:           "/locations",
+			expectedCode:  http.StatusOK,
 			shouldContain: "Locations",
 		},
 	}
@@ -244,8 +244,8 @@ func testAuditCompliance(t *testing.T, store *storage.Store, server *httptest.Se
 		foundLocations := 0
 		for _, expectedLocation := range expectedLocations {
 			for _, actualLocation := range location.Locations {
-				if actualLocation == expectedLocation || 
-				   strings.Contains(actualLocation, strings.Split(expectedLocation, "-")[0]) {
+				if actualLocation == expectedLocation ||
+					strings.Contains(actualLocation, strings.Split(expectedLocation, "-")[0]) {
 					foundLocations++
 					break
 				}
@@ -334,7 +334,7 @@ func testClientServerEvents(t *testing.T, server *httptest.Server) {
 			t.Errorf("Expected query 'Queen', got '%s'", searchResponse.Query)
 		}
 
-		t.Logf("✓ Live search event working: found %d results for '%s'", 
+		t.Logf("✓ Live search event working: found %d results for '%s'",
 			len(searchResponse.Artists), searchResponse.Query)
 	})
 
@@ -360,7 +360,7 @@ func testClientServerEvents(t *testing.T, server *httptest.Server) {
 			t.Error("Suggestions should return results for 'Gori'")
 		}
 
-		t.Logf("✓ Autocomplete event working: got %d suggestions for '%s'", 
+		t.Logf("✓ Autocomplete event working: got %d suggestions for '%s'",
 			len(suggestResponse.Suggestions), suggestResponse.Query)
 	})
 
@@ -552,7 +552,7 @@ func testPerformanceStability(t *testing.T, server *httptest.Server) {
 		}
 
 		duration := time.Since(start)
-		t.Logf("✓ Handled %d concurrent requests in %v (%.2f req/sec)", 
+		t.Logf("✓ Handled %d concurrent requests in %v (%.2f req/sec)",
 			numRequests, duration, float64(numRequests)/duration.Seconds())
 
 		// Performance check: should handle requests reasonably quickly
@@ -606,7 +606,7 @@ func testHTTPMethodsAndStatusCodes(t *testing.T, server *httptest.Server) {
 				defer resp.Body.Close()
 
 				if resp.StatusCode != tc.expectedCode {
-					t.Errorf("Expected status %d for %s %s, got %d", 
+					t.Errorf("Expected status %d for %s %s, got %d",
 						tc.expectedCode, tc.method, tc.url, resp.StatusCode)
 				}
 

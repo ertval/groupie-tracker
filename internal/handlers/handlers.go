@@ -61,12 +61,12 @@ func NewHandlers(store *storage.Store) *Handlers {
 // loadTemplates loads all HTML templates
 func (h *Handlers) loadTemplates() {
 	templateFiles := []string{
-		"../../templates/base.tmpl",
-		"../../templates/home.tmpl",
-		"../../templates/artists.tmpl",
-		"../../templates/artist_detail.tmpl",
-		"../../templates/locations.tmpl",
-		"../../templates/error.tmpl",
+		"templates/base.tmpl",
+		"templates/home.tmpl",
+		"templates/artists.tmpl",
+		"templates/artist_detail.tmpl",
+		"templates/locations.tmpl",
+		"templates/error.tmpl",
 	}
 
 	// Define custom template functions
