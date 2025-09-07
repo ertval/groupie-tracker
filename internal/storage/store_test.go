@@ -11,14 +11,14 @@ import (
 
 // MockAPIClient implements APIClient for testing
 type MockAPIClient struct {
-	data          *APIData
+	data          *StoreData
 	err           error
 	callCount     int
 	mu            sync.Mutex
 	responseDelay time.Duration
 }
 
-func (m *MockAPIClient) FetchAllData(ctx context.Context) (*APIData, error) {
+func (m *MockAPIClient) FetchAllData(ctx context.Context) (*StoreData, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -54,8 +54,8 @@ func (m *MockAPIClient) SetResponseDelay(delay time.Duration) {
 	m.responseDelay = delay
 }
 
-func createMockAPIData() *APIData {
-	return &APIData{
+func createMockAPIData() *StoreData {
+	return &StoreData{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May"}, CreationYear: 1970},
 			{ID: 2, Name: "Gorillaz", Members: []string{"Damon Albarn"}, CreationYear: 1998},

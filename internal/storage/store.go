@@ -4,6 +4,7 @@ package storage
 import (
 	"context"
 	"log"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -26,17 +27,17 @@ const (
 	CacheUpdateInterval = 30 * time.Second
 )
 
-// APIClient defines the interface for fetching data from external API
-type APIClient interface {
-	FetchAllData(ctx context.Context) (*APIData, error)
+// StoreData represents all the data needed to populate the store.
+type StoreData struct {
+	Artists   []models.Artist   `json:"artists"`
+	Locations []models.Location `json:"locations"`
+	Dates     []models.Date     `json:"dates"`
+	Relations []models.Relation `json:"relations"`
 }
 
-// APIData represents the complete dataset from the API.
-type APIData struct {
-	Artists   []models.Artist
-	Locations []models.Location
-	Dates     []models.Date
-	Relations []models.Relation
+// APIClient defines the interface for fetching data from external API
+type APIClient interface {
+	FetchAllData(ctx context.Context) (*StoreData, error)
 }
 
 // Store represents an in-memory data store with thread-safe operations and cache functionality.
@@ -58,14 +59,6 @@ type Store struct {
 	// Computed data (updated through cache)
 	uniqueLocations []string
 	uniqueDates     []string
-}
-
-// StoreData represents a complete dataset for bulk loading.
-type StoreData struct {
-	Artists   []models.Artist
-	Locations []models.Location
-	Dates     []models.Date
-	Relations []models.Relation
 }
 
 // NewStore creates a new empty store.
@@ -161,14 +154,7 @@ func (s *Store) updateFromAPI(ctx context.Context, initial bool) error {
 		return err
 	}
 
-	storeData := StoreData{
-		Artists:   data.Artists,
-		Locations: data.Locations,
-		Dates:     data.Dates,
-		Relations: data.Relations,
-	}
-
-	s.LoadData(storeData)
+	s.LoadData(*data)
 
 	s.cacheMu.Lock()
 	s.lastUpdate = time.Now()
@@ -245,6 +231,12 @@ func (s *Store) GetAllArtists() []models.Artist {
 	for _, artist := range s.artists {
 		artists = append(artists, artist)
 	}
+
+	// Ensure deterministic ordering: sort by artist name (case-insensitive)
+	sort.Slice(artists, func(i, j int) bool {
+		return strings.ToLower(artists[i].Name) < strings.ToLower(artists[j].Name)
+	})
+
 	return artists
 }
 

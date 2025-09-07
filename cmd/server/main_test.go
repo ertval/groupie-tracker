@@ -112,7 +112,7 @@ func TestCacheDataLoad_Success(t *testing.T) {
 	client := api.NewClient(mockServer.URL, 5*time.Second)
 
 	// Create adapter for storage interface
-	adapter := &apiClientAdapter{client: client}
+	adapter := client
 
 	// Initialize store with cache
 	store := storage.NewStoreWithCache(adapter)
@@ -141,7 +141,7 @@ func TestCacheDataLoad_Error(t *testing.T) {
 	client := api.NewClient("http://localhost:99999", 1*time.Second)
 
 	// Create adapter for storage interface
-	adapter := &apiClientAdapter{client: client}
+	adapter := client
 
 	// Initialize store with cache
 	store := storage.NewStoreWithCache(adapter)

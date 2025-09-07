@@ -73,10 +73,10 @@ func TestNewServerConfigConstants(t *testing.T) {
 	}
 }
 
-func TestApiClientAdapterDataConversion(t *testing.T) {
+func TestApiClientDataConversion(t *testing.T) {
 	// Create a mock client with the real API structure
 	client := api.NewClient("http://localhost:99999", 100*time.Millisecond) // Will fail, but that's OK
-	adapter := &apiClientAdapter{client: client}
+	adapter := client
 
 	// Test that the adapter interface is properly implemented
 	var _ storage.APIClient = adapter

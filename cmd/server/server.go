@@ -36,26 +36,6 @@ const (
 	colorCyan   = "\033[36m"
 )
 
-// apiClientAdapter adapts the api.Client to the storage.APIClient interface
-type apiClientAdapter struct {
-	client *api.Client
-}
-
-func (a *apiClientAdapter) FetchAllData(ctx context.Context) (*storage.APIData, error) {
-	data, err := a.client.FetchAllData(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert api.APIData to storage.APIData
-	return &storage.APIData{
-		Artists:   data.Artists,
-		Locations: data.Locations,
-		Dates:     data.Dates,
-		Relations: data.Relations,
-	}, nil
-}
-
 // Server represents the HTTP server with all its dependencies.
 type Server struct {
 	store     *storage.Store
@@ -71,11 +51,8 @@ func NewServer() (*Server, error) {
 	// Initialize API client
 	apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
 
-	// Create adapter for storage interface
-	adapter := &apiClientAdapter{client: apiClient}
-
 	// Initialize store with cache
-	store := storage.NewStoreWithCache(adapter)
+	store := storage.NewStoreWithCache(apiClient)
 
 	// Create context for cache management
 	ctx, cancel := context.WithCancel(context.Background())

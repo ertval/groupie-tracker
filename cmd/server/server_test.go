@@ -16,8 +16,8 @@ import (
 	"groupie-tracker/internal/storage"
 )
 
-// TestApiClientAdapter_FetchAllData tests the adapter functionality
-func TestApiClientAdapter_FetchAllData(t *testing.T) {
+// TestApiClient_FetchAllData tests the client functionality
+func TestApiClient_FetchAllData(t *testing.T) {
 	// Mock API server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -40,7 +40,7 @@ func TestApiClientAdapter_FetchAllData(t *testing.T) {
 	defer mockServer.Close()
 
 	client := api.NewClient(mockServer.URL, RequestTimeout)
-	adapter := &apiClientAdapter{client: client}
+	adapter := client
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -59,10 +59,10 @@ func TestApiClientAdapter_FetchAllData(t *testing.T) {
 	}
 }
 
-// TestApiClientAdapter_FetchAllData_Error tests error handling
-func TestApiClientAdapter_FetchAllData_Error(t *testing.T) {
+// TestApiClient_FetchAllData_Error tests error handling
+func TestApiClient_FetchAllData_Error(t *testing.T) {
 	client := api.NewClient("http://localhost:99999", 1*time.Second)
-	adapter := &apiClientAdapter{client: client}
+	adapter := client
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
@@ -97,7 +97,7 @@ func TestNewServer_Success(t *testing.T) {
 
 	// Create a test client
 	testClient := api.NewClient(mockServer.URL, RequestTimeout)
-	testAdapter := &apiClientAdapter{client: testClient}
+	testAdapter := testClient
 
 	// Create store manually for testing
 	store := storage.NewStoreWithCache(testAdapter)
@@ -156,7 +156,7 @@ func TestNewServer_Integration(t *testing.T) {
 
 	// Create test server instance components manually (simulating NewServer)
 	apiClient := api.NewClient(mockServer.URL, 2*time.Second)
-	adapter := &apiClientAdapter{client: apiClient}
+	adapter := apiClient
 	store := storage.NewStoreWithCache(adapter)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -230,7 +230,7 @@ func TestNewServer_APITimeout(t *testing.T) {
 	defer slowServer.Close()
 
 	client := api.NewClient(slowServer.URL, 500*time.Millisecond) // Short timeout
-	adapter := &apiClientAdapter{client: client}
+	adapter := client
 	store := storage.NewStoreWithCache(adapter)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
@@ -649,10 +649,10 @@ func TestWaitForDataLoad_Timeout(t *testing.T) {
 	}
 }
 
-func TestApiClientAdapter_FetchAllData_NetworkError(t *testing.T) {
+func TestApiClient_FetchAllData_NetworkError(t *testing.T) {
 	// Test with invalid URL
 	client := api.NewClient("invalid-url", RequestTimeout)
-	adapter := &apiClientAdapter{client: client}
+	adapter := client
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 	defer cancel()
@@ -677,7 +677,7 @@ func TestNewServer_DataLoadTimeout(t *testing.T) {
 
 	// Create new server with slow API (this should timeout)
 	apiClient := api.NewClient(slowServer.URL, 100*time.Millisecond)
-	adapter := &apiClientAdapter{client: apiClient}
+	adapter := apiClient
 	store := storage.NewStoreWithCache(adapter)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -953,10 +953,10 @@ func TestServer_StartURLBuilding(t *testing.T) {
 	}
 }
 
-func TestApiClientAdapter_EdgeCases(t *testing.T) {
+func TestApiClient_EdgeCases(t *testing.T) {
 	// Test adapter behavior with various edge cases
 	client := api.NewClient("http://invalid-domain-that-does-not-exist.local", 100*time.Millisecond)
-	adapter := &apiClientAdapter{client: client}
+	adapter := client
 
 	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 	defer cancel()
@@ -994,7 +994,7 @@ func TestNewServer_FullFlow(t *testing.T) {
 
 	// Create components as NewServer would
 	apiClient := api.NewClient(mockServer.URL, RequestTimeout)
-	adapter := &apiClientAdapter{client: apiClient}
+	adapter := apiClient
 	store := storage.NewStoreWithCache(adapter)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
