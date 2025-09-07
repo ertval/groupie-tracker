@@ -1,0 +1,90 @@
+{{define "content"}}
+<div class="page locations">
+    <header class="page-header">
+        <h1>Concert Locations</h1>
+        <p class="muted">Explore {{len .Locations}} unique concert venues around the world</p>
+    </header>
+
+    <main class="page-body">
+        <div class="search-section">
+            <label for="location-search">Search Locations</label>
+            <input type="text" id="location-search" placeholder="Search by city or country..." autocomplete="off">
+        </div>
+
+        <section class="locations-stats">
+            <h2>Global Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>{{len .Locations}}</h3>
+                    <p>Total Locations</p>
+                </div>
+                <div class="stat-card">
+                    <h3>{{.TotalCountries}}</h3>
+                    <p>Countries</p>
+                </div>
+                <div class="stat-card">
+                    <h3>{{.TotalConcerts}}</h3>
+                    <p>Total Concerts</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="locations-grid">
+            {{range .LocationStats}}
+            <div class="location-card" data-location="{{.Name}}">
+                <div class="location-info">
+                    <h3 class="location-name">{{.Name}}</h3>
+                    <div class="location-meta">
+                        <p class="artist-count">{{.ArtistCount}} artists</p>
+                        <p class="concert-count">{{.ConcertCount}} concerts</p>
+                    </div>
+                </div>
+                <div class="location-artists">
+                    <h4>Artists who performed here:</h4>
+                    <div class="artists-list">
+                        {{range $index, $artist := .Artists}}
+                        {{if lt $index 5}}
+                        <a href="/artists/{{$artist.ID}}" class="artist-link">{{$artist.Name}}</a>
+                        {{end}}
+                        {{end}}
+                        {{if gt (len .Artists) 5}}
+                        <span class="more-artists">+{{sub (len .Artists) 5}} more</span>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </section>
+
+        <div id="no-results" class="no-results" style="display: none;">
+            <h3>No locations found</h3>
+            <p>Try adjusting your search criteria.</p>
+        </div>
+
+        <section class="locations-map-placeholder">
+            <h2>World Map</h2>
+            <div class="map-container">
+                <p class="muted">Interactive map will be added by the JavaScript developer</p>
+                <div class="map-placeholder">
+                    <span>🗺️ Concert Locations Map</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="top-locations">
+            <h2>Most Popular Locations</h2>
+            <div class="top-locations-list">
+                {{range $index, $location := .TopLocations}}
+                {{if lt $index 10}}
+                <div class="top-location-item">
+                    <span class="rank">{{add $index 1}}</span>
+                    <span class="location-name">{{$location.Name}}</span>
+                    <span class="stats">{{$location.ArtistCount}} artists • {{$location.ConcertCount}} concerts</span>
+                </div>
+                {{end}}
+                {{end}}
+            </div>
+        </section>
+    </main>
+</div>
+{{end}}

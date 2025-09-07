@@ -1,0 +1,83 @@
+{{define "content"}}
+<div class="page error">
+    <main class="error-container">
+        {{if eq .ErrorCode 404}}
+        <div class="error-404">
+            <div class="error-icon">🔍</div>
+            <h1>404 - Page Not Found</h1>
+            <p class="error-message">The page you're looking for doesn't exist or has been moved.</p>
+            <div class="error-details">
+                <p>Requested URL: <code>{{.RequestedURL}}</code></p>
+            </div>
+            <div class="error-suggestions">
+                <h3>What you can do:</h3>
+                <ul>
+                    <li>Check the URL for typos</li>
+                    <li>Go back to the <a href="/">home page</a></li>
+                    <li>Browse our <a href="/artists">artists collection</a></li>
+                    <li>Explore <a href="/locations">concert locations</a></li>
+                </ul>
+            </div>
+        </div>
+        {{else if eq .ErrorCode 500}}
+        <div class="error-500">
+            <div class="error-icon">⚠️</div>
+            <h1>500 - Internal Server Error</h1>
+            <p class="error-message">Something went wrong on our end. We're working to fix it!</p>
+            <div class="error-details">
+                {{if .ErrorMessage}}
+                <p>Error details: <code>{{.ErrorMessage}}</code></p>
+                {{end}}
+                <p>Time: {{.Timestamp}}</p>
+            </div>
+            <div class="error-suggestions">
+                <h3>What you can do:</h3>
+                <ul>
+                    <li>Try refreshing the page</li>
+                    <li>Go back to the <a href="/">home page</a></li>
+                    <li>Try again in a few minutes</li>
+                    <li>If the problem persists, please contact support</li>
+                </ul>
+            </div>
+        </div>
+        {{else}}
+        <div class="error-generic">
+            <div class="error-icon">❌</div>
+            <h1>{{.ErrorCode}} - Error</h1>
+            <p class="error-message">{{.ErrorMessage}}</p>
+            <div class="error-suggestions">
+                <ul>
+                    <li>Go back to the <a href="/">home page</a></li>
+                    <li>Browse our <a href="/artists">artists collection</a></li>
+                </ul>
+            </div>
+        </div>
+        {{end}}
+
+        <div class="error-actions">
+            <a href="/" class="btn btn-primary">Go Home</a>
+            <button onclick="history.back()" class="btn btn-secondary">Go Back</button>
+            <button onclick="location.reload()" class="btn btn-outline">Refresh Page</button>
+        </div>
+
+        <div class="error-help">
+            <h3>Need Help?</h3>
+            <p>If you continue to experience issues, here are some helpful links:</p>
+            <div class="help-links">
+                <a href="/artists" class="help-link">
+                    <span class="help-icon">🎵</span>
+                    <span>Browse Artists</span>
+                </a>
+                <a href="/locations" class="help-link">
+                    <span class="help-icon">📍</span>
+                    <span>Concert Locations</span>
+                </a>
+                <a href="/healthz" class="help-link">
+                    <span class="help-icon">💚</span>
+                    <span>System Status</span>
+                </a>
+            </div>
+        </div>
+    </main>
+</div>
+{{end}}
