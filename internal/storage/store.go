@@ -263,10 +263,30 @@ func (s *Store) GetStats() map[string]int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	// Count unique location strings across all Location entries.
+	locSet := make(map[string]bool)
+	for _, location := range s.locations {
+		for _, loc := range location.Locations {
+			locSet[loc] = true
+		}
+	}
+
+	// Count unique date strings across all Date entries.
+	dateSet := make(map[string]bool)
+	for _, date := range s.dates {
+		for _, d := range date.Dates {
+			dateSet[d] = true
+		}
+	}
+
 	return map[string]int{
-		"artists":   len(s.artists),
-		"locations": len(s.locations),
-		"dates":     len(s.dates),
+		"artists": len(s.artists),
+		// Report number of unique location strings (e.g. unique venues/cities),
+		// which aligns with what the UI reports via GetUniqueLocations().
+		"locations": len(locSet),
+		// Report number of unique date strings (e.g. individual concert dates),
+		// rather than number of Date records.
+		"dates":     len(dateSet),
 		"relations": len(s.relations),
 	}
 }
