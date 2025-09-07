@@ -79,7 +79,16 @@ func NewServer() (*Server, error) {
 func (s *Server) Start() error {
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Server starting on port %s", s.server.Addr)
+		// Build a clickable URL for convenience (works in most terminals)
+		addr := s.server.Addr
+		url := addr
+		if strings.HasPrefix(addr, ":") {
+			url = "http://localhost" + addr
+		} else if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
+			url = "http://" + addr
+		}
+
+		log.Printf("Server starting — open %s in your browser", url)
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed to start: %v", err)
 		}
