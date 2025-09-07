@@ -136,11 +136,11 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	artists := h.store.GetAllArtists()
 
 	data := struct {
-		Title        string
-		Artists      []models.Artist
-		ExtraCSS     string
-		ExtraJS      string
-		TotalMembers int
+		Title          string
+		Artists        []models.Artist
+		ExtraCSS       string
+		ExtraJS        string
+		TotalMembers   int
 		TotalLocations int
 	}{
 		Title:          "Home",

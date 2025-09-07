@@ -27,6 +27,15 @@ const (
 	IdleTimeout     = 60 * time.Second
 )
 
+// ANSI color codes for pretty CLI output (standard library only)
+const (
+	colorReset  = "\033[0m"
+	colorRed    = "\033[31m"
+	colorGreen  = "\033[32m"
+	colorYellow = "\033[33m"
+	colorCyan   = "\033[36m"
+)
+
 // Server represents the HTTP server with all its dependencies.
 type Server struct {
 	store     *storage.Store
@@ -44,11 +53,11 @@ func NewServer() (*Server, error) {
 	apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
 
 	// Load data from API
-	log.Println("Loading data from API...")
+	log.Println(colorCyan + "🔄 Loading data from API..." + colorReset)
 	if err := loadDataFromAPI(store, apiClient); err != nil {
 		return nil, fmt.Errorf("failed to load data from API: %w", err)
 	}
-	log.Println("Data loaded successfully")
+	log.Println(colorGreen + "✅ Data loaded successfully" + colorReset)
 
 	// Initialize handlers
 	h := handlers.NewHandlers(store)
@@ -79,9 +88,18 @@ func NewServer() (*Server, error) {
 func (s *Server) Start() error {
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Server starting on port %s", s.server.Addr)
+		// Build a clickable URL for convenience (works in most terminals)
+		addr := s.server.Addr
+		url := addr
+		if strings.HasPrefix(addr, ":") {
+			url = "http://localhost" + addr
+		} else if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
+			url = "http://" + addr
+		}
+
+		log.Printf(colorGreen+"🚀 Server starting — open %s in your browser"+colorReset, url)
 		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server failed to start: %v", err)
+			log.Fatalf(colorRed+"❌ Server failed to start: %v"+colorReset, err)
 		}
 	}()
 
@@ -89,7 +107,7 @@ func (s *Server) Start() error {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Server is shutting down...")
+	log.Println(colorYellow + "🛑 Server is shutting down..." + colorReset)
 
 	// Create a deadline to wait for
 	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
@@ -100,7 +118,7 @@ func (s *Server) Start() error {
 		return fmt.Errorf("server forced to shutdown: %w", err)
 	}
 
-	log.Println("Server exited")
+	log.Println(colorGreen + "👋 Server exited" + colorReset)
 	return nil
 }
 
