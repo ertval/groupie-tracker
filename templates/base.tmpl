@@ -28,12 +28,13 @@
             {{template "home-content" .}}
         {{else if eq .Title "Artists"}}
             {{template "artists-content" .}}
-        {{else if contains .Title "Artist"}}
-            {{template "artist-detail-content" .}}
         {{else if eq .Title "Locations"}}
             {{template "locations-content" .}}
-        {{else}}
+        {{else if or (eq .Title "Page Not Found") (eq .Title "Internal Server Error") (.ErrorCode)}}
             {{template "error-content" .}}
+        {{else}}
+            {{/* Default to artist detail for any other title (likely artist names) */}}
+            {{template "artist-detail-content" .}}
         {{end}}
     </main>
 

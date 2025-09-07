@@ -61,24 +61,45 @@ func NewHandlers(store *storage.Store) *Handlers {
 // loadTemplates loads all HTML templates
 func (h *Handlers) loadTemplates() {
 	templateFiles := []string{
-		"../../templates/base.tmpl",
-		"../../templates/home.tmpl",
-		"../../templates/artists.tmpl",
-		"../../templates/artist_detail.tmpl",
-		"../../templates/locations.tmpl",
-		"../../templates/error.tmpl",
+		"templates/base.tmpl",
+		"templates/home.tmpl",
+		"templates/artists.tmpl",
+		"templates/artist_detail.tmpl",
+		"templates/locations.tmpl",
+		"templates/error.tmpl",
 	}
 
-	// Define custom template functions
+	// Define custom template functions with error handling
 	funcMap := template.FuncMap{
 		"sub": func(a, b int) int {
+			if a < b {
+				return 0 // Prevent negative results that might cause issues
+			}
 			return a - b
 		},
 		"add": func(a, b int) int {
 			return a + b
 		},
 		"contains": func(s, substr string) bool {
-			return strings.Contains(s, substr)
+			if s == "" || substr == "" {
+				return false
+			}
+			return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+		},
+		"safeLen": func(slice interface{}) int {
+			if slice == nil {
+				return 0
+			}
+			switch v := slice.(type) {
+			case []models.Artist:
+				return len(v)
+			case []string:
+				return len(v)
+			case map[string][]string:
+				return len(v)
+			default:
+				return 0
+			}
 		},
 	}
 
