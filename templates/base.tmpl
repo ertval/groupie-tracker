@@ -30,7 +30,7 @@
             {{template "artists-content" .}}
         {{else if eq .Title "Locations"}}
             {{template "locations-content" .}}
-        {{else if or (eq .Title "Page Not Found") (eq .Title "Internal Server Error") (.ErrorCode)}}
+        {{else if or (eq .Title "Page Not Found") (eq .Title "Internal Server Error")}}
             {{template "error-content" .}}
         {{else}}
             {{/* Default to artist detail for any other title (likely artist names) */}}
