@@ -201,6 +201,18 @@ go build -o groupie-tracker cmd/server
 - **Auto-suggestions**: Smart suggestions based on artist names and members
 - **Responsive UI**: Instant visual updates without page reloads
 
+### 🔗 SEO-Friendly URL Slugs (✅ NEW - September 2025)
+- **Clean URLs**: Artist pages now use descriptive slugs instead of numeric IDs
+- **Backward Compatibility**: Old ID-based URLs continue to work seamlessly
+- **Examples**:
+  - New: `http://localhost:8080/artists/queen` 
+  - Old: `http://localhost:8080/artists/28` (still works)
+  - New: `http://localhost:8080/artists/red-hot-chili-peppers`
+  - Old: `http://localhost:8080/artists/15` (still works)
+- **Automatic Generation**: Slugs are generated automatically from artist names
+- **Special Character Handling**: Converts spaces, punctuation to URL-friendly hyphens
+- **Template Integration**: All artist links throughout the application use new slug format
+
 ## 🧪 Testing
 
 The project follows Test-Driven Development (TDD) principles:
@@ -224,7 +236,8 @@ The application is tested against specific data points from the audit:
 ### Web Routes
 - `GET /` - Home page with search functionality and statistics
 - `GET /artists` - Artists listing page with search and filters
-- `GET /artists/{id}` - Individual artist detail page with concert info
+- `GET /artists/{id}` - Individual artist detail page with concert info (backward compatibility)
+- `GET /artists/{slug}` - Individual artist detail page with SEO-friendly slug (NEW)
 - `GET /locations` - Concert locations page with statistics
 
 ### API Routes
