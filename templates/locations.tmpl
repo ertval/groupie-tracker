@@ -46,7 +46,7 @@
                     <div class="artists-list">
                         {{range $index, $artist := .Artists}}
                         {{if lt $index 5}}
-                        <a href="/artists/{{$artist.ID}}" class="artist-link">{{$artist.Name}}</a>
+                        <a href="/artists/{{$artist.GetSlug}}" class="artist-link">{{$artist.Name}}</a>
                         {{end}}
                         {{end}}
                         {{if gt (len .Artists) 5}}
