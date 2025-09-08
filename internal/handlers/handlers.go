@@ -219,27 +219,31 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract artist ID from URL path
+	// Extract artist identifier from URL path
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
 		http.Redirect(w, r, "/artists", http.StatusSeeOther)
 		return
 	}
 
-	id, err := strconv.Atoi(path)
-	if err != nil {
-		http.Error(w, "Invalid artist ID", http.StatusBadRequest)
-		return
+	var artist models.Artist
+	var exists bool
+
+	// Try to parse as ID first (for backward compatibility)
+	if id, err := strconv.Atoi(path); err == nil {
+		artist, exists = h.store.GetArtist(id)
+	} else {
+		// If not a number, treat as slug
+		artist, exists = h.store.GetArtistBySlug(path)
 	}
 
-	artist, exists := h.store.GetArtist(id)
 	if !exists {
 		h.NotFoundHandler(w, r)
 		return
 	}
 
 	// Get relations data for this artist
-	relations, _ := h.store.GetRelation(id)
+	relations, _ := h.store.GetRelation(artist.ID)
 
 	// Calculate total concerts
 	totalConcerts := 0
@@ -251,7 +255,7 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	allArtists := h.store.GetAllArtists()
 	var prevArtist, nextArtist *models.Artist
 	for i, a := range allArtists {
-		if a.ID == id {
+		if a.ID == artist.ID {
 			if i > 0 {
 				prevArtist = &allArtists[i-1]
 			}

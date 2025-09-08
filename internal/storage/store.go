@@ -10,11 +10,12 @@ import (
 
 // Store represents an in-memory data store with thread-safe operations.
 type Store struct {
-	mu        sync.RWMutex
-	artists   map[int]models.Artist
-	locations map[int]models.Location
-	dates     map[int]models.Date
-	relations map[int]models.Relation
+	mu          sync.RWMutex
+	artists     map[int]models.Artist
+	artistSlugs map[string]int // slug -> artist ID mapping
+	locations   map[int]models.Location
+	dates       map[int]models.Date
+	relations   map[int]models.Relation
 }
 
 // StoreData represents a complete dataset for bulk loading.
@@ -28,10 +29,11 @@ type StoreData struct {
 // NewStore creates a new empty store.
 func NewStore() *Store {
 	return &Store{
-		artists:   make(map[int]models.Artist),
-		locations: make(map[int]models.Location),
-		dates:     make(map[int]models.Date),
-		relations: make(map[int]models.Relation),
+		artists:     make(map[int]models.Artist),
+		artistSlugs: make(map[string]int),
+		locations:   make(map[int]models.Location),
+		dates:       make(map[int]models.Date),
+		relations:   make(map[int]models.Relation),
 	}
 }
 
@@ -48,6 +50,19 @@ func (s *Store) GetArtist(id int) (models.Artist, bool) {
 	defer s.mu.RUnlock()
 	artist, exists := s.artists[id]
 	return artist, exists
+}
+
+// GetArtistBySlug retrieves an artist by slug.
+func (s *Store) GetArtistBySlug(slug string) (models.Artist, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	
+	if id, exists := s.artistSlugs[slug]; exists {
+		if artist, exists := s.artists[id]; exists {
+			return artist, true
+		}
+	}
+	return models.Artist{}, false
 }
 
 // GetAllArtists returns all artists in the store.
@@ -236,13 +251,23 @@ func (s *Store) LoadData(data StoreData) {
 
 	// Clear existing data
 	s.artists = make(map[int]models.Artist)
+	s.artistSlugs = make(map[string]int)
 	s.locations = make(map[int]models.Location)
 	s.dates = make(map[int]models.Date)
 	s.relations = make(map[int]models.Relation)
 
-	// Load new data
+	// Load new data and generate slugs
 	for _, artist := range data.Artists {
+		// Generate slug for the artist
+		artist.SetSlug()
+		
+		// Store artist
 		s.artists[artist.ID] = artist
+		
+		// Map slug to artist ID
+		if artist.Slug != "" {
+			s.artistSlugs[artist.Slug] = artist.ID
+		}
 	}
 
 	for _, location := range data.Locations {

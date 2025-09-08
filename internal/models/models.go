@@ -4,6 +4,8 @@ package models
 
 import (
 	"errors"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -15,6 +17,7 @@ type Artist struct {
 	Members      []string `json:"members"`
 	CreationYear int      `json:"creationDate"`
 	FirstAlbum   string   `json:"firstAlbum"`
+	Slug         string   `json:"slug,omitempty"`
 }
 
 // Location represents concert locations for an artist.
@@ -75,6 +78,43 @@ func (a *Artist) GetFirstAlbumDate() (time.Time, error) {
 	}
 
 	return parsedTime, nil
+}
+
+// GenerateSlug creates a URL-friendly slug from the artist name.
+func (a *Artist) GenerateSlug() string {
+	if a.Name == "" {
+		return ""
+	}
+
+	// Convert to lowercase
+	slug := strings.ToLower(a.Name)
+
+	// Replace spaces and special characters with hyphens
+	// Keep only alphanumeric characters and hyphens
+	reg := regexp.MustCompile(`[^a-z0-9]+`)
+	slug = reg.ReplaceAllString(slug, "-")
+
+	// Remove leading and trailing hyphens
+	slug = strings.Trim(slug, "-")
+
+	// Replace multiple consecutive hyphens with single hyphen
+	reg = regexp.MustCompile(`-+`)
+	slug = reg.ReplaceAllString(slug, "-")
+
+	return slug
+}
+
+// SetSlug generates and sets the slug for the artist.
+func (a *Artist) SetSlug() {
+	a.Slug = a.GenerateSlug()
+}
+
+// GetSlug returns the artist's slug, generating it if it doesn't exist.
+func (a *Artist) GetSlug() string {
+	if a.Slug == "" {
+		a.Slug = a.GenerateSlug()
+	}
+	return a.Slug
 }
 
 // Validate checks if the Location struct has valid data.
