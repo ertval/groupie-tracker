@@ -1,59 +1,93 @@
-{{template "base.tmpl" .}}
+<!DOCTYPE html>
+<html lang="en">
 
-{{define "home-content"}}
-<div class="page home">
-    <header class="page-header">
-        <h1>Welcome to Groupie Tracker</h1>
-        <p class="muted">Discover your favorite artists, their concert locations, and tour dates</p>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{{.Title}} - Groupie Tracker</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    {{if .ExtraCSS}}
+    <link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">
+    {{end}}
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="container">
+            <h1><a href="/">Groupie Tracker</a></h1>
+            <nav>
+                <a href="/">Home</a> •
+                <a href="/artists">Artists</a> •
+                <a href="/locations">Locations</a>
+            </nav>
+        </div>
     </header>
 
-    <main class="page-body">
-        <div class="search-section">
-            <label for="search-input">Search Artists</label>
-            <input type="text" id="search-input" placeholder="Search by artist name or member..." autocomplete="off">
-            <div id="search-suggestions" class="suggestions-dropdown" style="display: none;"></div>
-        </div>
+    <main class="container">
+        <div class="page home">
+            <header class="page-header">
+                <h1>Welcome to Groupie Tracker</h1>
+                <p class="muted">Discover your favorite artists, their concert locations, and tour dates</p>
+            </header>
 
-        <section class="stats-section">
-            <h2>Statistics</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>{{len .Artists}}</h3>
-                    <p>Total Artists</p>
+            <main class="page-body">
+                <div class="search-section">
+                    <label for="search-input">Search Artists</label>
+                    <input type="text" id="search-input" placeholder="Search by artist name or member..." autocomplete="off">
+                    <div id="search-suggestions" class="suggestions-dropdown" style="display: none;"></div>
                 </div>
-                <div class="stat-card">
-                    <h3>{{.TotalMembers}}</h3>
-                    <p>Total Members</p>
-                </div>
-                <div class="stat-card">
-                    <h3>{{.TotalLocations}}</h3>
-                    <p>Concert Locations</p>
-                </div>
-            </div>
-        </section>
 
-        <section class="featured-artists">
-            <h2>Featured Artists</h2>
-            <div class="artist-grid">
-                {{range $index, $artist := .Artists}}
-                {{if lt $index 6}}
-                <div class="artist-card">
-                    <a href="/artists/{{$artist.GetSlug}}">
-                        <img src="{{$artist.Image}}" alt="{{$artist.Name}}" class="artist-image">
-                        <div class="artist-info">
-                            <h3>{{$artist.Name}}</h3>
-                            <p>{{$artist.CreationYear}}</p>
-                            <p class="members-count">{{len $artist.Members}} members</p>
+                <section class="stats-section">
+                    <h2>Statistics</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>{{len .Artists}}</h3>
+                            <p>Total Artists</p>
                         </div>
-                    </a>
-                </div>
-                {{end}}
-                {{end}}
-            </div>
-            <div class="view-all">
-                <a href="/artists" class="btn btn-primary">View All Artists</a>
-            </div>
-        </section>
+                        <div class="stat-card">
+                            <h3>{{.TotalMembers}}</h3>
+                            <p>Total Members</p>
+                        </div>
+                        <div class="stat-card">
+                            <h3>{{.TotalLocations}}</h3>
+                            <p>Concert Locations</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="featured-artists">
+                    <h2>Featured Artists</h2>
+                    <div class="artist-grid">
+                        {{range $index, $artist := .Artists}}
+                        {{if lt $index 6}}
+                        <div class="artist-card">
+                            <a href="/artists/{{$artist.GetSlug}}">
+                                <img src="{{$artist.Image}}" alt="{{$artist.Name}}" class="artist-image">
+                                <div class="artist-info">
+                                    <h3>{{$artist.Name}}</h3>
+                                    <p>{{$artist.CreationYear}}</p>
+                                    <p class="members-count">{{len $artist.Members}} members</p>
+                                </div>
+                            </a>
+                        </div>
+                        {{end}}
+                        {{end}}
+                    </div>
+                    <div class="view-all">
+                        <a href="/artists" class="btn btn-primary">View All Artists</a>
+                    </div>
+                </section>
+            </main>
+        </div>
     </main>
-</div>
-{{end}}
+
+    <footer class="site-footer">
+        <div class="container">© 2024 Groupie Tracker</div>
+    </footer>
+
+    {{if .ExtraJS}}
+    <script src="/static/js/{{.ExtraJS}}"></script>
+    {{end}}
+</body>
+
+</html>

@@ -1,66 +1,100 @@
-{{template "base.tmpl" .}}
+<!DOCTYPE html>
+<html lang="en">
 
-{{define "artists-content"}}
-<div class="page artists">
-    <header class="page-header">
-        <h1>All Artists</h1>
-        <p class="muted">Browse through our collection of {{len .Artists}} artists</p>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{{.Title}} - Groupie Tracker</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    {{if .ExtraCSS}}
+    <link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">
+    {{end}}
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="container">
+            <h1><a href="/">Groupie Tracker</a></h1>
+            <nav>
+                <a href="/">Home</a> •
+                <a href="/artists">Artists</a> •
+                <a href="/locations">Locations</a>
+            </nav>
+        </div>
     </header>
 
-    <main class="page-body">
-        <div class="search-filters">
-            <div class="search-section">
-                <label for="artist-search">Search Artists</label>
-                <input type="text" id="artist-search" placeholder="Search by artist name or member..." autocomplete="off">
-                <div id="artist-suggestions" class="suggestions-dropdown" style="display: none;"></div>
-            </div>
-            
-            <div class="filter-section">
-                <label for="year-filter">Filter by Creation Year</label>
-                <select id="year-filter">
-                    <option value="">All Years</option>
-                    <option value="1960-1970">1960-1970</option>
-                    <option value="1970-1980">1970-1980</option>
-                    <option value="1980-1990">1980-1990</option>
-                    <option value="1990-2000">1990-2000</option>
-                    <option value="2000-2010">2000-2010</option>
-                    <option value="2010-2020">2010-2020</option>
-                </select>
-            </div>
-        </div>
+    <main class="container">
+        <div class="page artists">
+            <header class="page-header">
+                <h1>All Artists</h1>
+                <p class="muted">Browse through our collection of {{len .Artists}} artists</p>
+            </header>
 
-        <section class="artists-grid">
-            {{range .Artists}}
-            <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}">
-                <a href="/artists/{{.GetSlug}}">
-                    <div class="artist-image-container">
-                        <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
+            <main class="page-body">
+                <div class="search-filters">
+                    <div class="search-section">
+                        <label for="artist-search">Search Artists</label>
+                        <input type="text" id="artist-search" placeholder="Search by artist name or member..." autocomplete="off">
+                        <div id="artist-suggestions" class="suggestions-dropdown" style="display: none;"></div>
                     </div>
-                    <div class="artist-info">
-                        <h3>{{.Name}}</h3>
-                        <p class="creation-year">{{.CreationYear}}</p>
-                        <p class="first-album">First Album: {{.FirstAlbum}}</p>
-                        <p class="members-count">{{len .Members}} members</p>
-                        <div class="members-preview">
-                            {{range $index, $member := .Members}}
-                            {{if lt $index 3}}
-                            <span class="member">{{$member}}</span>
-                            {{end}}
-                            {{end}}
-                            {{if gt (len .Members) 3}}
-                            <span class="more-members">+{{sub (len .Members) 3}} more</span>
-                            {{end}}
-                        </div>
+                    
+                    <div class="filter-section">
+                        <label for="year-filter">Filter by Creation Year</label>
+                        <select id="year-filter">
+                            <option value="">All Years</option>
+                            <option value="1960-1970">1960-1970</option>
+                            <option value="1970-1980">1970-1980</option>
+                            <option value="1980-1990">1980-1990</option>
+                            <option value="1990-2000">1990-2000</option>
+                            <option value="2000-2010">2000-2010</option>
+                            <option value="2010-2020">2010-2020</option>
+                        </select>
                     </div>
-                </a>
-            </div>
-            {{end}}
-        </section>
+                </div>
 
-        <div id="no-results" class="no-results" style="display: none;">
-            <h3>No artists found</h3>
-            <p>Try adjusting your search criteria or filters.</p>
+                <section class="artists-grid">
+                    {{range .Artists}}
+                    <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}">
+                        <a href="/artists/{{.GetSlug}}">
+                            <div class="artist-image-container">
+                                <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
+                            </div>
+                            <div class="artist-info">
+                                <h3>{{.Name}}</h3>
+                                <p class="creation-year">{{.CreationYear}}</p>
+                                <p class="first-album">First Album: {{.FirstAlbum}}</p>
+                                <p class="members-count">{{len .Members}} members</p>
+                                <div class="members-preview">
+                                    {{range $index, $member := .Members}}
+                                    {{if lt $index 3}}
+                                    <span class="member">{{$member}}</span>
+                                    {{end}}
+                                    {{end}}
+                                    {{if gt (len .Members) 3}}
+                                    <span class="more-members">+{{sub (len .Members) 3}} more</span>
+                                    {{end}}
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                    {{end}}
+                </section>
+
+                <div id="no-results" class="no-results" style="display: none;">
+                    <h3>No artists found</h3>
+                    <p>Try adjusting your search criteria or filters.</p>
+                </div>
+            </main>
         </div>
     </main>
-</div>
-{{end}}
+
+    <footer class="site-footer">
+        <div class="container">© 2024 Groupie Tracker</div>
+    </footer>
+
+    {{if .ExtraJS}}
+    <script src="/static/js/{{.ExtraJS}}"></script>
+    {{end}}
+</body>
+
+</html>

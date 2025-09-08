@@ -153,9 +153,9 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Execute the base template which will include the home content
+	// Execute the home template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "home.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Home", fmt.Sprintf("Found %d artists", len(artists)))
@@ -200,9 +200,9 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Execute the base template which will include the artists content
+	// Execute the artists template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "artists.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Artists", fmt.Sprintf("Found %d artists", len(artists)))
@@ -288,9 +288,9 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Execute the base template which will include the artist detail content
+	// Execute the artist detail template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "artist_detail.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, artist.Name, fmt.Sprintf("Artist: %s (%d)", artist.Name, artist.CreationYear))
@@ -428,9 +428,9 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
 
-	// Execute the base template which will include the error content
+	// Execute the error template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Page Not Found", "The page you requested could not be found.")
@@ -465,9 +465,9 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusInternalServerError)
 
-	// Execute the base template which will include the error content
+	// Execute the error template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Internal Server Error", "Something went wrong on our end. Please try again later.")
@@ -509,9 +509,9 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Execute the base template which will include the locations content
+	// Execute the locations template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "locations.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Locations", fmt.Sprintf("Found %d locations", len(locations)))
