@@ -4,6 +4,7 @@ package storage
 import (
 	"context"
 	"log"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -217,7 +218,7 @@ func (s *BaseStore) GetArtist(id int) (models.Artist, bool) {
 }
 
 // GetArtistBySlug retrieves an artist by slug.
-func (s *Store) GetArtistBySlug(slug string) (models.Artist, bool) {
+func (s *BaseStore) GetArtistBySlug(slug string) (models.Artist, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -351,6 +352,7 @@ func (s *BaseStore) LoadData(data models.APIResponse) {
 
 	// Clear existing data
 	s.artists = make(map[int]models.Artist)
+	s.artistSlugs = make(map[string]int)
 	s.locations = make(map[int]models.Location)
 	s.dates = make(map[int]models.Date)
 	s.relations = make(map[int]models.Relation)
@@ -358,6 +360,9 @@ func (s *BaseStore) LoadData(data models.APIResponse) {
 	// Load new data
 	for _, artist := range data.Artists {
 		s.artists[artist.ID] = artist
+		// Generate slug from artist name
+		slug := generateSlug(artist.Name)
+		s.artistSlugs[slug] = artist.ID
 	}
 
 	for _, location := range data.Locations {
@@ -374,6 +379,28 @@ func (s *BaseStore) LoadData(data models.APIResponse) {
 
 	// Recompute derived data
 	s.computeDerivedData()
+}
+
+// generateSlug creates a URL-friendly slug from an artist name
+func generateSlug(name string) string {
+	// Convert to lowercase and replace spaces and special characters with hyphens
+	slug := strings.ToLower(name)
+	slug = strings.ReplaceAll(slug, " ", "-")
+	slug = strings.ReplaceAll(slug, "&", "and")
+
+	// Remove or replace other special characters
+	var result strings.Builder
+	for _, r := range slug {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			result.WriteRune(r)
+		}
+	}
+
+	// Clean up multiple consecutive hyphens and trim
+	cleaned := strings.ReplaceAll(result.String(), "--", "-")
+	cleaned = strings.Trim(cleaned, "-")
+
+	return cleaned
 }
 
 // GetStats returns statistics about the stored data.
