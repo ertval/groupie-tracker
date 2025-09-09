@@ -134,7 +134,7 @@ go mod tidy
 
 4. Run the application:
 ```bash
-go run cmd/server
+go run ./cmd/server
 ```
 
 5. Open your browser and navigate to `http://localhost:8080`
@@ -153,7 +153,7 @@ go test -cover ./...
 
 Build the application:
 ```bash
-go build -o groupie-tracker cmd/server
+go build -o groupie-tracker ./cmd/server
 ```
 
 ## 🌐 Application Features
