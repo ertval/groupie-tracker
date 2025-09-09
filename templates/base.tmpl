@@ -24,19 +24,7 @@
     </header>
 
     <main class="container">
-        {{if eq .Title "Home"}}
-            {{template "home-content" .}}
-        {{else if eq .Title "Artists"}}
-            {{template "artists-content" .}}
-        {{else if eq .Title "Locations"}}
-            {{template "locations-content" .}}
-        {{else if eq .Title "Page Not Found"}}
-            {{template "error-content" .}}
-        {{else if eq .Title "Internal Server Error"}}
-            {{template "error-content" .}}
-        {{else}}
-            {{template "artist-detail-content" .}}
-        {{end}}
+        {{template "content" .}}
     </main>
 
     <footer class="site-footer">

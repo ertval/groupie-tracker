@@ -58,54 +58,96 @@ groupie-tracker/
 └── docs/                      # Documentation
 ```
 
-## 🎨 Template System (✅ COMPLETED)
+## 🎨 Template System (✅ COMPLETED & REFACTORED - September 2025)
 
-The application uses a sophisticated Go HTML template system with inheritance and conditional rendering:
+The application uses a **self-contained Go HTML template system** that was completely refactored to resolve template conflicts and improve maintainability. **All template issues have been resolved** as of September 2025:
 
-### Template Architecture
-- **Master Layout**: `base.tmpl` provides the common HTML structure
-- **Conditional Content**: Base template conditionally includes content blocks based on page title
-- **Unique Content Blocks**: Each page has its own content block to prevent naming conflicts
+### Template Architecture (NEW - Self-Contained Structure)
+- **Self-Contained Templates**: Each template is a complete HTML document
+- **No Template Inheritance**: Eliminates circular reference issues and template conflicts
+- **Consistent Structure**: All templates follow the same HTML5 structure pattern
+- **Direct Execution**: Handlers execute specific templates directly without base template routing
 
 ### Template Files
 ```
 templates/
-├── base.tmpl           # Master layout with conditional content inclusion
-├── home.tmpl           # {{define "home-content"}} block
-├── artists.tmpl        # {{define "artists-content"}} block  
-├── artist_detail.tmpl  # {{define "artist-detail-content"}} block
-├── locations.tmpl      # {{define "locations-content"}} block
-└── error.tmpl          # {{define "error-content"}} block
+├── base.tmpl           # Legacy template (no longer used in execution)
+├── home.tmpl           # Complete HTML document for home page
+├── artists.tmpl        # Complete HTML document for artists listing
+├── artist_detail.tmpl  # Complete HTML document for artist details
+├── locations.tmpl      # Complete HTML document for locations page
+└── error.tmpl          # Complete HTML document for error pages
 ```
 
-### Template Inheritance Pattern
-Each page template follows this pattern:
-```go
-{{template "base.tmpl" .}}
-{{define "unique-content-name"}}
-<!-- Page-specific content here -->
-{{end}}
+### Self-Contained Template Pattern
+Each template is a complete HTML document:
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{{.Title}} - Groupie Tracker</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    {{if .ExtraCSS}}<link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">{{end}}
+</head>
+<body>
+    <header class="site-header">
+        <div class="container">
+            <h1><a href="/">Groupie Tracker</a></h1>
+            <nav>
+                <a href="/">Home</a> • <a href="/artists">Artists</a> • <a href="/locations">Locations</a>
+            </nav>
+        </div>
+    </header>
+    <main class="container">
+        <!-- Page-specific content here -->
+    </main>
+    <footer class="site-footer">
+        <div class="container">© 2024 Groupie Tracker</div>
+    </footer>
+    {{if .ExtraJS}}<script src="/static/js/{{.ExtraJS}}"></script>{{end}}
+</body>
+</html>
 ```
 
-The base template conditionally includes content:
+### Handler Template Execution
+Handlers execute specific templates directly:
 ```go
-{{if eq .Title "Home"}}
-    {{template "home-content" .}}
-{{else if eq .Title "Artists"}}
-    {{template "artists-content" .}}
-{{else if contains .Title "Artist"}}
-    {{template "artist-detail-content" .}}
-{{else if eq .Title "Locations"}}
-    {{template "locations-content" .}}
-{{else}}
-    {{template "error-content" .}}
-{{end}}
+// Direct template execution - no base template routing
+h.templates.ExecuteTemplate(w, "home.tmpl", data)
+h.templates.ExecuteTemplate(w, "artists.tmpl", data)
+h.templates.ExecuteTemplate(w, "artist_detail.tmpl", data)
+// etc.
 ```
 
 ### Custom Template Functions
-- `sub` - Subtraction: `{{sub .Total 1}}`
+- `sub` - Subtraction with safety checks: `{{sub .Total 1}}`
 - `add` - Addition: `{{add .Index 1}}`
-- `contains` - String matching: `{{contains .Title "Artist"}}`
+- `contains` - Case-insensitive string matching: `{{contains .Title "Artist"}}`
+- `safeLen` - Safe length calculation for arrays/slices: `{{safeLen .Artists}}`
+
+### Template Refactoring & Fixes (September 2025)
+
+**Major Refactoring Completed:**
+1. **Architecture Change** - Converted from problematic `{{define "content"}}` inheritance to self-contained templates
+2. **Eliminated Template Conflicts** - Removed circular references that caused template execution errors
+3. **Improved Maintainability** - Each template is now independent and easier to modify
+4. **Enhanced Performance** - Direct template execution without conditional routing logic
+5. **Consistent Navigation** - All templates include identical header/footer structure
+
+**Issues Resolved:**
+- **Template Execution Conflicts**: Eliminated `{{define "content"}}` blocks that interfered with each other
+- **Circular References**: Removed `{{template "base.tmpl" .}}` calls that caused parsing issues
+- **White Page Errors**: Fixed template loading issues that caused fallback to placeholder HTML
+- **Server Directory Issues**: Ensured server runs from project root to find templates correctly
+
+**Benefits of New Architecture:**
+- **No Template Conflicts**: Each template is completely independent
+- **Easier Debugging**: Template errors are isolated to specific files
+- **Better Performance**: No conditional logic in template execution
+- **Consistent Styling**: All pages have identical header, navigation, and footer
+- **Maintainable Code**: Changes to one template don't affect others
 
 ## 🚀 Quick Start
 
@@ -186,6 +228,18 @@ go build -o groupie-tracker ./cmd/server
 - **Auto-suggestions**: Smart suggestions based on artist names and members
 - **Responsive UI**: Instant visual updates without page reloads
 
+### 🔗 SEO-Friendly URL Slugs (✅ NEW - September 2025)
+- **Clean URLs**: Artist pages now use descriptive slugs instead of numeric IDs
+- **Backward Compatibility**: Old ID-based URLs continue to work seamlessly
+- **Examples**:
+  - New: `http://localhost:8080/artists/queen` 
+  - Old: `http://localhost:8080/artists/28` (still works)
+  - New: `http://localhost:8080/artists/red-hot-chili-peppers`
+  - Old: `http://localhost:8080/artists/15` (still works)
+- **Automatic Generation**: Slugs are generated automatically from artist names
+- **Special Character Handling**: Converts spaces, punctuation to URL-friendly hyphens
+- **Template Integration**: All artist links throughout the application use new slug format
+
 ## 🧪 Testing
 
 The project follows Test-Driven Development (TDD) principles:
@@ -209,7 +263,8 @@ The application is tested against specific data points from the audit:
 ### Web Routes
 - `GET /` - Home page with search functionality and statistics
 - `GET /artists` - Artists listing page with search and filters
-- `GET /artists/{id}` - Individual artist detail page with concert info
+- `GET /artists/{id}` - Individual artist detail page with concert info (backward compatibility)
+- `GET /artists/{slug}` - Individual artist detail page with SEO-friendly slug (NEW)
 - `GET /locations` - Concert locations page with statistics
 
 ### API Routes

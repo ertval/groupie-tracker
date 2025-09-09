@@ -69,16 +69,37 @@ func (h *Handlers) loadTemplates() {
 		"templates/error.tmpl",
 	}
 
-	// Define custom template functions
+	// Define custom template functions with error handling
 	funcMap := template.FuncMap{
 		"sub": func(a, b int) int {
+			if a < b {
+				return 0 // Prevent negative results that might cause issues
+			}
 			return a - b
 		},
 		"add": func(a, b int) int {
 			return a + b
 		},
 		"contains": func(s, substr string) bool {
-			return strings.Contains(s, substr)
+			if s == "" || substr == "" {
+				return false
+			}
+			return strings.Contains(strings.ToLower(s), strings.ToLower(substr))
+		},
+		"safeLen": func(slice interface{}) int {
+			if slice == nil {
+				return 0
+			}
+			switch v := slice.(type) {
+			case []models.Artist:
+				return len(v)
+			case []string:
+				return len(v)
+			case map[string][]string:
+				return len(v)
+			default:
+				return 0
+			}
 		},
 	}
 
@@ -132,9 +153,9 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Execute the base template which will include the home content
+	// Execute the home template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "home.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Home", fmt.Sprintf("Found %d artists", len(artists)))
@@ -179,9 +200,9 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Execute the base template which will include the artists content
+	// Execute the artists template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "artists.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Artists", fmt.Sprintf("Found %d artists", len(artists)))
@@ -198,27 +219,31 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Extract artist ID from URL path
+	// Extract artist identifier from URL path
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
 		http.Redirect(w, r, "/artists", http.StatusSeeOther)
 		return
 	}
 
-	id, err := strconv.Atoi(path)
-	if err != nil {
-		http.Error(w, "Invalid artist ID", http.StatusBadRequest)
-		return
+	var artist models.Artist
+	var exists bool
+
+	// Try to parse as ID first (for backward compatibility)
+	if id, err := strconv.Atoi(path); err == nil {
+		artist, exists = h.store.GetArtist(id)
+	} else {
+		// If not a number, treat as slug
+		artist, exists = h.store.GetArtistBySlug(path)
 	}
 
-	artist, exists := h.store.GetArtist(id)
 	if !exists {
 		h.NotFoundHandler(w, r)
 		return
 	}
 
 	// Get relations data for this artist
-	relations, _ := h.store.GetRelation(id)
+	relations, _ := h.store.GetRelation(artist.ID)
 
 	// Calculate total concerts
 	totalConcerts := 0
@@ -230,7 +255,7 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	allArtists := h.store.GetAllArtists()
 	var prevArtist, nextArtist *models.Artist
 	for i, a := range allArtists {
-		if a.ID == id {
+		if a.ID == artist.ID {
 			if i > 0 {
 				prevArtist = &allArtists[i-1]
 			}
@@ -263,9 +288,9 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Execute the base template which will include the artist detail content
+	// Execute the artist detail template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "artist_detail.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, artist.Name, fmt.Sprintf("Artist: %s (%d)", artist.Name, artist.CreationYear))
@@ -403,9 +428,9 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
 
-	// Execute the base template which will include the error content
+	// Execute the error template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Page Not Found", "The page you requested could not be found.")
@@ -440,9 +465,9 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusInternalServerError)
 
-	// Execute the base template which will include the error content
+	// Execute the error template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Internal Server Error", "Something went wrong on our end. Please try again later.")
@@ -484,9 +509,9 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	// Execute the base template which will include the locations content
+	// Execute the locations template which will include the base template
 	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "base.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "locations.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			// Fallback to simple HTML
 			h.writeSimpleHTML(w, "Locations", fmt.Sprintf("Found %d locations", len(locations)))
