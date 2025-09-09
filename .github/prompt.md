@@ -22,3 +22,8 @@ Lets follow **test driven development** principles to implement the project as r
  - Write comprehensive tests for the refactored code, covering all the main functionalities and edge cases. Make sure the tests are easy to read and understand, and provide good coverage of the codebase. Update existing tests as needed to reflect the changes made during the refactoring process.
  - Update the readme file to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
  ### Make sure the project is well organized and structured, with clear separation of concerns and responsibilities. Use appropriate naming conventions and file structures to make it easy to navigate and understand the codebase.
+
+# Clean UP
+- Remove older versions of the files that you changed in the last refactoring. Keep only the simplified versions.
+- Reaname everything to remove the "Simplified" prefix, so that the new files have the proper shorter names.
+- 

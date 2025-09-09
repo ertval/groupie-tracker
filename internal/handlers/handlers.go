@@ -8,6 +8,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -500,7 +501,7 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 		Title:          "Locations",
 		Locations:      locations,
 		LocationStats:  locationStats,
-		TopLocations:   locationStats, // Same data, template will limit to top 10
+		TopLocations:   sortLocationStatsByConcertCount(locationStats), // Sort by concert count
 		TotalCountries: h.calculateTotalCountries(locationStats),
 		TotalConcerts:  h.calculateTotalConcerts(),
 		ExtraCSS:       "locations.css",
@@ -621,6 +622,19 @@ func (h *Handlers) calculateLocationStats() []LocationStat {
 	}
 
 	return locationStats
+}
+
+// sortLocationStatsByConcertCount sorts location statistics by concert count in descending order
+func sortLocationStatsByConcertCount(stats []LocationStat) []LocationStat {
+	// Create a copy to avoid modifying the original slice
+	sorted := make([]LocationStat, len(stats))
+	copy(sorted, stats)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].ConcertCount > sorted[j].ConcertCount
+	})
+
+	return sorted
 }
 
 // calculateTotalCountries calculates the total number of unique countries

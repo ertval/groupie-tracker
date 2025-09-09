@@ -14,6 +14,7 @@ import (
 
 	"groupie-tracker/internal/api"
 	"groupie-tracker/internal/handlers"
+	"groupie-tracker/internal/service"
 	"groupie-tracker/internal/storage"
 )
 
@@ -38,9 +39,10 @@ const (
 
 // Server represents the HTTP server with all its dependencies.
 type Server struct {
-	store     *storage.Store
+	store     *storage.SimplifiedStore
+	service   *service.SimplifiedService
 	apiClient *api.Client
-	handlers  *handlers.Handlers
+	handlers  *handlers.SimplifiedHandlers
 	server    *http.Server
 	ctx       context.Context
 	cancel    context.CancelFunc
@@ -51,39 +53,38 @@ func NewServer() (*Server, error) {
 	// Initialize API client
 	apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
 
-	// Initialize store with cache
-	store := storage.NewStoreWithCache(apiClient)
+	// Initialize simplified store
+	store := storage.NewSimplifiedStore()
 
-	// Create context for cache management
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// Start cache for periodic updates
-	store.StartCache(ctx)
-
-	// Wait for initial data load with timeout
-	log.Println(colorCyan + "⏳ Waiting for initial data load..." + colorReset)
-	loadCtx, loadCancel := context.WithTimeout(ctx, 10*time.Second)
+	// Load initial data using API client
+	log.Println(colorCyan + "⏳ Loading initial data..." + colorReset)
+	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	// Wait for data to be loaded
-	if err := waitForDataLoad(store, loadCtx); err != nil {
-		cancel()
-		return nil, err
+	data, err := apiClient.FetchAllData(loadCtx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch initial data: %w", err)
 	}
 
+	// Load data into store
+	store.LoadData(*data)
+
 	// Check if data was loaded
-	stats := store.GetStats()
-	if stats["artists"] == 0 {
-		cancel()
+	artists := store.GetAllArtists()
+	if len(artists) == 0 {
 		return nil, fmt.Errorf("failed to load initial data from API")
 	}
 
-	log.Printf(colorCyan+"✅ Cache started successfully - loaded %d artists, %d locations, %d dates, %d relations"+colorReset,
-		stats["artists"], stats["locations"], stats["dates"], stats["relations"])
+	log.Printf(colorCyan+"✅ Data loaded successfully - %d artists"+colorReset, len(artists))
 
-	// Initialize handlers
-	h := handlers.NewHandlers(store)
-	h.SetAPIClient(apiClient)
+	// Initialize simplified service
+	service := service.NewSimplifiedService(store)
+
+	// Initialize simplified handlers
+	h := handlers.NewSimplifiedHandlers(store, apiClient)
+
+	// Create context for future extensions
+	ctx, cancel := context.WithCancel(context.Background())
 
 	// Create router
 	mux := createRouter(h)
@@ -100,6 +101,7 @@ func NewServer() (*Server, error) {
 
 	return &Server{
 		store:     store,
+		service:   service,
 		apiClient: apiClient,
 		handlers:  h,
 		server:    server,
@@ -150,8 +152,7 @@ func (s *Server) Start() error {
 	log.Println(colorYellow + "🛑 Server is shutting down..." + colorReset)
 
 	// Stop the cache first
-	log.Println(colorYellow + "🛑 Stopping cache..." + colorReset)
-	s.store.StopCache()
+	log.Println(colorYellow + "🛑 Shutting down..." + colorReset)
 	s.cancel() // Cancel the context
 
 	// Create a deadline to wait for
@@ -168,7 +169,7 @@ func (s *Server) Start() error {
 }
 
 // createRouter sets up all routes and middleware.
-func createRouter(h *handlers.Handlers) *http.ServeMux {
+func createRouter(h *handlers.SimplifiedHandlers) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Static file serving
@@ -212,7 +213,7 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 
 // wrapWithMiddleware wraps the entire mux with middleware.
 // It accepts handlers so the recovery middleware can render errors via InternalErrorHandler.
-func wrapWithMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeMux {
+func wrapWithMiddleware(handler http.Handler, h *handlers.SimplifiedHandlers) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Wrap all requests with middleware
@@ -226,7 +227,7 @@ func wrapWithMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeM
 }
 
 // recoveryMiddlewareWithHandler recovers from panics using custom error handler.
-func recoveryMiddlewareWithHandler(next http.Handler, h *handlers.Handlers) http.Handler {
+func recoveryMiddlewareWithHandler(next http.Handler, h *handlers.SimplifiedHandlers) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
