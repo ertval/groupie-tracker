@@ -1,53 +1,77 @@
 # Groupie Tracker - AI Coding Agent Instructions
 
 ## Project Overview
-This is a Zone01 educational project implementing a Go web application that consumes the Groupie Trackers API to display band/artist information with client-server interactions. The project follows strict TDD principles and Zone01 coding standards.
+Zone01 educational project implementing a Go web application that consumes the Groupie Trackers API to display band/artist information with client-server interactions. The project follows strict TDD principles and Zone01 coding standards.
 
-## Key Architecture Patterns
+## Key Constraints & Commands
 
-### Standard Library Only
-- **CRITICAL**: Only Go standard library packages are allowed - no external dependencies
-- Use `net/http` for server, `html/template` for templating, `encoding/json` for API calls
-- All middleware, routing, and utilities are hand-crafted
+**Critical Constraints:**
+- Standard-library-only Go project — NEVER add third-party modules
+- Follow Test-Driven Development: write `*_test.go` before implementation
+- Server must never crash — implement panic recovery in all handlers
 
-### Project Structure Convention
+**Quick Commands:**
+```bash
+go run ./cmd/server/          # Start server (PORT=8080)
+go test ./...                 # Run all tests
+go test -cover ./...         # Coverage report
+go build -o groupie-tracker ./cmd/server
 ```
-cmd/server/main.go          # Entry point with graceful shutdown
+
+## Current Architecture (As of Sept 2025)
+
+### Project Structure
+```
+cmd/server/main.go           # Entry point with graceful shutdown
 internal/
   ├── api/client.go         # External API consumption
-  ├── handlers/handlers.go  # HTTP request handlers  
+  ├── handlers/handlers.go  # HTTP handlers (650+ lines)
   ├── models/models.go      # Core data structures
-  ├── storage/store.go      # Thread-safe in-memory storage
-  └── search/               # Search functionality (if implemented)
-templates/                  # HTML templates with base.html pattern
-static/                     # CSS/JS assets with specific naming
-tests/audit_test.go         # Zone01 audit compliance tests
+  ├── storage/
+  │   ├── store.go         # Unified store (wrapper)
+  │   └── base_store.go    # BaseStore + automatic cache (400+ lines)
+  └── service/service.go   # Business logic layer (200+ lines)
+templates/                  # Self-contained HTML templates (NO inheritance)
+static/css/                 # Page-specific stylesheets
+tests/                     # Audit compliance & E2E tests
 ```
 
-### Data Flow Architecture
-1. **API Client** (`internal/api`) fetches from `https://groupietrackers.herokuapp.com/api`
-2. **Store** (`internal/storage`) provides thread-safe in-memory cache with `sync.RWMutex`
-3. **Handlers** (`internal/handlers`) serve both HTML pages and JSON APIs
-4. **Templates** use Go's `html/template` with inheritance pattern (`base.html`)
+### **Critical Architecture Issue** 🚨
+The current storage/service layer is **over-complicated** with multiple abstractions:
+- `Store` wraps `BaseStore` and `Service`
+- Complex interface hierarchies (`DataReader`, `APIClient`)
+- Duplicated functionality between storage and service layers
+- **NEEDS REFACTORING** to single store + single service pattern
 
-## Critical Development Guidelines
+### Template System (Recently Fixed - Sept 2025)
+**Self-Contained Templates** (NO template inheritance):
+- Each `.tmpl` file is a complete HTML document
+- No `{{define "content"}}` blocks or `{{template "base.tmpl" .}}`
+- Direct execution: `h.templates.ExecuteTemplate(w, "locations.tmpl", data)`
+- Template functions: `add`, `sub`, `contains`, `safeLen`
 
-### Test-Driven Development (Required)
-- **Always write tests first** - this is a Zone01 requirement
-- Test files must be `*_test.go` in same package as implementation
-- Use specific test data: Queen (7 members), Gorillaz (first album: 26-03-2001), Travis Scott, Foo Fighters
-- Integration tests in `tests/audit_test.go` validate against real API data
+## Critical Data Flow Patterns
 
-### Client-Server Events (Core Requirement)
-The project MUST implement interactive events between client and server:
-- **Search API**: `GET /api/search?q=query` for live search
-- **Suggestions**: `GET /api/suggest?q=query` for autocomplete  
-- **Data Refresh**: `POST /api/refresh` to reload from external API
-- Frontend JavaScript with debouncing (300ms) and keyboard navigation
-
-### Error Handling Patterns
+### Storage Threading
 ```go
-// Graceful degradation - server must never crash
+// Read operations
+s.mu.RLock()
+defer s.mu.RUnlock()
+data := s.artists[id]
+
+// Write operations  
+s.mu.Lock()
+defer s.mu.Unlock()
+s.artists[id] = artist
+```
+
+### API Data Normalization (in `internal/api/client.go`)
+- `/api/artists` → direct array
+- `/api/locations`, `/api/dates`, `/api/relation` → `{"index": [...]}` format
+- Must extract `.Index` field for locations/dates/relations
+
+### Handler Panic Recovery Pattern
+```go
 func (h *Handlers) SomeHandler(w http.ResponseWriter, r *http.Request) {
     defer func() {
         if err := recover(); err != nil {
@@ -59,55 +83,63 @@ func (h *Handlers) SomeHandler(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-### Template System
-## Copilot: quick onboarding for this repo
+## Known Issues & Immediate Tasks
 
-Purpose: give AI agents the minimal, actionable knowledge needed to be productive in this Go web app.
+### 🐛 Active Bug: Popular Locations Not Sorted
+**Issue:** `templates/locations.tmpl` shows "Most Popular Locations" in arbitrary order
+**Location:** `internal/handlers/handlers.go:calculateLocationStats()`
+**Fix Required:** Sort locations by `ConcertCount` descending before returning
 
-Key constraints
-- Standard-library-only Go project — do not add third-party modules.
-- Follow Test-Driven Development: write `*_test.go` in the same package before implementation.
+### 🔄 Refactoring Required
+**Current Problem:** Over-engineered storage/service layers
+**Goal:** Simplify to single store struct + single service struct
+**Files to Refactor:**
+- `internal/storage/store.go` (remove wrapper)
+- `internal/storage/base_store.go` (rename to `store.go`)
+- `internal/service/service.go` (simplify interfaces)
 
-Quick commands
-- Run server: `go run ./cmd/server/` (defaults to PORT=8080)
-- Run tests: `go test ./...`
-- Coverage: `go test -cover ./...`
-- Build: `go build -o groupie-tracker ./cmd/server`
+## Zone01 Audit Requirements (Test Against These)
 
-High-level architecture (read these files first)
-- Entry: `cmd/server/main.go`
-- External API client: `internal/api/client.go` (handles inconsistent JSON shapes)
-- Storage/cache: `internal/storage/store.go` (uses `sync.RWMutex`, must be thread-safe)
-- HTTP handlers & templates: `internal/handlers/handlers.go`, `templates/` (base template + page blocks)
-- Models: `internal/models/models.go`
-- Tests & audits: `tests/` and `internal/*_test.go`
+**Critical Data Points:**
+- Queen: exactly 7 members
+- Gorillaz: first album date "26-03-2001"
+- Travis Scott: 10+ concert locations
+- Foo Fighters: exactly 6 members
 
-Important patterns and examples
-- Data flow: API client -> in-memory store (lock/unlock) -> handlers -> templates/JSON handlers.
-- Storage pattern: use `s.mu.RLock()`/`defer s.mu.RUnlock()` for reads and `s.mu.Lock()`/`defer s.mu.Unlock()` for writes.
-- Template pattern: `templates/base.tmpl` selects page blocks by `.Title` (e.g. Title == "Artists" -> `artists-content`).
-- Template funcs: `add`, `sub`, `contains` are used in templates; preserve their behavior when refactoring.
-
-API quirks to handle (explicit)
-- `/api/artists` returns a direct array.
-- `/api/locations`, `/api/dates`, `/api/relation` return objects like `{"index": [...]}` — normalize in `internal/api/client.go`.
-
-Core endpoints the agent may need to implement or test
+**Required Endpoints:**
 - `GET /api/search?q=` (full search)
 - `GET /api/suggest?q=` (autocomplete)
 - `POST /api/refresh` (refresh cached data)
 
-Zone01 audit checks (must be satisfied by tests)
-- Queen must have 7 members.
-- Gorillaz first album date == "26-03-2001".
-- Travis Scott should show 10+ concert locations.
-- Foo Fighters should show 6 members.
+## Current Status (Sept 2025)
 
-Developer notes for PRs
-- Always include tests that reproduce the audit condition you are fixing.
-- Preserve existing public function signatures where possible.
-- Update `todo.md` and `doc/` when behavior or API shapes change.
+**✅ Completed:**
+- Self-contained template system (no inheritance conflicts)
+- SEO-friendly URL slugs (/artists/queen vs /artists/28)
+- 46 comprehensive tests with 100% pass rate
+- Thread-safe storage with automatic cache refresh
+- Client-server interactive events
 
-If something is ambiguous, open `internal/api/client.go`, `internal/storage/store.go`, and `internal/handlers/handlers.go` — they contain the project-specific behaviors an agent must follow.
+**🔧 Needs Immediate Attention:**
+1. Fix popular locations sorting bug
+2. Refactor storage/service complexity
+3. Update tests for refactored code
+4. Update documentation
 
-Please review this file and tell me which parts you'd like expanded (template loading, example tests, or common refactor-safe patterns).
+## Development Workflow
+
+1. **Always write tests first** (Zone01 requirement)
+2. **Start with the bug fix** (popular locations)
+3. **Then refactor** storage/service layers
+4. **Update tests** to match new architecture
+5. **Update documentation** (README.md, todo.md)
+
+**File Reading Priority:**
+1. `internal/handlers/handlers.go` (lines 480-632 for locations bug)
+2. `internal/storage/store.go` (wrapper complexity)
+3. `internal/service/service.go` (business logic patterns)
+
+**Testing Strategy:**
+- Preserve existing test data (Queen, Gorillaz, etc.)
+- Test refactored code maintains same public APIs
+- Ensure no regression in audit compliance
