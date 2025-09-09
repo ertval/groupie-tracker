@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -15,7 +16,7 @@ import (
 func TestServer_Routes(t *testing.T) {
 	// Setup test store with data
 	store := storage.NewStore()
-	testData := storage.StoreData{
+	testData := models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},
@@ -69,8 +70,10 @@ func TestServer_Middleware(t *testing.T) {
 		panic("test panic")
 	})
 
-	// Wrap with recovery middleware
-	handler := recoveryMiddleware(panicHandler)
+	// Wrap with recovery middleware (use handler-aware variant)
+	store := storage.NewStore()
+	h := handlers.NewHandlers(store)
+	handler := recoveryMiddlewareWithHandler(panicHandler, h)
 
 	req, err := http.NewRequest("GET", "/panic", nil)
 	if err != nil {
@@ -86,7 +89,7 @@ func TestServer_Middleware(t *testing.T) {
 	}
 }
 
-func TestLoadDataFromAPI_Success(t *testing.T) {
+func TestCacheDataLoad_Success(t *testing.T) {
 	// Mock API server
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
@@ -108,13 +111,21 @@ func TestLoadDataFromAPI_Success(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	store := storage.NewStore()
 	client := api.NewClient(mockServer.URL, 5*time.Second)
 
-	err := loadDataFromAPI(store, client)
-	if err != nil {
-		t.Fatalf("loadDataFromAPI failed: %v", err)
-	}
+	// Create adapter for storage interface
+	adapter := client
+
+	// Initialize store with cache
+	store := storage.NewStoreWithCache(adapter)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Start cache for initial data load
+	store.StartCache(ctx)
+	time.Sleep(100 * time.Millisecond) // Wait for initial load
+	store.StopCache()
 
 	// Verify data was loaded
 	artists := store.GetAllArtists()
@@ -127,14 +138,28 @@ func TestLoadDataFromAPI_Success(t *testing.T) {
 	}
 }
 
-func TestLoadDataFromAPI_Error(t *testing.T) {
+func TestCacheDataLoad_Error(t *testing.T) {
 	// Test with non-existent server
-	store := storage.NewStore()
 	client := api.NewClient("http://localhost:99999", 1*time.Second)
 
-	err := loadDataFromAPI(store, client)
-	if err == nil {
-		t.Error("Expected error when API is unreachable, got nil")
+	// Create adapter for storage interface
+	adapter := client
+
+	// Initialize store with cache
+	store := storage.NewStoreWithCache(adapter)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Try to start cache with unreachable API - should not panic
+	store.StartCache(ctx)
+	time.Sleep(100 * time.Millisecond)
+	store.StopCache()
+
+	// Verify no data was loaded due to API failure
+	stats := store.GetStats()
+	if stats["artists"] > 0 {
+		t.Error("Expected no artists to be loaded when API is unreachable")
 	}
 }
 

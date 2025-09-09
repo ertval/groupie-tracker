@@ -519,14 +519,8 @@ func (h *Handlers) RefreshHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update store with new data
-	storeData := storage.StoreData{
-		Artists:   data.Artists,
-		Locations: data.Locations,
-		Dates:     data.Dates,
-		Relations: data.Relations,
-	}
-	h.store.LoadData(storeData)
+	// Update store with new data (APIResponse)
+	h.store.LoadData(*data)
 
 	// Return success response
 	response := struct {

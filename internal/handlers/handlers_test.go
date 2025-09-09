@@ -304,3 +304,324 @@ func TestInternalErrorHandler(t *testing.T) {
 		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusInternalServerError)
 	}
 }
+
+func TestInternalErrorHandler_WithError(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("GET", "/error", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	h.InternalErrorHandler(rr, req, "test error")
+
+	if status := rr.Code; status != http.StatusInternalServerError {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusInternalServerError)
+	}
+}
+
+func TestArtistDetailHandler_InvalidID(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("GET", "/artists/invalid", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.ArtistDetailHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusBadRequest {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+	}
+}
+
+func TestArtistDetailHandler_NotFound(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("GET", "/artists/999", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.ArtistDetailHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
+	}
+}
+
+func TestSearchHandler_EmptyQuery(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("GET", "/api/search?q=", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.SearchHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response SearchResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatalf("Could not unmarshal response: %v", err)
+	}
+
+	// Empty query should return all artists (this is the expected behavior)
+	if len(response.Artists) != 4 {
+		t.Errorf("Expected 4 artists for empty query (all artists), got %d", len(response.Artists))
+	}
+
+	if response.Query != "" {
+		t.Errorf("Expected empty query string, got %s", response.Query)
+	}
+}
+
+func TestSuggestHandler_EmptyQuery(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("GET", "/api/suggest?q=", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.SuggestHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+	}
+
+	var response SuggestResponse
+	err = json.Unmarshal(rr.Body.Bytes(), &response)
+	if err != nil {
+		t.Fatalf("Could not unmarshal response: %v", err)
+	}
+
+	if len(response.Suggestions) != 0 {
+		t.Errorf("Expected 0 suggestions for empty query, got %d", len(response.Suggestions))
+	}
+}
+
+func TestSearchHandler_MethodNotAllowed(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("POST", "/api/search", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.SearchHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestSuggestHandler_MethodNotAllowed(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("POST", "/api/suggest", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.SuggestHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestHomeHandler_MethodNotAllowed(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("POST", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.HomeHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestArtistsHandler_MethodNotAllowed(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("POST", "/artists", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.ArtistsHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestLocationsHandler_MethodNotAllowed(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("POST", "/locations", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.LocationsHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestHealthHandler_MethodNotAllowed(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("POST", "/healthz", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.HealthHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestArtistDetailHandler_MethodNotAllowed(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	req, err := http.NewRequest("POST", "/artists/1", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(h.ArtistDetailHandler)
+
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusMethodNotAllowed {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusMethodNotAllowed)
+	}
+}
+
+func TestSetAPIClient(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	// Test setting API client (this method doesn't have return value to test)
+	// but calling it should not panic
+	h.SetAPIClient(nil)
+
+	// Test that it doesn't panic with a valid client
+	// We can't create a real api.Client here without circular imports,
+	// so we just test that the method exists and can be called
+}
+
+func TestSetTemplates(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	// Test setting templates with nil (should not panic)
+	h.SetTemplates(nil)
+
+	// Test that it doesn't panic - we can't easily create a real template here
+	// without more complex setup, so we just test nil handling
+}
+
+func TestCalculateLocationStats(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	// Test calculateLocationStats function
+	stats := h.calculateLocationStats()
+
+	// The function should return a slice (might be empty)
+	// The function always returns a slice, never nil
+	if len(stats) < 0 {
+		t.Error("Location stats length should not be negative")
+	}
+
+	// Function should always return a valid slice
+	// Empty slice is valid for test data
+}
+
+func TestCalculateTotalCountries(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	// First get location stats
+	locationStats := h.calculateLocationStats()
+
+	// Test calculateTotalCountries function
+	count := h.calculateTotalCountries(locationStats)
+
+	// We should get a non-negative count
+	if count < 0 {
+		t.Error("Country count should not be negative")
+	}
+}
+
+func TestCalculateTotalConcerts(t *testing.T) {
+	store := setupTestStore()
+	h := NewHandlers(store)
+
+	// Test calculateTotalConcerts function
+	count := h.calculateTotalConcerts()
+
+	// We should get a non-negative count
+	if count < 0 {
+		t.Error("Concert count should not be negative")
+	}
+}

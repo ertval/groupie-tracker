@@ -144,17 +144,9 @@ func (c *Client) FetchRelations(ctx context.Context) ([]models.Relation, error) 
 	return response.Index, nil
 }
 
-// AllData represents the complete dataset from the API.
-type AllData struct {
-	Artists   []models.Artist
-	Locations []models.Location
-	Dates     []models.Date
-	Relations []models.Relation
-}
-
 // FetchAllData retrieves all data from the API endpoints.
-func (c *Client) FetchAllData(ctx context.Context) (*AllData, error) {
-	data := &AllData{}
+func (c *Client) FetchAllData(ctx context.Context) (*models.APIResponse, error) {
+	data := &models.APIResponse{}
 
 	// Fetch artists
 	artists, err := c.FetchArtists(ctx)

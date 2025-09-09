@@ -42,22 +42,44 @@ type Server struct {
 	apiClient *api.Client
 	handlers  *handlers.Handlers
 	server    *http.Server
+	ctx       context.Context
+	cancel    context.CancelFunc
 }
 
 // NewServer creates and configures a new server instance.
 func NewServer() (*Server, error) {
-	// Initialize store
-	store := storage.NewStore()
-
 	// Initialize API client
 	apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
 
-	// Load data from API
-	log.Println(colorCyan + "🔄 Loading data from API..." + colorReset)
-	if err := loadDataFromAPI(store, apiClient); err != nil {
-		return nil, fmt.Errorf("failed to load data from API: %w", err)
+	// Initialize store with cache
+	store := storage.NewStoreWithCache(apiClient)
+
+	// Create context for cache management
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// Start cache for periodic updates
+	store.StartCache(ctx)
+
+	// Wait for initial data load with timeout
+	log.Println(colorCyan + "⏳ Waiting for initial data load..." + colorReset)
+	loadCtx, loadCancel := context.WithTimeout(ctx, 10*time.Second)
+	defer loadCancel()
+
+	// Wait for data to be loaded
+	if err := waitForDataLoad(store, loadCtx); err != nil {
+		cancel()
+		return nil, err
 	}
-	log.Println(colorGreen + "✅ Data loaded successfully" + colorReset)
+
+	// Check if data was loaded
+	stats := store.GetStats()
+	if stats["artists"] == 0 {
+		cancel()
+		return nil, fmt.Errorf("failed to load initial data from API")
+	}
+
+	log.Printf(colorCyan+"✅ Cache started successfully - loaded %d artists, %d locations, %d dates, %d relations"+colorReset,
+		stats["artists"], stats["locations"], stats["dates"], stats["relations"])
 
 	// Initialize handlers
 	h := handlers.NewHandlers(store)
@@ -81,7 +103,25 @@ func NewServer() (*Server, error) {
 		apiClient: apiClient,
 		handlers:  h,
 		server:    server,
+		ctx:       ctx,
+		cancel:    cancel,
 	}, nil
+}
+
+// waitForDataLoad waits for the store to load initial data
+func waitForDataLoad(store *storage.Store, ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("timeout waiting for initial data load from API")
+		default:
+			stats := store.GetStats()
+			if stats["artists"] > 0 {
+				return nil
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
 }
 
 // Start starts the server and handles graceful shutdown.
@@ -108,6 +148,11 @@ func (s *Server) Start() error {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 	log.Println(colorYellow + "🛑 Server is shutting down..." + colorReset)
+
+	// Stop the cache first
+	log.Println(colorYellow + "🛑 Stopping cache..." + colorReset)
+	s.store.StopCache()
+	s.cancel() // Cancel the context
 
 	// Create a deadline to wait for
 	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
@@ -161,35 +206,23 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	// Health check
 	mux.HandleFunc("/healthz", h.HealthHandler)
 
-	// Wrap with middleware
-	return wrapWithMiddleware(mux)
+	// Wrap with middleware (pass handlers so recovery can use InternalErrorHandler)
+	return wrapWithMiddleware(mux, h)
 }
 
 // wrapWithMiddleware wraps the entire mux with middleware.
-func wrapWithMiddleware(handler http.Handler) *http.ServeMux {
+// It accepts handlers so the recovery middleware can render errors via InternalErrorHandler.
+func wrapWithMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Wrap all requests with middleware
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		loggingMiddleware(
-			recoveryMiddleware(handler),
+			recoveryMiddlewareWithHandler(handler, h),
 		).ServeHTTP(w, r)
 	})
 
 	return mux
-}
-
-// recoveryMiddleware recovers from panics and returns a 500 error.
-func recoveryMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		defer func() {
-			if err := recover(); err != nil {
-				log.Printf("Panic recovered: %v", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			}
-		}()
-		next.ServeHTTP(w, r)
-	})
 }
 
 // recoveryMiddlewareWithHandler recovers from panics using custom error handler.
@@ -216,31 +249,6 @@ func loggingMiddleware(next http.Handler) http.Handler {
 		// Log the request
 		log.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(start))
 	})
-}
-
-// loadDataFromAPI loads all data from the API into the store.
-func loadDataFromAPI(store *storage.Store, client *api.Client) error {
-	ctx, cancel := context.WithTimeout(context.Background(), RequestTimeout)
-	defer cancel()
-
-	data, err := client.FetchAllData(ctx)
-	if err != nil {
-		return fmt.Errorf("fetching data: %w", err)
-	}
-
-	storeData := storage.StoreData{
-		Artists:   data.Artists,
-		Locations: data.Locations,
-		Dates:     data.Dates,
-		Relations: data.Relations,
-	}
-
-	store.LoadData(storeData)
-
-	log.Printf("Loaded %d artists, %d locations, %d dates, %d relations",
-		len(data.Artists), len(data.Locations), len(data.Dates), len(data.Relations))
-
-	return nil
 }
 
 // getPort returns the port to run the server on.

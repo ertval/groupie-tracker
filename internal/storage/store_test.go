@@ -1,10 +1,395 @@
 package storage
 
 import (
+	"context"
+	"sync"
 	"testing"
+	"time"
 
 	"groupie-tracker/internal/models"
 )
+
+// MockAPIClient implements APIClient for testing
+type MockAPIClient struct {
+	data          *models.APIResponse
+	err           error
+	callCount     int
+	mu            sync.Mutex
+	responseDelay time.Duration
+}
+
+func (m *MockAPIClient) FetchAllData(ctx context.Context) (*models.APIResponse, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.responseDelay > 0 {
+		time.Sleep(m.responseDelay)
+	}
+
+	m.callCount++
+	return m.data, m.err
+}
+
+func (m *MockAPIClient) GetCallCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.callCount
+}
+
+func (m *MockAPIClient) ResetCallCount() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.callCount = 0
+}
+
+func (m *MockAPIClient) SetError(err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.err = err
+}
+
+func (m *MockAPIClient) SetResponseDelay(delay time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.responseDelay = delay
+}
+
+func createMockAPIData() *models.APIResponse {
+	return &models.APIResponse{
+		Artists: []models.Artist{
+			{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May"}, CreationYear: 1970},
+			{ID: 2, Name: "Gorillaz", Members: []string{"Damon Albarn"}, CreationYear: 1998},
+		},
+		Locations: []models.Location{
+			{ID: 1, Locations: []string{"london-uk", "manchester-uk"}},
+			{ID: 2, Locations: []string{"london-uk", "new_york-usa"}},
+		},
+		Dates: []models.Date{
+			{ID: 1, Dates: []string{"23-08-2019", "24-08-2019"}},
+			{ID: 2, Dates: []string{"25-08-2019"}},
+		},
+		Relations: []models.Relation{
+			{ID: 1, DatesLocations: map[string][]string{"london-uk": {"23-08-2019", "24-08-2019"}}},
+			{ID: 2, DatesLocations: map[string][]string{"new_york-usa": {"25-08-2019"}}},
+		},
+	}
+}
+
+func TestStore_CacheUpdateInterval(t *testing.T) {
+	if CacheUpdateInterval != 30*time.Second {
+		t.Errorf("Expected CacheUpdateInterval to be 30 seconds, got %v", CacheUpdateInterval)
+	}
+}
+
+func TestNewStore(t *testing.T) {
+	store := NewStore()
+
+	if store == nil {
+		t.Fatal("NewStore() returned nil")
+	}
+
+	if store.BaseStore == nil {
+		t.Error("BaseStore is not initialized")
+	}
+
+	if store.Service == nil {
+		t.Error("Service is not initialized")
+	}
+
+	if store.IsRunning() {
+		t.Error("Expected cache to not be running initially")
+	}
+}
+
+func TestNewStoreWithCache(t *testing.T) {
+	mockClient := &MockAPIClient{data: createMockAPIData()}
+	store := NewStoreWithCache(mockClient)
+
+	if store == nil {
+		t.Fatal("NewStoreWithCache() returned nil")
+	}
+
+	if store.BaseStore == nil {
+		t.Error("BaseStore is not initialized")
+	}
+
+	if store.Service == nil {
+		t.Error("Service is not initialized")
+	}
+
+	if store.IsRunning() {
+		t.Error("Expected cache to not be running initially")
+	}
+}
+
+func TestStore_StartAndStopCache(t *testing.T) {
+	mockClient := &MockAPIClient{data: createMockAPIData()}
+	store := NewStoreWithCache(mockClient)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Test starting cache
+	store.StartCache(ctx)
+
+	// Give it a moment to start
+	time.Sleep(10 * time.Millisecond)
+
+	if !store.IsRunning() {
+		t.Error("Expected cache to be running after StartCache()")
+	}
+
+	// Check that initial data was loaded
+	if mockClient.GetCallCount() == 0 {
+		t.Error("Expected at least one API call during cache start")
+	}
+
+	// Test stopping cache
+	store.StopCache()
+
+	// Give it a moment to stop
+	time.Sleep(10 * time.Millisecond)
+
+	if store.IsRunning() {
+		t.Error("Expected cache to not be running after StopCache()")
+	}
+}
+
+func TestStore_StartCacheWithoutAPIClient(t *testing.T) {
+	store := NewStore()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Starting cache without API client should not panic
+	store.StartCache(ctx)
+
+	if store.IsRunning() {
+		t.Error("Expected cache to not be running when no API client is set")
+	}
+}
+
+func TestStore_StartCacheMultipleTimes(t *testing.T) {
+	mockClient := &MockAPIClient{data: createMockAPIData()}
+	store := NewStoreWithCache(mockClient)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start cache multiple times - should not cause issues
+	store.StartCache(ctx)
+	store.StartCache(ctx)
+	store.StartCache(ctx)
+
+	time.Sleep(10 * time.Millisecond)
+
+	if !store.IsRunning() {
+		t.Error("Expected cache to be running")
+	}
+
+	store.StopCache()
+}
+
+func TestStore_CachePeriodicUpdate(t *testing.T) {
+	mockClient := &MockAPIClient{data: createMockAPIData()}
+	store := NewStoreWithCache(mockClient)
+
+	// Set a very short update interval for testing
+	store.updateInterval = 50 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	mockClient.ResetCallCount()
+	store.StartCache(ctx)
+
+	// Wait for multiple update cycles
+	time.Sleep(150 * time.Millisecond)
+
+	store.StopCache()
+
+	callCount := mockClient.GetCallCount()
+	if callCount < 2 {
+		t.Errorf("Expected at least 2 API calls (initial + periodic), got %d", callCount)
+	}
+}
+
+func TestStore_GetLastUpdate(t *testing.T) {
+	mockClient := &MockAPIClient{data: createMockAPIData()}
+	store := NewStoreWithCache(mockClient)
+
+	// Initially should be zero time
+	lastUpdate := store.GetLastUpdate()
+	if !lastUpdate.IsZero() {
+		t.Error("Expected initial last update to be zero time")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store.StartCache(ctx)
+	time.Sleep(50 * time.Millisecond)
+	store.StopCache()
+
+	// After cache runs, should have a recent timestamp
+	lastUpdate = store.GetLastUpdate()
+	if lastUpdate.IsZero() {
+		t.Error("Expected last update to be set after cache runs")
+	}
+
+	// Should be recent (within last second)
+	if time.Since(lastUpdate) > time.Second {
+		t.Error("Expected last update to be recent")
+	}
+}
+
+func TestStore_CacheErrorHandling(t *testing.T) {
+	mockClient := &MockAPIClient{
+		data: createMockAPIData(),
+		err:  nil,
+	}
+	store := NewStoreWithCache(mockClient)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	store.StartCache(ctx)
+	time.Sleep(10 * time.Millisecond)
+
+	// Introduce an error
+	mockClient.SetError(context.DeadlineExceeded)
+
+	// Cache should continue running despite errors
+	time.Sleep(10 * time.Millisecond)
+
+	if !store.IsRunning() {
+		t.Error("Expected cache to continue running despite API errors")
+	}
+
+	store.StopCache()
+}
+
+func TestStore_ContextCancellation(t *testing.T) {
+	mockClient := &MockAPIClient{data: createMockAPIData()}
+	store := NewStoreWithCache(mockClient)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	store.StartCache(ctx)
+	time.Sleep(50 * time.Millisecond)
+
+	if !store.IsRunning() {
+		t.Error("Expected cache to be running")
+	}
+
+	// Cancel context
+	cancel()
+	time.Sleep(100 * time.Millisecond) // Longer wait time for context cancellation
+
+	// Cache should stop due to context cancellation
+	if store.IsRunning() {
+		t.Error("Expected cache to stop after context cancellation")
+	}
+}
+
+func TestStore_ComputeDerivedData(t *testing.T) {
+	store := NewStore()
+
+	// Add test data
+	store.AddLocation(models.Location{ID: 1, Locations: []string{"london-uk", "manchester-uk"}})
+	store.AddLocation(models.Location{ID: 2, Locations: []string{"london-uk", "new_york-usa"}})
+	store.AddDate(models.Date{ID: 1, Dates: []string{"23-08-2019", "24-08-2019"}})
+	store.AddDate(models.Date{ID: 2, Dates: []string{"24-08-2019", "25-08-2019"}})
+
+	// Manually trigger computation
+	store.mu.Lock()
+	store.computeDerivedData()
+	store.mu.Unlock()
+
+	// Check unique locations
+	uniqueLocations := store.GetUniqueLocations()
+	expectedLocations := 3 // london-uk, manchester-uk, new_york-usa
+	if len(uniqueLocations) != expectedLocations {
+		t.Errorf("Expected %d unique locations, got %d", expectedLocations, len(uniqueLocations))
+	}
+
+	// Check unique dates
+	uniqueDates := store.GetUniqueDates()
+	expectedDates := 3 // 23-08-2019, 24-08-2019, 25-08-2019
+	if len(uniqueDates) != expectedDates {
+		t.Errorf("Expected %d unique dates, got %d", expectedDates, len(uniqueDates))
+	}
+}
+
+func TestStore_LoadDataComputesDerivatives(t *testing.T) {
+	store := NewStore()
+
+	testData := models.APIResponse{
+		Artists: []models.Artist{
+			{ID: 1, Name: "Queen", CreationYear: 1970},
+		},
+		Locations: []models.Location{
+			{ID: 1, Locations: []string{"london-uk", "manchester-uk"}},
+		},
+		Dates: []models.Date{
+			{ID: 1, Dates: []string{"23-08-2019", "24-08-2019"}},
+		},
+		Relations: []models.Relation{
+			{ID: 1, DatesLocations: map[string][]string{"london-uk": {"23-08-2019"}}},
+		},
+	}
+
+	store.LoadData(testData)
+
+	// Check that derived data was computed
+	uniqueLocations := store.GetUniqueLocations()
+	if len(uniqueLocations) != 2 {
+		t.Errorf("Expected 2 unique locations after LoadData, got %d", len(uniqueLocations))
+	}
+
+	uniqueDates := store.GetUniqueDates()
+	if len(uniqueDates) != 2 {
+		t.Errorf("Expected 2 unique dates after LoadData, got %d", len(uniqueDates))
+	}
+
+	stats := store.GetStats()
+	if stats["locations"] != 2 {
+		t.Errorf("Expected locations stat to be 2, got %d", stats["locations"])
+	}
+	if stats["dates"] != 2 {
+		t.Errorf("Expected dates stat to be 2, got %d", stats["dates"])
+	}
+}
+
+func TestStore_CacheWithSlowAPI(t *testing.T) {
+	mockClient := &MockAPIClient{
+		data:          createMockAPIData(),
+		responseDelay: 100 * time.Millisecond,
+	}
+	store := NewStoreWithCache(mockClient)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	store.StartCache(ctx)
+
+	// Wait for initial load
+	time.Sleep(150 * time.Millisecond)
+
+	elapsed := time.Since(start)
+	if elapsed < 100*time.Millisecond {
+		t.Error("Expected initial cache load to take at least 100ms due to API delay")
+	}
+
+	store.StopCache()
+
+	// Verify data was loaded despite delay
+	artists := store.GetAllArtists()
+	if len(artists) == 0 {
+		t.Error("Expected artists to be loaded despite API delay")
+	}
+}
 
 func TestStore_AddAndGetArtist(t *testing.T) {
 	store := NewStore()
@@ -186,6 +571,11 @@ func TestStore_GetUniqueLocations(t *testing.T) {
 		store.AddLocation(location)
 	}
 
+	// Manually compute since cache won't run in this test
+	store.mu.Lock()
+	store.computeDerivedData()
+	store.mu.Unlock()
+
 	uniqueLocations := store.GetUniqueLocations()
 
 	expected := 3 // london-uk, manchester-uk, new_york-usa
@@ -208,7 +598,7 @@ func TestStore_GetUniqueLocations(t *testing.T) {
 func TestStore_LoadData(t *testing.T) {
 	store := NewStore()
 
-	testData := StoreData{
+	testData := models.APIResponse{
 		Artists: []models.Artist{
 			{ID: 1, Name: "Queen", CreationYear: 1970},
 		},
@@ -281,5 +671,214 @@ func TestStore_ConcurrentAccess(t *testing.T) {
 	artists := store.GetAllArtists()
 	if len(artists) != 100 {
 		t.Errorf("Expected 100 artists, got %d", len(artists))
+	}
+}
+
+func TestStore_ConcurrentCacheOperations(t *testing.T) {
+	mockClient := &MockAPIClient{data: createMockAPIData()}
+	store := NewStoreWithCache(mockClient)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Start cache
+	store.StartCache(ctx)
+	time.Sleep(10 * time.Millisecond)
+
+	// Test concurrent operations while cache is running
+	done := make(chan bool, 3)
+
+	// Goroutine 1: Read operations
+	go func() {
+		for i := 0; i < 50; i++ {
+			store.GetAllArtists()
+			store.GetUniqueLocations()
+			store.GetUniqueDates()
+			store.GetStats()
+		}
+		done <- true
+	}()
+
+	// Goroutine 2: More read operations
+	go func() {
+		for i := 0; i < 50; i++ {
+			store.SearchArtists("Queen")
+			store.FilterArtistsByYear(1900, 2000)
+		}
+		done <- true
+	}()
+
+	// Goroutine 3: Cache management operations
+	go func() {
+		for i := 0; i < 10; i++ {
+			store.GetLastUpdate()
+			store.IsRunning()
+			time.Sleep(5 * time.Millisecond)
+		}
+		done <- true
+	}()
+
+	// Wait for all goroutines
+	<-done
+	<-done
+	<-done
+
+	store.StopCache()
+
+	// Verify store state is consistent
+	artists := store.GetAllArtists()
+	if len(artists) == 0 {
+		t.Error("Expected artists to be present after concurrent operations")
+	}
+}
+
+func TestGetAllLocations(t *testing.T) {
+	store := NewStore()
+
+	// Add test data
+	testLocations := []models.Location{
+		{ID: 1, Locations: []string{"London", "Paris"}},
+		{ID: 2, Locations: []string{"New York", "Tokyo"}},
+	}
+
+	store.LoadData(models.APIResponse{
+		Locations: testLocations,
+	})
+
+	// Test GetAllLocations
+	locations := store.GetAllLocations()
+	if len(locations) != 2 {
+		t.Errorf("Expected 2 locations, got %d", len(locations))
+	}
+
+	// Check that both locations are present (order may vary)
+	found1, found2 := false, false
+	for _, loc := range locations {
+		if loc.ID == 1 {
+			found1 = true
+		}
+		if loc.ID == 2 {
+			found2 = true
+		}
+	}
+
+	if !found1 || !found2 {
+		t.Error("Both test locations should be present")
+	}
+}
+
+func TestGetAllDates(t *testing.T) {
+	store := NewStore()
+
+	// Add test data
+	testDates := []models.Date{
+		{ID: 1, Dates: []string{"01-01-2020", "02-01-2020"}},
+		{ID: 2, Dates: []string{"01-02-2020", "02-02-2020"}},
+	}
+
+	store.LoadData(models.APIResponse{
+		Dates: testDates,
+	})
+
+	// Test GetAllDates
+	dates := store.GetAllDates()
+	if len(dates) != 2 {
+		t.Errorf("Expected 2 dates, got %d", len(dates))
+	}
+
+	// Check that both dates are present (order may vary)
+	found1, found2 := false, false
+	for _, date := range dates {
+		if date.ID == 1 {
+			found1 = true
+		}
+		if date.ID == 2 {
+			found2 = true
+		}
+	}
+
+	if !found1 || !found2 {
+		t.Error("Both test dates should be present")
+	}
+}
+
+func TestGetAllRelations(t *testing.T) {
+	store := NewStore()
+
+	// Add test data
+	testRelations := []models.Relation{
+		{ID: 1, DatesLocations: map[string][]string{"London": {"01-01-2020"}}},
+		{ID: 2, DatesLocations: map[string][]string{"Paris": {"02-01-2020"}}},
+	}
+
+	store.LoadData(models.APIResponse{
+		Relations: testRelations,
+	})
+
+	// Test GetAllRelations
+	relations := store.GetAllRelations()
+	if len(relations) != 2 {
+		t.Errorf("Expected 2 relations, got %d", len(relations))
+	}
+
+	// Check that both relations are present (order may vary)
+	found1, found2 := false, false
+	for _, rel := range relations {
+		if rel.ID == 1 {
+			found1 = true
+		}
+		if rel.ID == 2 {
+			found2 = true
+		}
+	}
+
+	if !found1 || !found2 {
+		t.Error("Both test relations should be present")
+	}
+}
+
+func TestStore_BackwardCompatibility(t *testing.T) {
+	// Test that the refactored Store maintains the same API as the original
+	store := NewStore()
+
+	// Test adding data
+	artist := models.Artist{
+		ID:           1,
+		Name:         "Queen",
+		Members:      []string{"Freddie Mercury", "Brian May"},
+		CreationYear: 1970,
+	}
+	store.AddArtist(artist)
+
+	// Test retrieving data - should work exactly as before
+	retrievedArtist, exists := store.GetArtist(1)
+	if !exists {
+		t.Error("Expected artist to exist")
+	}
+	if retrievedArtist.Name != "Queen" {
+		t.Errorf("Expected artist name to be Queen, got %s", retrievedArtist.Name)
+	}
+
+	// Test search functionality - should work exactly as before
+	results := store.SearchArtists("Queen")
+	if len(results) != 1 {
+		t.Errorf("Expected 1 search result, got %d", len(results))
+	}
+
+	// Test filter functionality - should work exactly as before
+	filtered := store.FilterArtistsByYear(1970, 1970)
+	if len(filtered) != 1 {
+		t.Errorf("Expected 1 filtered result, got %d", len(filtered))
+	}
+
+	// Test that GetAllArtists returns sorted results (new behavior)
+	store.AddArtist(models.Artist{ID: 2, Name: "Beatles", CreationYear: 1960})
+	allArtists := store.GetAllArtists()
+	if len(allArtists) != 2 {
+		t.Errorf("Expected 2 artists, got %d", len(allArtists))
+	}
+	// Should be sorted: Beatles, Queen
+	if allArtists[0].Name != "Beatles" || allArtists[1].Name != "Queen" {
+		t.Error("Artists not sorted alphabetically")
 	}
 }
