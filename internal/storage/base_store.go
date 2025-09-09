@@ -33,11 +33,12 @@ type APIClient interface {
 // BaseStore represents the core data store with thread-safe operations and cache functionality.
 // It handles basic CRUD operations and cache management.
 type BaseStore struct {
-	mu        sync.RWMutex
-	artists   map[int]models.Artist
-	locations map[int]models.Location
-	dates     map[int]models.Date
-	relations map[int]models.Relation
+	mu          sync.RWMutex
+	artists     map[int]models.Artist
+	artistSlugs map[string]int // slug -> artist ID mapping
+	locations   map[int]models.Location
+	dates       map[int]models.Date
+	relations   map[int]models.Relation
 
 	// Cache functionality
 	apiClient      APIClient
@@ -56,6 +57,7 @@ type BaseStore struct {
 func NewBaseStore() *BaseStore {
 	return &BaseStore{
 		artists:         make(map[int]models.Artist),
+		artistSlugs:     make(map[string]int),
 		locations:       make(map[int]models.Location),
 		dates:           make(map[int]models.Date),
 		relations:       make(map[int]models.Relation),
@@ -212,6 +214,19 @@ func (s *BaseStore) GetArtist(id int) (models.Artist, bool) {
 	defer s.mu.RUnlock()
 	artist, exists := s.artists[id]
 	return artist, exists
+}
+
+// GetArtistBySlug retrieves an artist by slug.
+func (s *Store) GetArtistBySlug(slug string) (models.Artist, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	if id, exists := s.artistSlugs[slug]; exists {
+		if artist, exists := s.artists[id]; exists {
+			return artist, true
+		}
+	}
+	return models.Artist{}, false
 }
 
 // GetAllArtists returns all artists in the store (unordered).
