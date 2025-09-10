@@ -1,4 +1,4 @@
-// Package service provides advanced data manipulation and service operations for Groupie Tracker.
+// Package service provides business logic for Groupie Tracker data.
 package service
 
 import (
@@ -8,32 +8,170 @@ import (
 	"groupie-tracker/internal/models"
 )
 
-// DataReader defines the interface for reading data from the base store.
-type DataReader interface {
+// DataStore defines the interface for reading data from the store.
+type DataStore interface {
 	GetAllArtists() []models.Artist
-	GetArtist(id int) (models.Artist, bool)
-	GetAllLocations() []models.Location
-	GetLocation(id int) (models.Location, bool)
-	GetAllDates() []models.Date
-	GetDate(id int) (models.Date, bool)
 	GetAllRelations() []models.Relation
-	GetRelation(id int) (models.Relation, bool)
 	GetUniqueLocations() []string
 	GetUniqueDates() []string
-	GetStats() map[string]int
 }
 
-// Service provides advanced data manipulation operations on top of a base data store.
-// It handles searching, filtering, ordering, and other complex queries.
+// Service provides business logic operations for Groupie Tracker data.
 type Service struct {
-	store DataReader
+	store DataStore
 }
 
-// NewService creates a new service instance with the given data store.
-func NewService(store DataReader) *Service {
+// LocationStat represents statistics for a location.
+type LocationStat struct {
+	Name         string
+	ArtistCount  int
+	ConcertCount int
+	Artists      []models.Artist
+}
+
+// LocationFrequency represents the frequency of concerts at a location.
+type LocationFrequency struct {
+	Location string
+	Count    int
+}
+
+// NewService creates a new service instance.
+func NewService(store DataStore) *Service {
 	return &Service{
 		store: store,
 	}
+}
+
+// CalculateLocationStats calculates statistics for each location.
+func (s *Service) CalculateLocationStats() []LocationStat {
+	locationMap := make(map[string]*LocationStat)
+	allArtists := s.store.GetAllArtists()
+	allRelations := s.store.GetAllRelations()
+
+	// Create a map of artist ID to artist for quick lookup
+	artistMap := make(map[int]models.Artist)
+	for _, artist := range allArtists {
+		artistMap[artist.ID] = artist
+	}
+
+	// Process each relation to build location statistics
+	for _, relation := range allRelations {
+		artist, exists := artistMap[relation.ID]
+		if !exists {
+			continue
+		}
+
+		for location, dates := range relation.DatesLocations {
+			if locationMap[location] == nil {
+				locationMap[location] = &LocationStat{
+					Name:         location,
+					ArtistCount:  0,
+					ConcertCount: 0,
+					Artists:      []models.Artist{},
+				}
+			}
+
+			locationMap[location].ArtistCount++
+			locationMap[location].ConcertCount += len(dates)
+			locationMap[location].Artists = append(locationMap[location].Artists, artist)
+		}
+	}
+
+	// Convert map to slice and sort by concert count (descending)
+	var locationStats []LocationStat
+	for _, stat := range locationMap {
+		locationStats = append(locationStats, *stat)
+	}
+
+	// Sort by concert count in descending order (most popular first)
+	sort.Slice(locationStats, func(i, j int) bool {
+		return locationStats[i].ConcertCount > locationStats[j].ConcertCount
+	})
+
+	return locationStats
+}
+
+// SortLocationStatsByConcertCount sorts location statistics by concert count in descending order.
+func (s *Service) SortLocationStatsByConcertCount(stats []LocationStat) []LocationStat {
+	// Create a copy to avoid modifying the original slice
+	sorted := make([]LocationStat, len(stats))
+	copy(sorted, stats)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return sorted[i].ConcertCount > sorted[j].ConcertCount
+	})
+
+	return sorted
+}
+
+// CalculateTotalCountries calculates the total number of unique countries.
+func (s *Service) CalculateTotalCountries(locationStats []LocationStat) int {
+	countrySet := make(map[string]bool)
+
+	for _, stat := range locationStats {
+		// Extract country from location (assuming format "city-country")
+		parts := strings.Split(stat.Name, "-")
+		if len(parts) >= 2 {
+			country := strings.TrimSpace(parts[len(parts)-1])
+			countrySet[country] = true
+		}
+	}
+
+	return len(countrySet)
+}
+
+// CalculateTotalConcerts calculates the total number of concerts across all artists.
+func (s *Service) CalculateTotalConcerts() int {
+	total := 0
+	allRelations := s.store.GetAllRelations()
+
+	for _, relation := range allRelations {
+		for _, dates := range relation.DatesLocations {
+			total += len(dates)
+		}
+	}
+
+	return total
+}
+
+// GetMostPopularLocations returns the most frequently used concert locations.
+// Returns up to 'limit' locations sorted by frequency (most frequent first).
+func (s *Service) GetMostPopularLocations(limit int) []LocationFrequency {
+	allRelations := s.store.GetAllRelations()
+	locationCount := make(map[string]int)
+
+	// Count occurrences of each location
+	for _, relation := range allRelations {
+		for location, dates := range relation.DatesLocations {
+			locationCount[location] += len(dates) // Count concerts, not just appearances
+		}
+	}
+
+	// Convert to slice and sort by frequency
+	var frequencies []LocationFrequency
+	for location, count := range locationCount {
+		frequencies = append(frequencies, LocationFrequency{
+			Location: location,
+			Count:    count,
+		})
+	}
+
+	sort.Slice(frequencies, func(i, j int) bool {
+		return frequencies[i].Count > frequencies[j].Count
+	})
+
+	// Apply limit if specified
+	if limit > 0 && len(frequencies) > limit {
+		frequencies = frequencies[:limit]
+	}
+
+	return frequencies
+}
+
+// GetAllArtistsSorted returns all artists sorted alphabetically by name.
+func (s *Service) GetAllArtistsSorted() []models.Artist {
+	artists := s.store.GetAllArtists()
+	return s.sortArtistsByName(artists)
 }
 
 // SearchArtists searches for artists by name or member names (case-insensitive).
@@ -42,7 +180,7 @@ func (s *Service) SearchArtists(query string) []models.Artist {
 	allArtists := s.store.GetAllArtists()
 
 	if query == "" {
-		return s.SortArtistsByName(allArtists)
+		return s.sortArtistsByName(allArtists)
 	}
 
 	query = strings.ToLower(query)
@@ -69,7 +207,7 @@ func (s *Service) SearchArtists(query string) []models.Artist {
 		}
 	}
 
-	return s.SortArtistsByName(results)
+	return s.sortArtistsByName(results)
 }
 
 // FilterArtistsByYear filters artists by creation year range.
@@ -97,66 +235,87 @@ func (s *Service) FilterArtistsByYear(minYear, maxYear int) []models.Artist {
 		results = append(results, artist)
 	}
 
-	return s.SortArtistsByName(results)
+	return s.sortArtistsByName(results)
 }
 
-// FilterArtistsByMemberCount filters artists by the number of members.
-// If exact is true, returns artists with exactly memberCount members.
-// If exact is false, returns artists with at least memberCount members.
-func (s *Service) FilterArtistsByMemberCount(memberCount int, exact bool) []models.Artist {
+// GetUniqueLocationsSorted returns unique locations sorted alphabetically.
+func (s *Service) GetUniqueLocationsSorted() []string {
+	locations := s.store.GetUniqueLocations()
+	sorted := make([]string, len(locations))
+	copy(sorted, locations)
+	sort.Strings(sorted)
+	return sorted
+}
+
+// GetUniqueDatesSorted returns unique dates sorted.
+func (s *Service) GetUniqueDatesSorted() []string {
+	dates := s.store.GetUniqueDates()
+	sorted := make([]string, len(dates))
+	copy(sorted, dates)
+	sort.Strings(sorted)
+	return sorted
+}
+
+// GetStats returns comprehensive statistics about the stored data.
+func (s *Service) GetStats() map[string]int {
 	allArtists := s.store.GetAllArtists()
-	var results []models.Artist
-
-	for _, artist := range allArtists {
-		if exact {
-			if len(artist.Members) == memberCount {
-				results = append(results, artist)
-			}
-		} else {
-			if len(artist.Members) >= memberCount {
-				results = append(results, artist)
-			}
-		}
-	}
-
-	return s.SortArtistsByName(results)
-}
-
-// SearchArtistsByLocation searches for artists who have performed at locations matching the query.
-// Returns artists sorted alphabetically by name.
-func (s *Service) SearchArtistsByLocation(query string) []models.Artist {
-	if query == "" {
-		return s.SortArtistsByName(s.store.GetAllArtists())
-	}
-
-	query = strings.ToLower(query)
 	allRelations := s.store.GetAllRelations()
-	allArtists := s.store.GetAllArtists()
+	locations := s.store.GetUniqueLocations()
+	dates := s.store.GetUniqueDates()
 
-	// Create a map of artist IDs that match the location query
-	matchingArtistIDs := make(map[int]bool)
+	// Calculate total concerts
+	totalConcerts := 0
+	locationConcerts := make(map[string]int)
 
 	for _, relation := range allRelations {
-		for location := range relation.DatesLocations {
-			if strings.Contains(strings.ToLower(location), query) {
-				matchingArtistIDs[relation.ID] = true
-				break
-			}
+		for location, concertDates := range relation.DatesLocations {
+			concertCount := len(concertDates)
+			totalConcerts += concertCount
+			locationConcerts[location] += concertCount
 		}
 	}
 
-	var results []models.Artist
-	for _, artist := range allArtists {
-		if matchingArtistIDs[artist.ID] {
-			results = append(results, artist)
-		}
+	return map[string]int{
+		"artists":        len(allArtists),
+		"locations":      len(locations),
+		"dates":          len(dates),
+		"relations":      len(allRelations),
+		"total_concerts": totalConcerts,
 	}
-
-	return s.SortArtistsByName(results)
 }
 
-// SortArtistsByName sorts artists alphabetically by name (case-insensitive).
-func (s *Service) SortArtistsByName(artists []models.Artist) []models.Artist {
+// CalculateTotalShows calculates the total number of shows for an artist
+func (s *Service) CalculateTotalShows(relation models.Relation) int {
+	total := 0
+	for _, dates := range relation.DatesLocations {
+		total += len(dates)
+	}
+	return total
+}
+
+// ExtractCountries extracts unique countries from relation data
+func (s *Service) ExtractCountries(relation models.Relation) []string {
+	countrySet := make(map[string]bool)
+
+	for location := range relation.DatesLocations {
+		// Extract country from location (assuming format "city-country")
+		parts := strings.Split(location, "-")
+		if len(parts) >= 2 {
+			country := strings.TrimSpace(parts[len(parts)-1])
+			countrySet[country] = true
+		}
+	}
+
+	countries := make([]string, 0, len(countrySet))
+	for country := range countrySet {
+		countries = append(countries, country)
+	}
+
+	return countries
+}
+
+// sortArtistsByName sorts artists alphabetically by name (case-insensitive).
+func (s *Service) sortArtistsByName(artists []models.Artist) []models.Artist {
 	// Create a copy to avoid modifying the original slice
 	sorted := make([]models.Artist, len(artists))
 	copy(sorted, artists)
@@ -166,128 +325,4 @@ func (s *Service) SortArtistsByName(artists []models.Artist) []models.Artist {
 	})
 
 	return sorted
-}
-
-// SortArtistsByYear sorts artists by creation year (oldest first).
-func (s *Service) SortArtistsByYear(artists []models.Artist) []models.Artist {
-	// Create a copy to avoid modifying the original slice
-	sorted := make([]models.Artist, len(artists))
-	copy(sorted, artists)
-
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].CreationYear < sorted[j].CreationYear
-	})
-
-	return sorted
-}
-
-// SortArtistsByMemberCount sorts artists by member count (ascending).
-func (s *Service) SortArtistsByMemberCount(artists []models.Artist) []models.Artist {
-	// Create a copy to avoid modifying the original slice
-	sorted := make([]models.Artist, len(artists))
-	copy(sorted, artists)
-
-	sort.Slice(sorted, func(i, j int) bool {
-		return len(sorted[i].Members) < len(sorted[j].Members)
-	})
-
-	return sorted
-}
-
-// GetArtistsByYearRange returns artists created within a specific year range.
-// Returns artists sorted by creation year.
-func (s *Service) GetArtistsByYearRange(startYear, endYear int) []models.Artist {
-	filtered := s.FilterArtistsByYear(startYear, endYear)
-	return s.SortArtistsByYear(filtered)
-}
-
-// GetMostPopularLocations returns the most frequently used concert locations.
-// Returns up to 'limit' locations sorted by frequency (most frequent first).
-func (s *Service) GetMostPopularLocations(limit int) []LocationFrequency {
-	allRelations := s.store.GetAllRelations()
-	locationCount := make(map[string]int)
-
-	// Count occurrences of each location
-	for _, relation := range allRelations {
-		for location := range relation.DatesLocations {
-			locationCount[location]++
-		}
-	}
-
-	// Convert to slice and sort by frequency
-	var frequencies []LocationFrequency
-	for location, count := range locationCount {
-		frequencies = append(frequencies, LocationFrequency{
-			Location: location,
-			Count:    count,
-		})
-	}
-
-	sort.Slice(frequencies, func(i, j int) bool {
-		return frequencies[i].Count > frequencies[j].Count
-	})
-
-	// Apply limit if specified
-	if limit > 0 && len(frequencies) > limit {
-		frequencies = frequencies[:limit]
-	}
-
-	return frequencies
-}
-
-// GetDetailedStats returns comprehensive statistics about the data.
-func (s *Service) GetDetailedStats() DetailedStats {
-	baseStats := s.store.GetStats()
-	allArtists := s.store.GetAllArtists()
-
-	var totalMembers int
-	var oldestYear, newestYear int
-	memberCounts := make(map[int]int)
-
-	for i, artist := range allArtists {
-		totalMembers += len(artist.Members)
-		memberCounts[len(artist.Members)]++
-
-		if i == 0 {
-			oldestYear = artist.CreationYear
-			newestYear = artist.CreationYear
-		} else {
-			if artist.CreationYear < oldestYear {
-				oldestYear = artist.CreationYear
-			}
-			if artist.CreationYear > newestYear {
-				newestYear = artist.CreationYear
-			}
-		}
-	}
-
-	var avgMembers float64
-	if len(allArtists) > 0 {
-		avgMembers = float64(totalMembers) / float64(len(allArtists))
-	}
-
-	return DetailedStats{
-		BasicStats:           baseStats,
-		TotalMembers:         totalMembers,
-		AverageMembers:       avgMembers,
-		OldestArtistYear:     oldestYear,
-		NewestArtistYear:     newestYear,
-		MemberCountBreakdown: memberCounts,
-	}
-}
-
-// LocationFrequency represents a location and how frequently it's used for concerts.
-type LocationFrequency struct {
-	Location string `json:"location"`
-	Count    int    `json:"count"`
-}
-
-// DetailedStats provides comprehensive statistics about the data.
-type DetailedStats struct {
-	BasicStats           map[string]int `json:"basic_stats"`
-	TotalMembers         int            `json:"total_members"`
-	AverageMembers       float64        `json:"average_members"`
-	OldestArtistYear     int            `json:"oldest_artist_year"`
-	NewestArtistYear     int            `json:"newest_artist_year"`
-	MemberCountBreakdown map[int]int    `json:"member_count_breakdown"`
 }

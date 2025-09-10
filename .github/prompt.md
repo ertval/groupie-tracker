@@ -23,7 +23,143 @@ Lets follow **test driven development** principles to implement the project as r
  - Update the readme file to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
  ### Make sure the project is well organized and structured, with clear separation of concerns and responsibilities. Use appropriate naming conventions and file structures to make it easy to navigate and understand the codebase.
 
-# Clean UP
+# Clean UP and Optimization
+- Remove any unused code, comments, or files that are no longer needed.
 - Remove older versions of the files that you changed in the last refactoring. Keep only the simplified versions.
-- Reaname everything to remove the "Simplified" prefix, so that the new files have the proper shorter names.
-- 
+- Rename everything to remove the "Simplified" prefix, so that the new files have the proper shorter names.
+- Restructure everything again to be more simple and clear, modular, easy to understand, maintainable and testable:
+    - storage package: single store struct, all data operations
+    - service package: single service struct, all business logic, calculations (all custom computations here: e.g. location stats, totals, etc.)
+    - handlers package: single handlers struct, all HTTP handling
+    - Update all imports and references accordingly.
+-  - Write comprehensive tests for the refactored code, covering all the main functionalities and edge cases. Make sure the tests are easy to read and understand, and provide good coverage of the codebase. Update existing tests as needed to reflect the changes made during the refactoring process.
+ - Update the readme file to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
+ 
+ ---
+
+ These computations and any other business logic should be in the service layer, not in the storage layer.
+
+```go
+// SearchArtists searches for artists by name or member names (case-insensitive).
+// Returns artists sorted alphabetically by name.
+func (s *Store) SearchArtists(query string) []models.Artist {
+	allArtists := s.GetAllArtists()
+
+	if query == "" {
+		return allArtists
+	}
+
+	query = strings.ToLower(query)
+	var results []models.Artist
+
+	for _, artist := range allArtists {
+		// Search in artist name
+		if strings.Contains(strings.ToLower(artist.Name), query) {
+			results = append(results, artist)
+			continue
+		}
+
+		// Search in member names
+		found := false
+		for _, member := range artist.Members {
+			if strings.Contains(strings.ToLower(member), query) {
+				results = append(results, artist)
+				found = true
+				break
+			}
+		}
+		if found {
+			continue
+		}
+	}
+
+	return s.sortArtistsByName(results)
+}
+
+// FilterArtistsByYear filters artists by creation year range.
+// If minYear or maxYear is 0, that bound is ignored.
+// Returns artists sorted alphabetically by name.
+func (s *Store) FilterArtistsByYear(minYear, maxYear int) []models.Artist {
+	allArtists := s.GetAllArtists()
+	var results []models.Artist
+
+	for _, artist := range allArtists {
+		// If no year restrictions, include all
+		if minYear == 0 && maxYear == 0 {
+			results = append(results, artist)
+			continue
+		}
+
+		// Apply year filters
+		if minYear > 0 && artist.CreationYear < minYear {
+			continue
+		}
+		if maxYear > 0 && artist.CreationYear > maxYear {
+			continue
+		}
+
+		results = append(results, artist)
+	}
+
+	return s.sortArtistsByName(results)
+}
+
+// computeUniqueData pre-computes unique locations and dates for performance.
+// This method should be called after loading data and must be called with write lock held.
+func (s *Store) computeUniqueData() {
+	locationSet := make(map[string]bool)
+	dateSet := make(map[string]bool)
+
+	// Extract unique locations from relations
+	for _, relation := range s.relations {
+		for location, dates := range relation.DatesLocations {
+			locationSet[location] = true
+			for _, date := range dates {
+				dateSet[date] = true
+			}
+		}
+	}
+
+	// Convert sets to sorted slices
+	s.uniqueLocations = make([]string, 0, len(locationSet))
+	for location := range locationSet {
+		s.uniqueLocations = append(s.uniqueLocations, location)
+	}
+	sort.Strings(s.uniqueLocations)
+
+	s.uniqueDates = make([]string, 0, len(dateSet))
+	for date := range dateSet {
+		s.uniqueDates = append(s.uniqueDates, date)
+	}
+	sort.Strings(s.uniqueDates)
+}
+
+// sortArtistsByName sorts artists alphabetically by name (case-insensitive).
+func (s *Store) sortArtistsByName(artists []models.Artist) []models.Artist {
+	// Create a copy to avoid modifying the original slice
+	sorted := make([]models.Artist, len(artists))
+	copy(sorted, artists)
+
+	sort.Slice(sorted, func(i, j int) bool {
+		return strings.ToLower(sorted[i].Name) < strings.ToLower(sorted[j].Name)
+	})
+
+	return sorted
+}
+```
+Also 
+// GetStats returns basic statistics about the stored data.
+func (s *Store) GetStats() map[string]int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return map[string]int{
+		"artists":   len(s.artists),
+		"locations": len(s.locations),
+		"dates":     len(s.dates),
+		"relations": len(s.relations),
+	}
+}
+Seems to do the calculations wrong, it should return total number of concerts (relations) per location, not just count of unique locations also dates are wrong. Fix this. and move to service layer.
+
+- Any functions in store should not sort the date of filter them, just return the raw data, sorting and filtering should be done in service layer.

@@ -6,85 +6,32 @@ import (
 	"groupie-tracker/internal/models"
 )
 
-// MockDataReader implements DataReader for testing service layer
-type MockDataReader struct {
+// MockDataStore for testing
+type MockDataStore struct {
 	artists   []models.Artist
-	locations []models.Location
-	dates     []models.Date
 	relations []models.Relation
-	uniqueLoc []string
-	uniqueDt  []string
-	stats     map[string]int
+	locations []string
+	dates     []string
 }
 
-func (m *MockDataReader) GetAllArtists() []models.Artist     { return m.artists }
-func (m *MockDataReader) GetAllLocations() []models.Location { return m.locations }
-func (m *MockDataReader) GetAllDates() []models.Date         { return m.dates }
-func (m *MockDataReader) GetAllRelations() []models.Relation { return m.relations }
-func (m *MockDataReader) GetUniqueLocations() []string       { return m.uniqueLoc }
-func (m *MockDataReader) GetUniqueDates() []string           { return m.uniqueDt }
-func (m *MockDataReader) GetStats() map[string]int           { return m.stats }
-
-func (m *MockDataReader) GetArtist(id int) (models.Artist, bool) {
-	for _, artist := range m.artists {
-		if artist.ID == id {
-			return artist, true
-		}
-	}
-	return models.Artist{}, false
+func (m *MockDataStore) GetAllArtists() []models.Artist {
+	return m.artists
 }
 
-func (m *MockDataReader) GetLocation(id int) (models.Location, bool) {
-	for _, location := range m.locations {
-		if location.ID == id {
-			return location, true
-		}
-	}
-	return models.Location{}, false
+func (m *MockDataStore) GetAllRelations() []models.Relation {
+	return m.relations
 }
 
-func (m *MockDataReader) GetDate(id int) (models.Date, bool) {
-	for _, date := range m.dates {
-		if date.ID == id {
-			return date, true
-		}
-	}
-	return models.Date{}, false
+func (m *MockDataStore) GetUniqueLocations() []string {
+	return m.locations
 }
 
-func (m *MockDataReader) GetRelation(id int) (models.Relation, bool) {
-	for _, relation := range m.relations {
-		if relation.ID == id {
-			return relation, true
-		}
-	}
-	return models.Relation{}, false
-}
-
-func createMockDataReader() *MockDataReader {
-	return &MockDataReader{
-		artists: []models.Artist{
-			{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May", "Roger Taylor", "John Deacon"}, CreationYear: 1970},
-			{ID: 2, Name: "Gorillaz", Members: []string{"Damon Albarn"}, CreationYear: 1998},
-			{ID: 3, Name: "Beatles", Members: []string{"John Lennon", "Paul McCartney", "George Harrison", "Ringo Starr"}, CreationYear: 1960},
-			{ID: 4, Name: "Arctic Monkeys", Members: []string{"Alex Turner", "Matt Helders"}, CreationYear: 2002},
-		},
-		locations: []models.Location{
-			{ID: 1, Locations: []string{"london-uk", "manchester-uk"}},
-			{ID: 2, Locations: []string{"london-uk", "new_york-usa"}},
-		},
-		relations: []models.Relation{
-			{ID: 1, DatesLocations: map[string][]string{"london-uk": {"23-08-2019", "24-08-2019"}, "manchester-uk": {"25-08-2019"}}},
-			{ID: 2, DatesLocations: map[string][]string{"london-uk": {"23-09-2019"}, "new_york-usa": {"25-09-2019"}}},
-		},
-		uniqueLoc: []string{"london-uk", "manchester-uk", "new_york-usa"},
-		uniqueDt:  []string{"23-08-2019", "24-08-2019", "25-08-2019"},
-		stats:     map[string]int{"artists": 4, "locations": 3, "dates": 3, "relations": 2},
-	}
+func (m *MockDataStore) GetUniqueDates() []string {
+	return m.dates
 }
 
 func TestNewService(t *testing.T) {
-	mockStore := createMockDataReader()
+	mockStore := &MockDataStore{}
 	service := NewService(mockStore)
 
 	if service == nil {
@@ -96,274 +43,426 @@ func TestNewService(t *testing.T) {
 	}
 }
 
-func TestService_SearchArtists(t *testing.T) {
-	mockStore := createMockDataReader()
+func TestServiceCalculateLocationStats(t *testing.T) {
+	// Create test data
+	artists := []models.Artist{
+		{ID: 1, Name: "Queen"},
+		{ID: 2, Name: "AC/DC"},
+	}
+
+	relations := []models.Relation{
+		{
+			ID: 1,
+			DatesLocations: map[string][]string{
+				"london-uk":    {"01-01-1980", "02-01-1980", "03-01-1980"}, // 3 concerts
+				"new_york-usa": {"04-01-1980"},                             // 1 concert
+			},
+		},
+		{
+			ID: 2,
+			DatesLocations: map[string][]string{
+				"london-uk":        {"01-02-1981", "02-02-1981"}, // 2 more concerts (5 total)
+				"sydney-australia": {"03-02-1981"},               // 1 concert
+			},
+		},
+	}
+
+	mockStore := &MockDataStore{
+		artists:   artists,
+		relations: relations,
+	}
+
+	service := NewService(mockStore)
+	stats := service.CalculateLocationStats()
+
+	// Verify we have the expected number of locations
+	if len(stats) != 3 {
+		t.Errorf("Expected 3 location stats, got %d", len(stats))
+	}
+
+	// Create a map for easier verification
+	statsMap := make(map[string]LocationStat)
+	for _, stat := range stats {
+		statsMap[stat.Name] = stat
+	}
+
+	// Verify london-uk has the most concerts
+	londonStat, exists := statsMap["london-uk"]
+	if !exists {
+		t.Error("london-uk not found in stats")
+	} else {
+		if londonStat.ConcertCount != 5 {
+			t.Errorf("Expected 5 concerts for london-uk, got %d", londonStat.ConcertCount)
+		}
+		if londonStat.ArtistCount != 2 {
+			t.Errorf("Expected 2 artists for london-uk, got %d", londonStat.ArtistCount)
+		}
+	}
+
+	// Verify new_york-usa
+	nyStats, exists := statsMap["new_york-usa"]
+	if !exists {
+		t.Error("new_york-usa not found in stats")
+	} else {
+		if nyStats.ConcertCount != 1 {
+			t.Errorf("Expected 1 concert for new_york-usa, got %d", nyStats.ConcertCount)
+		}
+		if nyStats.ArtistCount != 1 {
+			t.Errorf("Expected 1 artist for new_york-usa, got %d", nyStats.ArtistCount)
+		}
+	}
+}
+
+func TestServiceSortLocationStatsByConcertCount(t *testing.T) {
+	mockStore := &MockDataStore{}
 	service := NewService(mockStore)
 
-	tests := []struct {
-		name     string
-		query    string
-		expected int
+	// Create test location stats
+	stats := []LocationStat{
+		{Name: "location1", ConcertCount: 3, ArtistCount: 2},
+		{Name: "location2", ConcertCount: 7, ArtistCount: 1},
+		{Name: "location3", ConcertCount: 1, ArtistCount: 3},
+		{Name: "location4", ConcertCount: 5, ArtistCount: 2},
+	}
+
+	// Sort by concert count
+	sortedStats := service.SortLocationStatsByConcertCount(stats)
+
+	// Verify sorting order (descending by concert count)
+	expectedOrder := []string{"location2", "location4", "location1", "location3"}
+	expectedCounts := []int{7, 5, 3, 1}
+
+	if len(sortedStats) != len(expectedOrder) {
+		t.Errorf("Expected %d locations, got %d", len(expectedOrder), len(sortedStats))
+	}
+
+	for i, expectedName := range expectedOrder {
+		if sortedStats[i].Name != expectedName {
+			t.Errorf("Position %d: expected %s, got %s", i, expectedName, sortedStats[i].Name)
+		}
+		if sortedStats[i].ConcertCount != expectedCounts[i] {
+			t.Errorf("Position %d: expected %d concerts, got %d", i, expectedCounts[i], sortedStats[i].ConcertCount)
+		}
+	}
+}
+
+func TestServiceCalculateTotalCountries(t *testing.T) {
+	mockStore := &MockDataStore{}
+	service := NewService(mockStore)
+
+	// Create test location stats with different countries
+	stats := []LocationStat{
+		{Name: "london-uk"},
+		{Name: "manchester-uk"}, // Same country
+		{Name: "new_york-usa"},
+		{Name: "los_angeles-usa"}, // Same country
+		{Name: "sydney-australia"},
+		{Name: "tokyo-japan"},
+	}
+
+	totalCountries := service.CalculateTotalCountries(stats)
+
+	// Should be 4 unique countries: uk, usa, australia, japan
+	if totalCountries != 4 {
+		t.Errorf("Expected 4 unique countries, got %d", totalCountries)
+	}
+}
+
+func TestServiceCalculateTotalConcerts(t *testing.T) {
+	relations := []models.Relation{
+		{
+			ID: 1,
+			DatesLocations: map[string][]string{
+				"london-uk":    {"01-01-1980", "02-01-1980"}, // 2 concerts
+				"new_york-usa": {"03-01-1980"},               // 1 concert
+			},
+		},
+		{
+			ID: 2,
+			DatesLocations: map[string][]string{
+				"sydney-australia": {"01-02-1981", "02-02-1981", "03-02-1981"}, // 3 concerts
+			},
+		},
+	}
+
+	mockStore := &MockDataStore{
+		relations: relations,
+	}
+
+	service := NewService(mockStore)
+	totalConcerts := service.CalculateTotalConcerts()
+
+	// Should be 6 total concerts (2 + 1 + 3)
+	if totalConcerts != 6 {
+		t.Errorf("Expected 6 total concerts, got %d", totalConcerts)
+	}
+}
+
+func TestServiceGetMostPopularLocations(t *testing.T) {
+	relations := []models.Relation{
+		{
+			ID: 1,
+			DatesLocations: map[string][]string{
+				"london-uk":    {"01-01-1980", "02-01-1980", "03-01-1980"}, // 3 concerts
+				"new_york-usa": {"04-01-1980"},                             // 1 concert
+			},
+		},
+		{
+			ID: 2,
+			DatesLocations: map[string][]string{
+				"london-uk":        {"01-02-1981", "02-02-1981"}, // 2 more concerts (5 total)
+				"sydney-australia": {"03-02-1981"},               // 1 concert
+				"new_york-usa":     {"04-02-1981"},               // 1 more concert (2 total)
+			},
+		},
+	}
+
+	mockStore := &MockDataStore{
+		relations: relations,
+	}
+
+	service := NewService(mockStore)
+	popularLocations := service.GetMostPopularLocations(3)
+
+	// Should return top 3 locations by concert count
+	if len(popularLocations) != 3 {
+		t.Errorf("Expected 3 popular locations, got %d", len(popularLocations))
+	}
+
+	// Verify order (should be sorted by concert count descending)
+	expected := []struct {
+		location string
+		count    int
 	}{
-		{"empty query returns all", "", 4},
-		{"exact match", "Queen", 1},
-		{"case insensitive", "queen", 1},
-		{"partial match", "Que", 1},
-		{"member search", "Freddie", 1},
-		{"no match", "Metallica", 0},
-		{"multiple matches", "e", 3}, // Queen, Beatles, Arctic Monkeys (all contain 'e')
+		{"london-uk", 5},
+		{"new_york-usa", 2},
+		{"sydney-australia", 1},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results := service.SearchArtists(tt.query)
-			if len(results) != tt.expected {
-				t.Errorf("Expected %d results for query '%s', got %d", tt.expected, tt.query, len(results))
-			}
-
-			// Verify results are sorted alphabetically
-			if len(results) > 1 {
-				for i := 1; i < len(results); i++ {
-					if results[i-1].Name > results[i].Name {
-						t.Errorf("Results not sorted alphabetically: %s > %s", results[i-1].Name, results[i].Name)
-					}
-				}
-			}
-		})
-	}
-}
-
-func TestService_FilterArtistsByYear(t *testing.T) {
-	mockStore := createMockDataReader()
-	service := NewService(mockStore)
-
-	tests := []struct {
-		name     string
-		minYear  int
-		maxYear  int
-		expected int
-	}{
-		{"no filter returns all", 0, 0, 4},
-		{"filter by range", 1970, 2000, 2}, // Queen (1970) and Gorillaz (1998)
-		{"only min year", 1990, 0, 2},      // Gorillaz (1998) and Arctic Monkeys (2002)
-		{"only max year", 0, 1980, 2},      // Queen (1970) and Beatles (1960)
-		{"exact year", 1970, 1970, 1},      // Only Queen
-		{"no matches", 2010, 2020, 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results := service.FilterArtistsByYear(tt.minYear, tt.maxYear)
-			if len(results) != tt.expected {
-				t.Errorf("Expected %d results for year range %d-%d, got %d", tt.expected, tt.minYear, tt.maxYear, len(results))
-			}
-
-			// Verify all results meet the criteria
-			for _, artist := range results {
-				if tt.minYear > 0 && artist.CreationYear < tt.minYear {
-					t.Errorf("Artist %s (%d) doesn't meet min year %d", artist.Name, artist.CreationYear, tt.minYear)
-				}
-				if tt.maxYear > 0 && artist.CreationYear > tt.maxYear {
-					t.Errorf("Artist %s (%d) exceeds max year %d", artist.Name, artist.CreationYear, tt.maxYear)
-				}
-			}
-		})
-	}
-}
-
-func TestService_FilterArtistsByMemberCount(t *testing.T) {
-	mockStore := createMockDataReader()
-	service := NewService(mockStore)
-
-	tests := []struct {
-		name        string
-		memberCount int
-		exact       bool
-		expected    int
-	}{
-		{"exactly 1 member", 1, true, 1},    // Gorillaz
-		{"exactly 2 members", 2, true, 1},   // Arctic Monkeys
-		{"exactly 4 members", 4, true, 2},   // Queen and Beatles
-		{"at least 2 members", 2, false, 3}, // Arctic Monkeys, Queen, Beatles
-		{"at least 5 members", 5, false, 0}, // None
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results := service.FilterArtistsByMemberCount(tt.memberCount, tt.exact)
-			if len(results) != tt.expected {
-				t.Errorf("Expected %d results for member count %d (exact=%v), got %d", tt.expected, tt.memberCount, tt.exact, len(results))
-			}
-
-			// Verify all results meet the criteria
-			for _, artist := range results {
-				memberCount := len(artist.Members)
-				if tt.exact {
-					if memberCount != tt.memberCount {
-						t.Errorf("Artist %s has %d members, expected exactly %d", artist.Name, memberCount, tt.memberCount)
-					}
-				} else {
-					if memberCount < tt.memberCount {
-						t.Errorf("Artist %s has %d members, expected at least %d", artist.Name, memberCount, tt.memberCount)
-					}
-				}
-			}
-		})
-	}
-}
-
-func TestService_SearchArtistsByLocation(t *testing.T) {
-	mockStore := createMockDataReader()
-	service := NewService(mockStore)
-
-	tests := []struct {
-		name     string
-		query    string
-		expected int
-	}{
-		{"empty query returns all", "", 4},
-		{"search london", "london", 2}, // Both relations contain london-uk
-		{"search uk", "uk", 2},         // Both relations contain UK locations
-		{"search usa", "usa", 1},       // Only one relation contains USA
-		{"no matches", "paris", 0},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results := service.SearchArtistsByLocation(tt.query)
-			if len(results) != tt.expected {
-				t.Errorf("Expected %d results for location query '%s', got %d", tt.expected, tt.query, len(results))
-			}
-		})
-	}
-}
-
-func TestService_SortingMethods(t *testing.T) {
-	mockStore := createMockDataReader()
-	service := NewService(mockStore)
-	artists := mockStore.GetAllArtists()
-
-	t.Run("SortArtistsByName", func(t *testing.T) {
-		sorted := service.SortArtistsByName(artists)
-		expected := []string{"Arctic Monkeys", "Beatles", "Gorillaz", "Queen"}
-
-		if len(sorted) != len(expected) {
-			t.Errorf("Expected %d artists, got %d", len(expected), len(sorted))
+	for i, exp := range expected {
+		if popularLocations[i].Location != exp.location {
+			t.Errorf("Position %d: expected location %s, got %s", i, exp.location, popularLocations[i].Location)
 		}
-
-		for i, artist := range sorted {
-			if artist.Name != expected[i] {
-				t.Errorf("Expected artist %d to be %s, got %s", i, expected[i], artist.Name)
-			}
-		}
-	})
-
-	t.Run("SortArtistsByYear", func(t *testing.T) {
-		sorted := service.SortArtistsByYear(artists)
-		expected := []int{1960, 1970, 1998, 2002} // Beatles, Queen, Gorillaz, Arctic Monkeys
-
-		for i, artist := range sorted {
-			if artist.CreationYear != expected[i] {
-				t.Errorf("Expected artist %d to have year %d, got %d", i, expected[i], artist.CreationYear)
-			}
-		}
-	})
-
-	t.Run("SortArtistsByMemberCount", func(t *testing.T) {
-		sorted := service.SortArtistsByMemberCount(artists)
-		expected := []int{1, 2, 4, 4} // Gorillaz, Arctic Monkeys, Queen, Beatles
-
-		for i, artist := range sorted {
-			memberCount := len(artist.Members)
-			if memberCount != expected[i] {
-				t.Errorf("Expected artist %d to have %d members, got %d", i, expected[i], memberCount)
-			}
-		}
-	})
-}
-
-func TestService_GetMostPopularLocations(t *testing.T) {
-	mockStore := createMockDataReader()
-	service := NewService(mockStore)
-
-	locations := service.GetMostPopularLocations(0) // No limit
-	if len(locations) == 0 {
-		t.Error("Expected at least one location")
-	}
-
-	// Verify sorting by frequency (most frequent first)
-	if len(locations) > 1 {
-		for i := 1; i < len(locations); i++ {
-			if locations[i-1].Count < locations[i].Count {
-				t.Errorf("Locations not sorted by frequency: %d < %d", locations[i-1].Count, locations[i].Count)
-			}
-		}
-	}
-
-	// Test with limit
-	limitedLocations := service.GetMostPopularLocations(2)
-	if len(limitedLocations) > 2 {
-		t.Errorf("Expected at most 2 locations, got %d", len(limitedLocations))
-	}
-}
-
-func TestService_GetDetailedStats(t *testing.T) {
-	mockStore := createMockDataReader()
-	service := NewService(mockStore)
-
-	stats := service.GetDetailedStats()
-
-	if stats.BasicStats["artists"] != 4 {
-		t.Errorf("Expected 4 artists in basic stats, got %d", stats.BasicStats["artists"])
-	}
-
-	expectedTotalMembers := 4 + 1 + 4 + 2 // Queen + Gorillaz + Beatles + Arctic Monkeys
-	if stats.TotalMembers != expectedTotalMembers {
-		t.Errorf("Expected %d total members, got %d", expectedTotalMembers, stats.TotalMembers)
-	}
-
-	expectedAvgMembers := float64(expectedTotalMembers) / 4.0
-	if stats.AverageMembers != expectedAvgMembers {
-		t.Errorf("Expected average members %.2f, got %.2f", expectedAvgMembers, stats.AverageMembers)
-	}
-
-	if stats.OldestArtistYear != 1960 {
-		t.Errorf("Expected oldest artist year 1960, got %d", stats.OldestArtistYear)
-	}
-
-	if stats.NewestArtistYear != 2002 {
-		t.Errorf("Expected newest artist year 2002, got %d", stats.NewestArtistYear)
-	}
-
-	// Check member count breakdown
-	expectedBreakdown := map[int]int{1: 1, 2: 1, 4: 2} // 1 band with 1 member, 1 with 2, 2 with 4
-	for count, freq := range expectedBreakdown {
-		if stats.MemberCountBreakdown[count] != freq {
-			t.Errorf("Expected %d bands with %d members, got %d", freq, count, stats.MemberCountBreakdown[count])
+		if popularLocations[i].Count != exp.count {
+			t.Errorf("Position %d: expected count %d, got %d", i, exp.count, popularLocations[i].Count)
 		}
 	}
 }
 
-func TestService_ImmutabilityOfResults(t *testing.T) {
-	mockStore := createMockDataReader()
+func TestServiceSearchArtists(t *testing.T) {
+	// Create test data
+	artists := []models.Artist{
+		{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May"}},
+		{ID: 2, Name: "Beatles", Members: []string{"John Lennon", "Paul McCartney"}},
+		{ID: 3, Name: "Led Zeppelin", Members: []string{"Robert Plant", "Jimmy Page"}},
+	}
+
+	mockStore := &MockDataStore{
+		artists: artists,
+	}
+
 	service := NewService(mockStore)
 
-	// Get artists and modify the slice
-	results1 := service.SearchArtists("")
-	originalLen := len(results1)
-
-	// Modify the returned slice
-	if len(results1) > 0 {
-		results1[0].Name = "Modified Name"
+	// Test search by artist name
+	results := service.SearchArtists("Queen")
+	if len(results) != 1 {
+		t.Errorf("Expected 1 result for 'Queen', got %d", len(results))
+	}
+	if results[0].Name != "Queen" {
+		t.Errorf("Expected 'Queen', got %s", results[0].Name)
 	}
 
-	// Get artists again and verify original data is intact
-	results2 := service.SearchArtists("")
-	if len(results2) != originalLen {
-		t.Error("Original data was modified")
+	// Test search by member name
+	results = service.SearchArtists("Freddie")
+	if len(results) != 1 {
+		t.Errorf("Expected 1 result for 'Freddie', got %d", len(results))
+	}
+	if results[0].Name != "Queen" {
+		t.Errorf("Expected 'Queen', got %s", results[0].Name)
 	}
 
-	if len(results2) > 0 && results2[0].Name == "Modified Name" {
-		t.Error("Service returned reference to internal data instead of copy")
+	// Test case-insensitive search
+	results = service.SearchArtists("beatles")
+	if len(results) != 1 {
+		t.Errorf("Expected 1 result for 'beatles', got %d", len(results))
+	}
+	if results[0].Name != "Beatles" {
+		t.Errorf("Expected 'Beatles', got %s", results[0].Name)
+	}
+
+	// Test empty search returns all artists sorted
+	results = service.SearchArtists("")
+	if len(results) != 3 {
+		t.Errorf("Expected 3 results for empty search, got %d", len(results))
+	}
+
+	// Verify results are sorted alphabetically
+	expectedOrder := []string{"Beatles", "Led Zeppelin", "Queen"}
+	for i, artist := range results {
+		if artist.Name != expectedOrder[i] {
+			t.Errorf("Position %d: expected %s, got %s", i, expectedOrder[i], artist.Name)
+		}
+	}
+}
+
+func TestServiceFilterArtistsByYear(t *testing.T) {
+	// Create test data with different creation years
+	artists := []models.Artist{
+		{ID: 1, Name: "Old Band", CreationYear: 1960},
+		{ID: 2, Name: "Medium Band", CreationYear: 1980},
+		{ID: 3, Name: "New Band", CreationYear: 2000},
+	}
+
+	mockStore := &MockDataStore{
+		artists: artists,
+	}
+
+	service := NewService(mockStore)
+
+	// Test filter by minimum year
+	results := service.FilterArtistsByYear(1970, 0)
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results for min year 1970, got %d", len(results))
+	}
+
+	// Test filter by maximum year
+	results = service.FilterArtistsByYear(0, 1990)
+	if len(results) != 2 {
+		t.Errorf("Expected 2 results for max year 1990, got %d", len(results))
+	}
+
+	// Test filter by year range
+	results = service.FilterArtistsByYear(1970, 1990)
+	if len(results) != 1 {
+		t.Errorf("Expected 1 result for year range 1970-1990, got %d", len(results))
+	}
+	if results[0].Name != "Medium Band" {
+		t.Errorf("Expected 'Medium Band', got %s", results[0].Name)
+	}
+
+	// Test no filter (all years)
+	results = service.FilterArtistsByYear(0, 0)
+	if len(results) != 3 {
+		t.Errorf("Expected 3 results for no filter, got %d", len(results))
+	}
+}
+
+func TestServiceGetStats(t *testing.T) {
+	// Create test data
+	artists := []models.Artist{
+		{ID: 1, Name: "Queen"},
+		{ID: 2, Name: "AC/DC"},
+	}
+
+	relations := []models.Relation{
+		{
+			ID: 1,
+			DatesLocations: map[string][]string{
+				"london-uk":    {"01-01-1980", "02-01-1980", "03-01-1980"}, // 3 concerts
+				"new_york-usa": {"04-01-1980"},                             // 1 concert
+			},
+		},
+		{
+			ID: 2,
+			DatesLocations: map[string][]string{
+				"london-uk":        {"01-02-1981", "02-02-1981"}, // 2 more concerts
+				"sydney-australia": {"03-02-1981"},               // 1 concert
+			},
+		},
+	}
+
+	locations := []string{"london-uk", "new_york-usa", "sydney-australia"}
+	dates := []string{"01-01-1980", "02-01-1980", "03-01-1980", "04-01-1980", "01-02-1981", "02-02-1981", "03-02-1981"}
+
+	mockStore := &MockDataStore{
+		artists:   artists,
+		relations: relations,
+		locations: locations,
+		dates:     dates,
+	}
+
+	service := NewService(mockStore)
+	stats := service.GetStats()
+
+	// Check basic counts
+	if stats["artists"] != 2 {
+		t.Errorf("Expected 2 artists, got %d", stats["artists"])
+	}
+	if stats["relations"] != 2 {
+		t.Errorf("Expected 2 relations, got %d", stats["relations"])
+	}
+	if stats["locations"] != 3 {
+		t.Errorf("Expected 3 locations, got %d", stats["locations"])
+	}
+	if stats["dates"] != 7 {
+		t.Errorf("Expected 7 dates, got %d", stats["dates"])
+	}
+
+	// Check total concerts calculation
+	if stats["total_concerts"] != 7 {
+		t.Errorf("Expected 7 total concerts, got %d", stats["total_concerts"])
+	}
+}
+
+// TestServiceCalculateTotalShows tests the CalculateTotalShows function
+func TestServiceCalculateTotalShows(t *testing.T) {
+	service := NewService(&MockDataStore{})
+
+	// Create test relation
+	relation := models.Relation{
+		ID: 1,
+		DatesLocations: map[string][]string{
+			"london-uk":    {"01-01-2020", "02-01-2020"},
+			"new_york-usa": {"03-01-2020"},
+			"paris-france": {"04-01-2020", "05-01-2020", "06-01-2020"},
+		},
+	}
+
+	totalShows := service.CalculateTotalShows(relation)
+
+	// Expected: 2 + 1 + 3 = 6 shows
+	expected := 6
+	if totalShows != expected {
+		t.Errorf("Expected %d total shows, got %d", expected, totalShows)
+	}
+}
+
+// TestServiceExtractCountries tests the ExtractCountries function
+func TestServiceExtractCountries(t *testing.T) {
+	service := NewService(&MockDataStore{})
+
+	// Create test relation with multiple countries
+	relation := models.Relation{
+		ID: 1,
+		DatesLocations: map[string][]string{
+			"london-uk":       {"01-01-2020"},
+			"manchester-uk":   {"02-01-2020"},
+			"new_york-usa":    {"03-01-2020"},
+			"los_angeles-usa": {"04-01-2020"},
+			"paris-france":    {"05-01-2020"},
+			"berlin-germany":  {"06-01-2020"},
+		},
+	}
+
+	countries := service.ExtractCountries(relation)
+
+	// Should extract: uk, usa, france, germany = 4 unique countries
+	expectedCount := 4
+	if len(countries) != expectedCount {
+		t.Errorf("Expected %d countries, got %d", expectedCount, len(countries))
+	}
+
+	// Verify specific countries are present
+	expectedCountries := map[string]bool{
+		"uk":      true,
+		"usa":     true,
+		"france":  true,
+		"germany": true,
+	}
+
+	for _, country := range countries {
+		if !expectedCountries[country] {
+			t.Errorf("Unexpected country: %s", country)
+		}
 	}
 }
