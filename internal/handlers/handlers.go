@@ -247,16 +247,16 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 
 	// Prepare data for template
 	data := struct {
-		Title           string
-		LocationName    string
-		DisplayName     string
-		Artists         []models.Artist
+		Title            string
+		LocationName     string
+		DisplayName      string
+		Artists          []models.Artist
 		ArtistsWithDates []service.ArtistWithDates
-		ConcertDates    []string
-		ArtistCount     int
-		ConcertCount    int
-		ExtraCSS        string
-		ExtraJS         string
+		ConcertDates     []string
+		ArtistCount      int
+		ConcertCount     int
+		ExtraCSS         string
+		ExtraJS          string
 	}{
 		Title:            fmt.Sprintf("%s - Location", models.NormalizeLocationName(locationDetail.Name)),
 		LocationName:     locationDetail.Name,
