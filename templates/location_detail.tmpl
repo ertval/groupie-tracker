@@ -40,7 +40,9 @@
                         {{range .ArtistsWithDates}}
                         <div class="artist-card">
                             <div class="artist-image">
-                                <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-img">
+                                <a href="/artists/{{.Artist.GetSlug}}">
+                                    <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-img">
+                                </a>
                             </div>
                             <div class="artist-info">
                                 <h3>
