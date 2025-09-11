@@ -1,8 +1,10 @@
 ## Credentials setup and switching — HTTPS 🔒 and SSH 🔑
 
-This guide shows how to create, store and switch between two accounts (example: `work` and `personal`) when pushing to Gitea. Commands assume Git Bash (`bash.exe`) on Windows.
+
+This guide shows how to create, store and switch between two accounts (example: `work` and `personal`) when pushing to Gitea — and how to create a repo correctly from the start. Commands assume Git Bash (`bash.exe`) on Windows.
 
 What you'll find here
+- ✅ Getting started: set commit identity, init or clone a repo, .gitignore, default branch
 - ✅ HTTPS: how to save credentials, two clear options for per-repo auth, and how to switch accounts
 - ✅ SSH: how to create separate keys, configure host aliases, and use them per-repo
 - ✅ Verification, cleanup, and troubleshooting commands
@@ -10,6 +12,77 @@ What you'll find here
 Quick notes
 - The username shown in `git remote -v` for HTTPS is the HTTP auth username (not the commit author). Commit author is set with `git config user.name`/`user.email`.
 - On Windows prefer the Git Credential Manager (`manager-core`) — it uses OS-secure storage and stores credentials by URL.
+
+---
+
+### Getting started — identity & repo init ⚙️
+
+Before you make commits or push, set your commit identity and create or clone the repository correctly.
+
+1) Set your commit author identity (global or per-repo)
+
+```bash
+# Global (applies to all repos unless overridden)
+git config --global user.name "Your Name"
+git config --global user.email "you@example.com"
+
+# Per-repo (run inside the repository)
+git config user.name "Work Name"
+git config user.email "you@work.example.com"
+
+# Verify
+git config --global --get user.name
+git config --global --get user.email
+```
+
+2) (Optional) Enable commit signing (GPG or SSH)
+
+```bash
+# Example (GPG):
+# generate a GPG key, then:
+git config --global user.signingkey <KEY_ID>
+git config --global commit.gpgsign true
+
+# To disable per-repo
+git config commit.gpgsign false
+```
+
+3) Create a new repo or clone an existing one
+
+```bash
+# Create locally and push to remote later:
+mkdir myrepo && cd myrepo
+git init
+echo "# MyRepo" > README.md
+git add README.md
+git commit -m "chore: initial commit"
+
+# Or clone an existing remote
+git clone https://gitea.example.com/owner/repo.git
+```
+
+4) Create a useful `.gitignore` and set your default branch
+
+```bash
+# Add a sensible .gitignore for your project then:
+git add .gitignore && git commit -m "chore: add .gitignore"
+
+# Set or rename default branch to 'main' locally
+git branch -M main
+```
+
+5) Add remote and push (first push will authenticate and save credentials)
+
+```bash
+git remote add origin https://gitea.example.com/owner/repo.git
+git push -u origin main
+```
+
+Notes
+- Commit author identity (name/email) only affects commit metadata, not network authentication.
+- If you use multiple identities (work vs personal) use per-repo config or `includeIf` to load per-folder settings.
+
+---
 
 ---
 
