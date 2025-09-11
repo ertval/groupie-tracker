@@ -7,7 +7,7 @@ Zone01 educational project implementing a Go web application that consumes the G
 
 **Critical Constraints:**
 - Standard-library-only Go project — NEVER add third-party modules
-- Follow Test-Driven Development: write `*_test.go` before implementation
+- Follow Test-Driven Development: write `*_test.go` before implementation  
 - Server must never crash — implement panic recovery in all handlers
 
 **Quick Commands:**
@@ -18,91 +18,87 @@ go test -cover ./...         # Coverage report
 go build -o groupie-tracker ./cmd/server
 ```
 
-## Current Architecture (As of Sept 2025)
+## Current Architecture (Updated September 2025)
 
-### Project Structure
+### Clean Architecture - Recently Refactored
 ```
 cmd/server/main.go           # Entry point with graceful shutdown
 internal/
   ├── api/client.go         # External API consumption
-  ├── handlers/handlers.go  # HTTP handlers (650+ lines)
+  ├── handlers/handlers.go  # HTTP handlers (590+ lines)
   ├── models/models.go      # Core data structures
-  ├── storage/
-  │   ├── store.go         # Unified store (wrapper)
-  │   └── base_store.go    # BaseStore + automatic cache (400+ lines)
-  └── service/service.go   # Business logic layer (200+ lines)
+  ├── storage/store.go      # Unified store with auto-refresh (330+ lines)
+  └── service/service.go    # Business logic layer (200+ lines)
 templates/                  # Self-contained HTML templates (NO inheritance)
 static/css/                 # Page-specific stylesheets
 tests/                     # Audit compliance & E2E tests
+doc/                       # Architecture & refactoring documentation
 ```
 
-### **Critical Architecture Issue** 🚨
-The current storage/service layer is **over-complicated** with multiple abstractions:
-- `Store` wraps `BaseStore` and `Service`
-- Complex interface hierarchies (`DataReader`, `APIClient`)
-- Duplicated functionality between storage and service layers
-- **NEEDS REFACTORING** to single store + single service pattern
+**✅ Architecture Issues Resolved:**
+- Single `storage/store.go` (no more wrapper complexity)
+- Unified store pattern with auto-refresh capability
+- Clean separation between storage, service, and handler layers
+- Proper error handling with template compatibility
 
-### Template System (Recently Fixed - Sept 2025)
-**Self-Contained Templates** (NO template inheritance):
-- Each `.tmpl` file is a complete HTML document
-- No `{{define "content"}}` blocks or `{{template "base.tmpl" .}}`
-- Direct execution: `h.templates.ExecuteTemplate(w, "locations.tmpl", data)`
-- Template functions: `add`, `sub`, `contains`, `safeLen`
+### Current Store Features (September 2025)
+```go
+// Auto-refresh with configurable intervals
+store := storage.NewStoreWithCache(apiClient)
+store.StartAutoRefresh()    // Default: 1-hour refresh
+
+// Thread-safe operations
+func (s *Store) GetArtist(id int) (models.Artist, bool) {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    artist, found := s.artists[id]
+    return artist, found
+}
+```
 
 ## Critical Data Flow Patterns
-
-### Storage Threading
-```go
-// Read operations
-s.mu.RLock()
-defer s.mu.RUnlock()
-data := s.artists[id]
-
-// Write operations  
-s.mu.Lock()
-defer s.mu.Unlock()
-s.artists[id] = artist
-```
 
 ### API Data Normalization (in `internal/api/client.go`)
 - `/api/artists` → direct array
 - `/api/locations`, `/api/dates`, `/api/relation` → `{"index": [...]}` format
 - Must extract `.Index` field for locations/dates/relations
 
-### Handler Panic Recovery Pattern
+### Handler Error Template Pattern
 ```go
-func (h *Handlers) SomeHandler(w http.ResponseWriter, r *http.Request) {
-    defer func() {
-        if err := recover(); err != nil {
-            log.Printf("Panic recovered: %v", err)
-            h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
-        }
-    }()
-    // handler logic
+// Error handlers expect specific struct fields
+data := struct {
+    Title        string
+    ErrorCode    int      // NOT "Code" 
+    RequestedURL string
+    ExtraCSS     string
+}{
+    ErrorCode: 404,
+    ExtraCSS:  "errors.css",
 }
 ```
 
-## Known Issues & Immediate Tasks
+### Template System (Self-Contained)
+- Each `.tmpl` file is complete HTML document
+- No template inheritance or `{{define "content"}}` blocks
+- Direct execution: `h.templates.ExecuteTemplate(w, "artist_detail.tmpl", data)`
+- Template functions: `add`, `sub`, `contains`, `safeLen`
 
-### 🐛 Active Bug: Popular Locations Not Sorted
-**Issue:** `templates/locations.tmpl` shows "Most Popular Locations" in arbitrary order
-**Location:** `internal/handlers/handlers.go:calculateLocationStats()`
-**Fix Required:** Sort locations by `ConcertCount` descending before returning
+### Auto-Refresh Architecture
+```go
+// Server lifecycle integration
+store.StartAutoRefresh()    // After initial data load
+defer store.StopAutoRefresh() // On graceful shutdown
 
-### 🔄 Refactoring Required
-**Current Problem:** Over-engineered storage/service layers
-**Goal:** Simplify to single store struct + single service struct
-**Files to Refactor:**
-- `internal/storage/store.go` (remove wrapper)
-- `internal/storage/base_store.go` (rename to `store.go`)
-- `internal/service/service.go` (simplify interfaces)
+// Background refresh with proper error handling
+🔄 Auto-refreshing data from API...
+✅ Auto-refresh completed successfully
+```
 
 ## Zone01 Audit Requirements (Test Against These)
 
 **Critical Data Points:**
 - Queen: exactly 7 members
-- Gorillaz: first album date "26-03-2001"
+- Gorillaz: first album date "26-03-2001" 
 - Travis Scott: 10+ concert locations
 - Foo Fighters: exactly 6 members
 
@@ -111,35 +107,39 @@ func (h *Handlers) SomeHandler(w http.ResponseWriter, r *http.Request) {
 - `GET /api/suggest?q=` (autocomplete)
 - `POST /api/refresh` (refresh cached data)
 
-## Current Status (Sept 2025)
+## Current Status (September 2025)
 
-**✅ Completed:**
-- Self-contained template system (no inheritance conflicts)
+**✅ Recently Completed:**
+- Fixed 404 error page display (ErrorCode vs Code mismatch)
+- Removed "+X more" truncation in location artist lists
+- Implemented auto-refresh system (1-hour intervals)
+- Unified storage layer (no more base_store.go wrapper)
+- Comprehensive error handling with proper template compatibility
+- All tests passing (46+ comprehensive tests)
+
+**🔧 Current Architecture:**
+- Clean single-store pattern with auto-refresh
+- Thread-safe operations with proper mutex handling
+- Graceful server shutdown with auto-refresh cleanup
+- Self-contained template system working correctly
 - SEO-friendly URL slugs (/artists/queen vs /artists/28)
-- 46 comprehensive tests with 100% pass rate
-- Thread-safe storage with automatic cache refresh
-- Client-server interactive events
-
-**🔧 Needs Immediate Attention:**
-1. Fix popular locations sorting bug
-2. Refactor storage/service complexity
-3. Update tests for refactored code
-4. Update documentation
 
 ## Development Workflow
 
 1. **Always write tests first** (Zone01 requirement)
-2. **Start with the bug fix** (popular locations)
-3. **Then refactor** storage/service layers
-4. **Update tests** to match new architecture
-5. **Update documentation** (README.md, todo.md)
+2. **Use the unified store pattern** (`internal/storage/store.go`)
+3. **Follow self-contained template pattern** (no inheritance)
+4. **Test with audit data** (Queen, Gorillaz, Travis Scott, Foo Fighters)
+5. **Check error template compatibility** (ErrorCode, ExtraCSS fields)
 
 **File Reading Priority:**
-1. `internal/handlers/handlers.go` (lines 480-632 for locations bug)
-2. `internal/storage/store.go` (wrapper complexity)
-3. `internal/service/service.go` (business logic patterns)
+1. `internal/storage/store.go` (unified store with auto-refresh)
+2. `internal/handlers/handlers.go` (error handling patterns)
+3. `templates/*.tmpl` (self-contained template examples)
+4. `doc/BUG_FIXES_AND_FEATURES_SUMMARY.md` (recent changes)
 
 **Testing Strategy:**
-- Preserve existing test data (Queen, Gorillaz, etc.)
-- Test refactored code maintains same public APIs
-- Ensure no regression in audit compliance
+- All tests use audit-compliant data (Queen, Gorillaz, etc.)
+- Test auto-refresh functionality with mock API client
+- Verify template error handling with proper field structure
+- Ensure no regression in Zone01 audit requirements

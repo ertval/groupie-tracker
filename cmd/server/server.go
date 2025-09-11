@@ -53,8 +53,8 @@ func NewServer() (*Server, error) {
 	// Initialize API client
 	apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
 
-	// Initialize store
-	store := storage.NewStore()
+	// Initialize store with cache functionality
+	store := storage.NewStoreWithCache(apiClient)
 
 	// Load initial data using API client
 	log.Println(colorCyan + "⏳ Loading initial data..." + colorReset)
@@ -76,6 +76,9 @@ func NewServer() (*Server, error) {
 	}
 
 	log.Printf(colorCyan+"✅ Data loaded successfully - %d artists"+colorReset, len(artists))
+
+	// Start auto-refresh for the store
+	store.StartAutoRefresh()
 
 	// Initialize service
 	service := service.NewService(store)
@@ -153,6 +156,10 @@ func (s *Server) Start() error {
 
 	// Stop the cache first
 	log.Println(colorYellow + "🛑 Shutting down..." + colorReset)
+
+	// Stop auto-refresh
+	s.store.StopAutoRefresh()
+
 	s.cancel() // Cancel the context
 
 	// Create a deadline to wait for
@@ -198,6 +205,7 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 		}
 		h.LocationsHandler(w, r)
 	})
+	mux.HandleFunc("/locations/", h.LocationDetailHandler)
 
 	// API routes
 	mux.HandleFunc("/api/search", h.SearchHandler)

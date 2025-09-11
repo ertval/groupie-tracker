@@ -67,13 +67,8 @@
                         <div class="location-artists">
                             <h4>Artists who performed here:</h4>
                             <div class="artists-list">
-                                {{range $index, $artist := .Artists}}
-                                {{if lt $index 5}}
-                                <a href="/artists/{{$artist.GetSlug}}" class="artist-link">{{$artist.Name}}</a>
-                                {{end}}
-                                {{end}}
-                                {{if gt (len .Artists) 5}}
-                                <span class="more-artists">+{{sub (len .Artists) 5}} more</span>
+                                {{range .Artists}}
+                                <a href="/artists/{{.GetSlug}}" class="artist-link">{{.Name}}</a>
                                 {{end}}
                             </div>
                         </div>

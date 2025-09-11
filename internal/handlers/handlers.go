@@ -48,6 +48,7 @@ func (h *Handlers) loadTemplates() {
 		"templates/artists.tmpl",
 		"templates/artist_detail.tmpl",
 		"templates/locations.tmpl",
+		"templates/location_detail.tmpl",
 		"templates/error.tmpl",
 	}
 
@@ -74,6 +75,15 @@ func (h *Handlers) loadTemplates() {
 			default:
 				return 0
 			}
+		},
+		"join": func(items []string, sep string) string {
+			return strings.Join(items, sep)
+		},
+		"generateLocationSlug": func(locationName string) string {
+			return models.GenerateLocationSlug(locationName)
+		},
+		"normalizeLocationName": func(locationName string) string {
+			return models.NormalizeLocationName(locationName)
 		},
 	}
 
@@ -196,6 +206,80 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	} else {
 		h.writeSimpleHTML(w, "Locations", fmt.Sprintf("Found %d locations", len(locations)))
+	}
+}
+
+// LocationDetailHandler handles requests to specific location pages
+func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request) {
+	defer func() {
+		if err := recover(); err != nil {
+			log.Printf("Panic recovered in LocationDetailHandler: %v", err)
+			h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
+		}
+	}()
+
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract location slug from URL path
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	if len(pathParts) < 2 {
+		h.NotFoundHandler(w, r)
+		return
+	}
+
+	locationSlug := pathParts[1]
+
+	// Get location details from service
+	locationDetail, found := h.service.GetLocationDetailsBySlug(locationSlug)
+	if !found {
+		h.NotFoundHandler(w, r)
+		return
+	}
+
+	// Get concert dates for this location (unique across all artists)
+	concertDates := h.service.GetLocationConcertDates(locationDetail.Name)
+
+	// Get per-artist dates for this location
+	artistsWithDates := h.service.GetArtistsWithDatesForLocation(locationDetail.Name)
+
+	// Prepare data for template
+	data := struct {
+		Title           string
+		LocationName    string
+		DisplayName     string
+		Artists         []models.Artist
+		ArtistsWithDates []service.ArtistWithDates
+		ConcertDates    []string
+		ArtistCount     int
+		ConcertCount    int
+		ExtraCSS        string
+		ExtraJS         string
+	}{
+		Title:            fmt.Sprintf("%s - Location", models.NormalizeLocationName(locationDetail.Name)),
+		LocationName:     locationDetail.Name,
+		DisplayName:      models.NormalizeLocationName(locationDetail.Name),
+		Artists:          locationDetail.Artists,
+		ArtistsWithDates: artistsWithDates,
+		ConcertDates:     concertDates,
+		ArtistCount:      locationDetail.ArtistCount,
+		ConcertCount:     locationDetail.ConcertCount,
+		ExtraCSS:         "locations.css",
+		ExtraJS:          "",
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+
+	// Execute the location detail template
+	if h.templates != nil {
+		if err := h.templates.ExecuteTemplate(w, "location_detail.tmpl", data); err != nil {
+			log.Printf("Template execution error: %v", err)
+			h.writeSimpleHTML(w, "Location Detail", fmt.Sprintf("Location: %s", data.DisplayName))
+		}
+	} else {
+		h.writeSimpleHTML(w, "Location Detail", fmt.Sprintf("Location: %s", data.DisplayName))
 	}
 }
 
@@ -519,13 +603,17 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 
 	if h.templates != nil {
 		data := struct {
-			Title   string
-			Message string
-			Code    int
+			Title        string
+			Message      string
+			ErrorCode    int
+			RequestedURL string
+			ExtraCSS     string
 		}{
-			Title:   "Page Not Found",
-			Message: "The page you're looking for doesn't exist.",
-			Code:    404,
+			Title:        "Page Not Found",
+			Message:      "The page you're looking for doesn't exist.",
+			ErrorCode:    404,
+			RequestedURL: r.URL.Path,
+			ExtraCSS:     "errors.css",
 		}
 
 		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
@@ -546,13 +634,19 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 
 	if h.templates != nil {
 		data := struct {
-			Title   string
-			Message string
-			Code    int
+			Title        string
+			Message      string
+			ErrorCode    int
+			ErrorMessage string
+			Timestamp    string
+			ExtraCSS     string
 		}{
-			Title:   "Internal Server Error",
-			Message: "Something went wrong on our end.",
-			Code:    500,
+			Title:        "Internal Server Error",
+			Message:      "Something went wrong on our end.",
+			ErrorCode:    500,
+			ErrorMessage: message,
+			Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+			ExtraCSS:     "errors.css",
 		}
 
 		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {

@@ -59,7 +59,9 @@
                     <div class="concerts-container">
                         {{range $location, $dates := .Relation.DatesLocations}}
                         <div class="location-section">
-                            <h3 class="location-name">{{$location}}</h3>
+                            <h3 class="location-name">
+                                <a href="/locations/{{$location | generateLocationSlug}}" class="location-link">{{$location | normalizeLocationName}}</a>
+                            </h3>
                             <div class="dates-list">
                                 {{range $dates}}
                                 <span class="concert-date">{{.}}</span>
@@ -101,7 +103,6 @@
                 </section>
 
                 <div class="navigation-links">
-                    <a href="/artists" class="btn btn-secondary">← Back to Artists</a>
                     {{if .PrevArtist}}
                     <a href="/artists/{{.PrevArtist.GetSlug}}" class="btn btn-outline">← {{.PrevArtist.Name}}</a>
                     {{end}}
@@ -109,12 +110,15 @@
                     <a href="/artists/{{.NextArtist.GetSlug}}" class="btn btn-outline">{{.NextArtist.Name}} →</a>
                     {{end}}
                 </div>
+                <div class="back-to-artists">
+                  <a href="/artists" class="btn btn-secondary">← Back to Artists</a>
+                </div>
             </main>
         </div>
     </main>
 
     <footer class="site-footer">
-        <div class="container">© 2024 Groupie Tracker</div>
+        <div class="container">© 2025 Groupie Tracker</div>
     </footer>
 
     {{if .ExtraJS}}

@@ -4,6 +4,7 @@ package models
 
 import (
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -154,4 +155,69 @@ func (r *Relation) Validate() error {
 	}
 
 	return nil
+}
+
+// GenerateLocationSlug creates a URL-friendly slug from a location name.
+// Location names come in formats like "new_york-usa" or "paris-france"
+func GenerateLocationSlug(locationName string) string {
+	if locationName == "" {
+		return ""
+	}
+
+	// Convert to lowercase
+	slug := strings.ToLower(locationName)
+
+	// Replace underscores with hyphens for consistency
+	slug = strings.ReplaceAll(slug, "_", "-")
+
+	// Keep only alphanumeric characters and hyphens
+	reg := regexp.MustCompile(`[^a-z0-9-]+`)
+	slug = reg.ReplaceAllString(slug, "-")
+
+	// Remove leading and trailing hyphens
+	slug = strings.Trim(slug, "-")
+
+	// Replace multiple consecutive hyphens with single hyphen
+	reg = regexp.MustCompile(`-+`)
+	slug = reg.ReplaceAllString(slug, "-")
+
+	return slug
+}
+
+// NormalizeLocationName formats location names for display
+// Converts "new_york-usa" to "New York, USA"
+func NormalizeLocationName(locationName string) string {
+	if locationName == "" {
+		return ""
+	}
+
+	// Split by the last hyphen to separate city from country
+	parts := strings.Split(locationName, "-")
+	if len(parts) < 2 {
+		return toTitleCase(strings.ReplaceAll(locationName, "_", " "))
+	}
+
+	// Get city and country parts
+	countryIndex := len(parts) - 1
+	country := parts[countryIndex]
+	city := strings.Join(parts[:countryIndex], "-")
+
+	// Format city: replace underscores with spaces and title case
+	formattedCity := toTitleCase(strings.ReplaceAll(city, "_", " "))
+
+	// Format country: uppercase
+	formattedCountry := strings.ToUpper(country)
+
+	return fmt.Sprintf("%s, %s", formattedCity, formattedCountry)
+}
+
+// toTitleCase converts a string to title case (first letter of each word capitalized)
+func toTitleCase(s string) string {
+	words := strings.Fields(s)
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
+		}
+	}
+	return strings.Join(words, " ")
 }

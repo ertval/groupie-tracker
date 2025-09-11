@@ -5,6 +5,7 @@ import (
 	"context"
 	"log"
 	"sync"
+	"time"
 
 	"groupie-tracker/internal/models"
 )
@@ -32,6 +33,13 @@ type Store struct {
 
 	// Optional API client for cache functionality
 	apiClient APIClient
+
+	// Auto-refresh mechanism
+	refreshInterval time.Duration
+	refreshTicker   *time.Ticker
+	refreshDone     chan bool
+	refreshContext  context.Context
+	refreshCancel   context.CancelFunc
 }
 
 // NewStore creates a new empty store.
@@ -47,11 +55,69 @@ func NewStore() *Store {
 	}
 }
 
-// NewStoreWithCache creates a new store with cache functionality.
+// NewStoreWithCache creates a new store with cache functionality and auto-refresh.
+// Auto-refresh interval is set to 1 hour by default.
 func NewStoreWithCache(apiClient APIClient) *Store {
+	return NewStoreWithRefresh(apiClient, 1*time.Hour)
+}
+
+// NewStoreWithRefresh creates a new store with cache functionality and custom auto-refresh interval.
+func NewStoreWithRefresh(apiClient APIClient, refreshInterval time.Duration) *Store {
+	ctx, cancel := context.WithCancel(context.Background())
+
 	store := NewStore()
 	store.apiClient = apiClient
+	store.refreshInterval = refreshInterval
+	store.refreshDone = make(chan bool)
+	store.refreshContext = ctx
+	store.refreshCancel = cancel
+
 	return store
+}
+
+// StartAutoRefresh starts the automatic refresh mechanism.
+// This should be called after initial data is loaded.
+func (s *Store) StartAutoRefresh() {
+	if s.apiClient == nil || s.refreshInterval <= 0 {
+		log.Println("⚠️  Auto-refresh not configured")
+		return
+	}
+
+	s.refreshTicker = time.NewTicker(s.refreshInterval)
+
+	go func() {
+		log.Printf("✅ Auto-refresh started (interval: %v)", s.refreshInterval)
+
+		for {
+			select {
+			case <-s.refreshTicker.C:
+				log.Println("🔄 Auto-refreshing data from API...")
+
+				refreshCtx, refreshCancel := context.WithTimeout(s.refreshContext, 30*time.Second)
+				if err := s.RefreshData(refreshCtx); err != nil {
+					log.Printf("❌ Auto-refresh failed: %v", err)
+				} else {
+					log.Println("✅ Auto-refresh completed successfully")
+				}
+				refreshCancel()
+
+			case <-s.refreshDone:
+				log.Println("🛑 Auto-refresh stopped")
+				return
+			}
+		}
+	}()
+}
+
+// StopAutoRefresh stops the automatic refresh mechanism.
+func (s *Store) StopAutoRefresh() {
+	if s.refreshTicker != nil {
+		s.refreshTicker.Stop()
+	}
+	if s.refreshCancel != nil {
+		s.refreshCancel()
+	}
+	close(s.refreshDone)
 }
 
 // LoadData loads all data from an APIResponse into the store.

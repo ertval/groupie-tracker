@@ -35,6 +35,12 @@ type LocationFrequency struct {
 	Count    int
 }
 
+// ArtistWithDates pairs an artist with the concert dates they played at a location.
+type ArtistWithDates struct {
+	Artist models.Artist
+	Dates  []string
+}
+
 // NewService creates a new service instance.
 func NewService(store DataStore) *Service {
 	return &Service{
@@ -325,4 +331,94 @@ func (s *Service) sortArtistsByName(artists []models.Artist) []models.Artist {
 	})
 
 	return sorted
+}
+
+// GetLocationDetailsBySlug returns detailed information about a specific location
+func (s *Service) GetLocationDetailsBySlug(locationSlug string) (*LocationStat, bool) {
+	// Get all location stats
+	locationStats := s.CalculateLocationStats()
+
+	// Find the matching location by comparing slugs
+	for _, stat := range locationStats {
+		if models.GenerateLocationSlug(stat.Name) == locationSlug {
+			return &stat, true
+		}
+	}
+
+	return nil, false
+}
+
+// GetLocationConcertDates returns all concert dates for a specific location
+func (s *Service) GetLocationConcertDates(locationName string) []string {
+	var allDates []string
+	allRelations := s.store.GetAllRelations()
+
+	// Collect all dates for this location from all relations
+	for _, relation := range allRelations {
+		if dates, exists := relation.DatesLocations[locationName]; exists {
+			allDates = append(allDates, dates...)
+		}
+	}
+
+	// Remove duplicates and sort
+	dateMap := make(map[string]bool)
+	for _, date := range allDates {
+		dateMap[date] = true
+	}
+
+	uniqueDates := make([]string, 0, len(dateMap))
+	for date := range dateMap {
+		uniqueDates = append(uniqueDates, date)
+	}
+
+	sort.Strings(uniqueDates)
+	return uniqueDates
+}
+
+// GetArtistsWithDatesForLocation returns a slice of ArtistWithDates for a specific location.
+// Each entry contains the artist and the sorted, unique dates they performed at the location.
+func (s *Service) GetArtistsWithDatesForLocation(locationName string) []ArtistWithDates {
+	allRelations := s.store.GetAllRelations()
+	// Map of artist ID to dates
+	artistDates := make(map[int]map[string]bool)
+	// Keep order of artists as they appear in store's artist list for determinism
+	artistOrder := []int{}
+
+	for _, rel := range allRelations {
+		if dates, ok := rel.DatesLocations[locationName]; ok {
+			if _, exists := artistDates[rel.ID]; !exists {
+				artistDates[rel.ID] = make(map[string]bool)
+				artistOrder = append(artistOrder, rel.ID)
+			}
+			for _, d := range dates {
+				artistDates[rel.ID][d] = true
+			}
+		}
+	}
+
+	// Build result
+	var result []ArtistWithDates
+	// Build artist lookup
+	artistMap := make(map[int]models.Artist)
+	for _, a := range s.store.GetAllArtists() {
+		artistMap[a.ID] = a
+	}
+
+	for _, id := range artistOrder {
+		datesMap := artistDates[id]
+		if datesMap == nil {
+			continue
+		}
+		dates := make([]string, 0, len(datesMap))
+		for d := range datesMap {
+			dates = append(dates, d)
+		}
+		sort.Strings(dates)
+
+		if artist, ok := artistMap[id]; ok {
+			result = append(result, ArtistWithDates{Artist: artist, Dates: dates})
+		}
+	}
+
+	return result
 }
