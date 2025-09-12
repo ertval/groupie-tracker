@@ -52,6 +52,22 @@
                             <p>Total Concerts</p>
                         </div>
                     </div>
+
+                    <!-- Most Popular Locations: moved here to appear directly after the main stats -->
+                    <section class="top-locations">
+                        <h2>Most Popular Locations</h2>
+                        <div class="top-locations-list">
+                            {{range $index, $location := .TopLocations}}
+                            {{if lt $index 10}}
+                            <div class="top-location-item">
+                                <span class="rank">{{add $index 1}}</span>
+                                <span class="location-name"><a href="/locations/{{generateLocationSlug $location.Name}}">{{normalizeLocationName $location.Name}}</a></span>
+                                <span class="stats">{{$location.ArtistCount}} artists • {{$location.ConcertCount}} concerts</span>
+                            </div>
+                            {{end}}
+                            {{end}}
+                        </div>
+                    </section>
                 </section>
 
                 <section class="locations-grid">
@@ -90,21 +106,7 @@
                         </div>
                     </div>
                 </section>
-
-                <section class="top-locations">
-                    <h2>Most Popular Locations</h2>
-                    <div class="top-locations-list">
-                        {{range $index, $location := .TopLocations}}
-                        {{if lt $index 10}}
-                        <div class="top-location-item">
-                            <span class="rank">{{add $index 1}}</span>
-                            <span class="location-name">{{$location.Name}}</span>
-                            <span class="stats">{{$location.ArtistCount}} artists • {{$location.ConcertCount}} concerts</span>
-                        </div>
-                        {{end}}
-                        {{end}}
-                    </div>
-                </section>
+                
             </main>
         </div>
     </main>

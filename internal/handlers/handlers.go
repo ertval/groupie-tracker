@@ -608,12 +608,14 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 			ErrorCode    int
 			RequestedURL string
 			ExtraCSS     string
+			ExtraJS      string
 		}{
 			Title:        "Page Not Found",
 			Message:      "The page you're looking for doesn't exist.",
 			ErrorCode:    404,
 			RequestedURL: r.URL.Path,
 			ExtraCSS:     "errors.css",
+			ExtraJS:      "",
 		}
 
 		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
@@ -640,6 +642,7 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 			ErrorMessage string
 			Timestamp    string
 			ExtraCSS     string
+			ExtraJS      string
 		}{
 			Title:        "Internal Server Error",
 			Message:      "Something went wrong on our end.",
@@ -647,6 +650,7 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 			ErrorMessage: message,
 			Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
 			ExtraCSS:     "errors.css",
+			ExtraJS:      "",
 		}
 
 		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
