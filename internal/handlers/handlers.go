@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"slices"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -56,12 +57,7 @@ func (h *Handlers) loadTemplates() {
 		"add": func(a, b int) int { return a + b },
 		"sub": func(a, b int) int { return a - b },
 		"contains": func(slice []string, item string) bool {
-			for _, s := range slice {
-				if s == item {
-					return true
-				}
-			}
-			return false
+			return slices.Contains(slice, item)
 		},
 		"safeLen": func(slice interface{}) int {
 			if slice == nil {
