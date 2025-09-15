@@ -212,7 +212,7 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 
 	// Development: panic trigger endpoint (DEV ONLY)
 	// This intentionally panics so the recovery middleware and InternalErrorHandler can be exercised.
-	mux.HandleFunc("/dev/trigger-panic", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/dev/panic", func(w http.ResponseWriter, r *http.Request) {
 		h.PanicHandler(w, r)
 	})
 

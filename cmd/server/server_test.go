@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +18,124 @@ import (
 	"groupie-tracker/internal/storage"
 )
 
+// getProjectRoot returns the absolute path to the project root directory
+func getProjectRoot() string {
+	_, currentFile, _, _ := runtime.Caller(0)
+	// From cmd/server/main_consolidated_test.go, go up two levels to project root
+	return filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
+}
+
+// createTestHandlers creates handlers for testing with proper template loading
+func createTestHandlers() *handlers.Handlers {
+	store := storage.NewStore()
+	testData := models.APIResponse{
+		Artists: []models.Artist{
+			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
+		},
+	}
+	store.LoadData(testData)
+
+	apiClient := api.NewClient("https://groupietrackers.herokuapp.com", 10*time.Second)
+	service := service.NewService(store)
+
+	// Change to project root to ensure templates are found
+	originalDir, _ := os.Getwd()
+	projectRoot := getProjectRoot()
+	os.Chdir(projectRoot)
+
+	h := handlers.NewHandlers(store, service, apiClient)
+
+	// Restore original directory
+	os.Chdir(originalDir)
+
+	return h
+}
+
+// Tests from main_test.go
+// TestServerRoutes tests all the main server routes
+func TestServerRoutes(t *testing.T) {
+	h := createTestHandlers()
+	mux := createRouter(h)
+
+	// Test routes
+	tests := []struct {
+		path         string
+		expectedCode int
+	}{
+		{"/", http.StatusOK},
+		{"/artists", http.StatusOK},
+		{"/locations", http.StatusOK},
+		{"/healthz", http.StatusOK},
+		{"/nonexistent", http.StatusNotFound},
+	}
+
+	for _, tt := range tests {
+		req, err := http.NewRequest("GET", tt.path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+
+		if status := rr.Code; status != tt.expectedCode {
+			t.Errorf("Handler for %s returned wrong status code: got %v want %v", tt.path, status, tt.expectedCode)
+		}
+	}
+}
+
+// TestServerCreation tests server creation (skipped due to network dependency)
+func TestServerCreation(t *testing.T) {
+	// This test would require network access, so we'll just test the structure
+	t.Skip("Skipping server creation test as it requires network access")
+}
+
+// TestGetPortFunction tests the port configuration function
+func TestGetPortFunction(t *testing.T) {
+	port := getPort()
+	if port == "" {
+		t.Error("getPort() returned empty string")
+	}
+}
+
+// Tests from panic_endpoint_test.go
+// TestDevPanicEndpoint ensures the /dev/trigger-panic route returns HTTP 500
+func TestDevPanicEndpoint(t *testing.T) {
+	// Prepare minimal store with one artist
+	store := storage.NewStore()
+	store.LoadData(models.APIResponse{
+		Artists: []models.Artist{{ID: 1, Name: "Panic Test"}},
+	})
+
+	apiClient := api.NewClient(DefaultAPIURL, 5*time.Second)
+	svc := service.NewService(store)
+
+	// Change to project root to ensure templates are found
+	originalDir, _ := os.Getwd()
+	projectRoot := getProjectRoot()
+	os.Chdir(projectRoot)
+
+	h := handlers.NewHandlers(store, svc, apiClient)
+
+	// Restore original directory
+	os.Chdir(originalDir)
+
+	// Build router and middleware
+	mux := createRouter(h)
+
+	// Request the dev panic endpoint
+	req := httptest.NewRequest(http.MethodGet, "/dev/trigger-panic", nil)
+	rr := httptest.NewRecorder()
+
+	mux.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d, body: %q", http.StatusInternalServerError, rr.Code, rr.Body.String())
+	}
+}
+
+// Tests from server_test.go
+// TestNewServerWithEnvironmentVariables tests environment variable handling
 func TestNewServerWithEnvironmentVariables(t *testing.T) {
 	// Test environment variable handling
 	originalPort := os.Getenv("PORT")
@@ -44,6 +164,7 @@ func TestNewServerWithEnvironmentVariables(t *testing.T) {
 	}
 }
 
+// TestNewServerConfigConstants tests all configuration constants
 func TestNewServerConfigConstants(t *testing.T) {
 	// Test all the configuration constants are reasonable
 	if DefaultPort == "" {
@@ -77,6 +198,7 @@ func TestNewServerConfigConstants(t *testing.T) {
 	}
 }
 
+// TestApiClientDataConversion tests API client interface implementation
 func TestApiClientDataConversion(t *testing.T) {
 	// Create a mock client with the real API structure
 	client := api.NewClient("http://localhost:99999", 100*time.Millisecond) // Will fail, but that's OK
@@ -102,6 +224,7 @@ func TestApiClientDataConversion(t *testing.T) {
 	}
 }
 
+// TestColorConstantsAreValid tests ANSI color constants
 func TestColorConstantsAreValid(t *testing.T) {
 	colors := []struct {
 		name  string
@@ -130,6 +253,7 @@ func TestColorConstantsAreValid(t *testing.T) {
 	}
 }
 
+// TestWaitForDataLoadVariousScenarios tests waitForDataLoad function
 func TestWaitForDataLoadVariousScenarios(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -206,6 +330,7 @@ func TestWaitForDataLoadVariousScenarios(t *testing.T) {
 	}
 }
 
+// TestServerStructFieldTypes tests the Server struct fields
 func TestServerStructFieldTypes(t *testing.T) {
 	// Test that Server struct has the expected field types
 	var s Server
@@ -231,20 +356,9 @@ func TestServerStructFieldTypes(t *testing.T) {
 	}
 }
 
+// TestCreateRouter tests router creation
 func TestCreateRouter(t *testing.T) {
-	// Setup test store
-	store := storage.NewStore()
-	testData := models.APIResponse{
-		Artists: []models.Artist{
-			{ID: 1, Name: "Test Artist", CreationYear: 2000, Members: []string{"Member 1"}},
-		},
-	}
-	store.LoadData(testData)
-
-	// Create handlers
-	apiClient := api.NewClient("https://groupietrackers.herokuapp.com", 10*time.Second)
-	service := service.NewService(store)
-	h := handlers.NewHandlers(store, service, apiClient)
+	h := createTestHandlers()
 
 	// Test router creation
 	mux := createRouter(h)
@@ -266,12 +380,9 @@ func TestCreateRouter(t *testing.T) {
 	}
 }
 
+// TestMiddleware tests middleware functionality
 func TestMiddleware(t *testing.T) {
-	// Test that middleware functions don't panic
-	store := storage.NewStore()
-	apiClient := api.NewClient("https://groupietrackers.herokuapp.com", 10*time.Second)
-	service := service.NewService(store)
-	h := handlers.NewHandlers(store, service, apiClient)
+	h := createTestHandlers()
 
 	// Create a simple handler
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

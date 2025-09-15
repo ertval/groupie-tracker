@@ -92,15 +92,9 @@ func (h *Handlers) loadTemplates() {
 
 // HomeHandler handles the home page
 func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in HomeHandler: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
-		}
-	}()
+	defer h.handlePanicRecovery(w, r, "HomeHandler")
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -143,29 +137,14 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "home.tmpl", data); err != nil {
-			log.Printf("Template execution error: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
-			return
-		}
-	} else {
-		h.InternalErrorHandler(w, r, "Templates not loaded")
-		return
-	}
+	h.executeTemplate(w, r, "home.tmpl", data)
 }
 
 // LocationsHandler handles the locations page.
 func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in LocationsHandler: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
-		}
-	}()
+	defer h.handlePanicRecovery(w, r, "LocationsHandler")
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -196,29 +175,14 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Execute the locations template
-	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "locations.tmpl", data); err != nil {
-			log.Printf("Template execution error: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
-			return
-		}
-	} else {
-		h.InternalErrorHandler(w, r, "Templates not loaded")
-		return
-	}
+	h.executeTemplate(w, r, "locations.tmpl", data)
 }
 
 // LocationDetailHandler handles requests to specific location pages
 func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in LocationDetailHandler: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
-		}
-	}()
+	defer h.handlePanicRecovery(w, r, "LocationDetailHandler")
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -272,29 +236,14 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	// Execute the location detail template
-	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "location_detail.tmpl", data); err != nil {
-			log.Printf("Template execution error: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
-			return
-		}
-	} else {
-		h.InternalErrorHandler(w, r, "Templates not loaded")
-		return
-	}
+	h.executeTemplate(w, r, "location_detail.tmpl", data)
 }
 
 // ArtistsHandler handles requests to /artists page
 func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in ArtistsHandler: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
-		}
-	}()
+	defer h.handlePanicRecovery(w, r, "ArtistsHandler")
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -313,29 +262,14 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "artists.tmpl", data); err != nil {
-			log.Printf("Template execution error: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
-			return
-		}
-	} else {
-		h.InternalErrorHandler(w, r, "Templates not loaded")
-		return
-	}
+	h.executeTemplate(w, r, "artists.tmpl", data)
 }
 
 // ArtistDetailHandler handles requests to specific artist pages
 func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in ArtistDetailHandler: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
-		}
-	}()
+	defer h.handlePanicRecovery(w, r, "ArtistDetailHandler")
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -413,29 +347,14 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	if h.templates != nil {
-		if err := h.templates.ExecuteTemplate(w, "artist_detail.tmpl", data); err != nil {
-			log.Printf("Template execution error: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
-			return
-		}
-	} else {
-		h.InternalErrorHandler(w, r, "Templates not loaded")
-		return
-	}
+	h.executeTemplate(w, r, "artist_detail.tmpl", data)
 }
 
 // HealthHandler handles health check requests
 func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in HealthHandler: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
-	}()
+	defer h.handlePanicRecovery(w, r, "HealthHandler")
 
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
@@ -463,41 +382,28 @@ func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 
 // NotFoundHandler handles 404 errors
 func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in NotFoundHandler: %v", err)
-			h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
-		}
-	}()
+	defer h.handlePanicRecovery(w, r, "NotFoundHandler")
 
 	w.WriteHeader(http.StatusNotFound)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
-	if h.templates != nil {
-		data := struct {
-			Title        string
-			Message      string
-			ErrorCode    int
-			RequestedURL string
-			ExtraCSS     string
-			ExtraJS      string
-		}{
-			Title:        "Page Not Found",
-			Message:      "The page you're looking for doesn't exist.",
-			ErrorCode:    404,
-			RequestedURL: r.URL.Path,
-			ExtraCSS:     "errors.css",
-			ExtraJS:      "",
-		}
-
-		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
-			log.Printf("Error template execution failed: %v", err)
-			// For 404 errors, still return simple HTML as final fallback since this is NotFoundHandler
-			h.writeSimpleHTML(w, "Not Found", "Page not found")
-		}
-	} else {
-		h.writeSimpleHTML(w, "Not Found", "Page not found")
+	data := struct {
+		Title        string
+		Message      string
+		ErrorCode    int
+		RequestedURL string
+		ExtraCSS     string
+		ExtraJS      string
+	}{
+		Title:        "Page Not Found",
+		Message:      "The page you're looking for doesn't exist.",
+		ErrorCode:    404,
+		RequestedURL: r.URL.Path,
+		ExtraCSS:     "errors.css",
+		ExtraJS:      "",
 	}
+
+	h.executeTemplate(w, r, "error.tmpl", data)
 }
 
 // InternalErrorHandler handles 500 errors
@@ -507,6 +413,7 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusInternalServerError)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
+	// Use direct template execution to avoid infinite recursion
 	if h.templates != nil {
 		data := struct {
 			Title        string
@@ -554,6 +461,37 @@ func (h *Handlers) writeSimpleHTML(w http.ResponseWriter, title, content string)
 </html>`, title, title, content)
 
 	fmt.Fprint(w, html)
+}
+
+// handlePanicRecovery returns a defer function that recovers from panics
+func (h *Handlers) handlePanicRecovery(w http.ResponseWriter, r *http.Request, handlerName string) {
+	if err := recover(); err != nil {
+		log.Printf("Panic recovered in %s: %v", handlerName, err)
+		h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
+	}
+}
+
+// validateMethod checks if the request method matches the expected method
+func (h *Handlers) validateMethod(w http.ResponseWriter, r *http.Request, expectedMethod string) bool {
+	if r.Method != expectedMethod {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return false
+	}
+	return true
+}
+
+// executeTemplate executes a template with error handling
+func (h *Handlers) executeTemplate(w http.ResponseWriter, r *http.Request, templateName string, data interface{}) {
+	if h.templates != nil {
+		if err := h.templates.ExecuteTemplate(w, templateName, data); err != nil {
+			log.Printf("Template execution error: %v", err)
+			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
+			return
+		}
+	} else {
+		h.InternalErrorHandler(w, r, "Templates not loaded")
+		return
+	}
 }
 
 // PanicHandler is a dev/test handler that intentionally panics to exercise the recovery middleware.
