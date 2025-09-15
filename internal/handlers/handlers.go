@@ -2,13 +2,13 @@
 package handlers
 
 import (
-	"slices"
 	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -677,4 +677,10 @@ func (h *Handlers) writeSimpleHTML(w http.ResponseWriter, title, content string)
 </html>`, title, title, content)
 
 	fmt.Fprint(w, html)
+}
+
+// PanicHandler is a dev/test handler that intentionally panics to exercise the recovery middleware.
+// NOTE: This should only be used in development or test environments.
+func (h *Handlers) PanicHandler(w http.ResponseWriter, r *http.Request) {
+	panic("intentional panic triggered by PanicHandler")
 }

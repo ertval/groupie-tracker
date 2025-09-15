@@ -163,3 +163,11 @@ func (s *Store) GetStats() map[string]int {
 Seems to do the calculations wrong, it should return total number of concerts (relations) per location, not just count of unique locations also dates are wrong. Fix this. and move to service layer.
 
 - Any functions in store should not sort the date of filter them, just return the raw data, sorting and filtering should be done in service layer.
+
+---
+
+We need to do the following changes:
+- If a template is missing a required field, or the templates are not loaded correctly, the server should log an error and return a 500 Internal Server Error response. NOT PRINT SIMPLE HTML PAGE.
+- The handler for artist details mux.HandleFunc("/artists/", h.ArtistDetailHandler) should not allow url like /artists/123/extra, it should return 404 for such urls.
+- Remove the all extra functionality like search,filter and refresh. Remove all related code, templates, handlers, tests, etc. We want to keep it simple.
+- Update the readme file to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
