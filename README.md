@@ -1,14 +1,14 @@
 # Groupie Tracker
 
-A clean, modern web application that displays information about bands and artists by consuming data from the Groupie Trackers API. The application provides an interactive interface to explore artist information, concert locations, and dates.
+A clean, modern web application that displays information about bands and artists by consuming data from the Groupie Trackers API. The application provides a simple, focused interface to explore artist information, concert locations, and dates.
 
 ## 🎯 Project Overview
 
 Groupie Tracker is a Go-based web application that:
 - Fetches data from the [Groupie Trackers API](https://groupietrackers.herokuapp.com/api)
 - Displays artist information, concert locations, and dates
-- Provides search and filtering functionality
 - Implements responsive web design with clean templates
+- Provides robust error handling with proper HTTP status codes
 
 ## 📊 API Data Structure
 
@@ -75,7 +75,7 @@ The application follows a clean, layered architecture:
 - **Thread-safe**: Concurrent read/write operations
 - **Auto-refresh**: Periodic API data updates (1-hour intervals)
 - **Caching**: Optional API client integration for data refresh
-- **Search**: Built-in artist search by name and members
+- **Data Management**: Efficient storage and retrieval of API data
 
 ### Service Layer (`internal/service`) 
 - **Business Logic**: All calculations and data processing
@@ -85,9 +85,9 @@ The application follows a clean, layered architecture:
 
 ### Handler Layer (`internal/handlers`)
 - **Single Handler Struct**: All HTTP handlers in one place
-- **Template Management**: Centralized template loading
-- **Error Handling**: Comprehensive error responses
-- **JSON APIs**: Search, suggestions, health checks
+- **Template Management**: Centralized template loading with error handling
+- **Error Handling**: Proper HTTP 500 errors when templates fail
+- **Strict URL Validation**: URLs with extra path segments return 404
 
 ### API Client (`internal/api`)
 - **HTTP Client**: Fetches data from external API
@@ -168,19 +168,15 @@ go test ./... -cover
 ### Web Routes
 - `GET /` - Home page
 - `GET /artists` - Artists listing
-- `GET /artists/{slug}` - Individual artist page
+- `GET /artists/{slug}` - Individual artist page (strict validation)
 - `GET /locations` - Locations page
+- `GET /locations/{slug}` - Individual location page
 
 ### API Routes
-- `GET /api/search?q={query}` - Search artists
-- `GET /api/suggest?q={query}` - Auto-complete suggestions
-- `POST /api/refresh` - Refresh data from external API
 - `GET /healthz` - Health check
 
 ### Static Files
 - `/static/css/*` - Stylesheets
-- `/static/js/*` - JavaScript files
-- `/static/images/*` - Images
 
 ## 📋 Features
 
@@ -188,17 +184,16 @@ go test ./... -cover
 - ✅ **Artist Listings**: Browse all artists with sorting
 - ✅ **Artist Details**: Detailed artist information with concert data
 - ✅ **Location Statistics**: Concert locations with frequency data
-- ✅ **Complete Artist Lists**: All artists displayed at locations (no truncation)
-- ✅ **Search**: Real-time artist search by name and members
-- ✅ **Auto-complete**: Search suggestions as you type
+- ✅ **Location Details**: Detailed location pages with artist information
 - ✅ **Responsive Design**: Mobile-friendly interface
-- ✅ **Proper 404 Pages**: Custom error pages for missing resources
+- ✅ **Proper Error Pages**: Custom 404/500 error pages
 
 ### Technical Features
 - ✅ **Clean Architecture**: Well-separated concerns
 - ✅ **Comprehensive Testing**: Unit and integration tests
 - ✅ **Auto-refresh**: Automatic API data updates every hour
-- ✅ **Error Handling**: Graceful error responses with custom 404/500 pages
+- ✅ **Strict Error Handling**: Template failures return HTTP 500
+- ✅ **URL Validation**: Extra path segments in URLs return 404
 - ✅ **Logging**: Request logging and error tracking
 - ✅ **Health Checks**: Application health monitoring
 - ✅ **Data Caching**: In-memory data storage
@@ -208,11 +203,12 @@ go test ./... -cover
 ## 🎨 Design Principles
 
 1. **Simplicity**: Clean, focused code without unnecessary complexity
-2. **Separation of Concerns**: Each layer has a single responsibility
+2. **Separation of Concerns**: Each layer has a single responsibility  
 3. **Testability**: Comprehensive test coverage for all components
 4. **Performance**: Efficient data structures and caching
 5. **Maintainability**: Clear naming and documentation
-6. **Error Handling**: Graceful degradation and error reporting
+6. **Robust Error Handling**: Proper HTTP status codes and error responses
+7. **URL Integrity**: Strict validation of request paths
 
 ## 🔧 Development
 
@@ -263,4 +259,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Note**: This project has been refactored to use a clean, simplified architecture with single-responsibility components. The codebase is now more maintainable, testable, and easier to understand.
+**Note**: This project has been simplified to focus on core functionality with robust error handling. Template failures now return proper HTTP 500 errors, and URL validation is strict to ensure API integrity. The codebase is maintainable, testable, and follows clean architecture principles.

@@ -207,11 +207,6 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	})
 	mux.HandleFunc("/locations/", h.LocationDetailHandler)
 
-	// API routes
-	mux.HandleFunc("/api/search", h.SearchHandler)
-	mux.HandleFunc("/api/suggest", h.SuggestHandler)
-	mux.HandleFunc("/api/refresh", h.RefreshHandler)
-
 	// Health check
 	mux.HandleFunc("/healthz", h.HealthHandler)
 

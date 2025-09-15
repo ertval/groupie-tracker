@@ -32,10 +32,6 @@ func TestVisualE2E(t *testing.T) {
 		testLocationsPage(t)
 	})
 
-	t.Run("Visual Search Functionality Test", func(t *testing.T) {
-		testSearchFunctionality(t)
-	})
-
 	t.Run("Visual Navigation Test", func(t *testing.T) {
 		testNavigation(t)
 	})
@@ -102,7 +98,6 @@ func testArtistsPage(t *testing.T) {
 		"Verify each artist card shows name, image, and basic info",
 		"Test clicking on an artist card navigates to detail page",
 		"Verify pagination or scrolling works if many artists",
-		"Test search functionality if present",
 		"Verify responsive layout",
 	}
 
@@ -155,29 +150,6 @@ func testLocationsPage(t *testing.T) {
 	}
 
 	t.Log("✓ Locations page visual test documented")
-}
-
-// testSearchFunctionality tests the search feature (client-server event)
-func testSearchFunctionality(t *testing.T) {
-	testSteps := []string{
-		"Navigate to homepage or artists page",
-		"Locate search input field",
-		"Type 'Queen' in search field",
-		"Verify search results appear (live search)",
-		"Verify search results contain relevant artists",
-		"Test autocomplete suggestions",
-		"Test search with different queries",
-		"Verify search API calls are made (check network tab)",
-		"Test empty search handling",
-		"Test search result clicking",
-	}
-
-	t.Log("Search Functionality Visual Test Steps:")
-	for i, step := range testSteps {
-		t.Logf("  %d. %s", i+1, step)
-	}
-
-	t.Log("✓ Search functionality visual test documented")
 }
 
 // testNavigation tests navigation between pages
@@ -299,14 +271,11 @@ func TestJavaScriptFunctionality(t *testing.T) {
 
 	t.Run("JavaScript Event Handling", func(t *testing.T) {
 		testSteps := []string{
-			"Verify search input triggers live search",
-			"Verify autocomplete dropdown appears",
 			"Verify keyboard navigation works",
 			"Verify click events work properly",
 			"Verify form submissions work",
 			"Check for JavaScript errors in console",
-			"Test AJAX calls to API endpoints",
-			"Verify debouncing on search input",
+			"Test basic client-server interactions",
 		}
 
 		t.Log("JavaScript Functionality Test Steps:")

@@ -2,7 +2,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -147,10 +146,12 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	if h.templates != nil {
 		if err := h.templates.ExecuteTemplate(w, "home.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
-			h.writeSimpleHTML(w, "Home", "Welcome to Groupie Tracker")
+			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
+			return
 		}
 	} else {
-		h.writeSimpleHTML(w, "Home", "Welcome to Groupie Tracker")
+		h.InternalErrorHandler(w, r, "Templates not loaded")
+		return
 	}
 }
 
@@ -198,10 +199,12 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 	if h.templates != nil {
 		if err := h.templates.ExecuteTemplate(w, "locations.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
-			h.writeSimpleHTML(w, "Locations", fmt.Sprintf("Found %d locations", len(locations)))
+			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
+			return
 		}
 	} else {
-		h.writeSimpleHTML(w, "Locations", fmt.Sprintf("Found %d locations", len(locations)))
+		h.InternalErrorHandler(w, r, "Templates not loaded")
+		return
 	}
 }
 
@@ -272,10 +275,12 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 	if h.templates != nil {
 		if err := h.templates.ExecuteTemplate(w, "location_detail.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
-			h.writeSimpleHTML(w, "Location Detail", fmt.Sprintf("Location: %s", data.DisplayName))
+			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
+			return
 		}
 	} else {
-		h.writeSimpleHTML(w, "Location Detail", fmt.Sprintf("Location: %s", data.DisplayName))
+		h.InternalErrorHandler(w, r, "Templates not loaded")
+		return
 	}
 }
 
@@ -311,10 +316,12 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 	if h.templates != nil {
 		if err := h.templates.ExecuteTemplate(w, "artists.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
-			h.writeSimpleHTML(w, "Artists", fmt.Sprintf("Found %d artists", len(artists)))
+			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
+			return
 		}
 	} else {
-		h.writeSimpleHTML(w, "Artists", fmt.Sprintf("Found %d artists", len(artists)))
+		h.InternalErrorHandler(w, r, "Templates not loaded")
+		return
 	}
 }
 
@@ -334,7 +341,7 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Extract artist identifier from URL path
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(pathParts) < 2 {
+	if len(pathParts) != 2 {
 		h.NotFoundHandler(w, r)
 		return
 	}
@@ -409,144 +416,13 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	if h.templates != nil {
 		if err := h.templates.ExecuteTemplate(w, "artist_detail.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
-			h.writeSimpleHTML(w, artist.Name, fmt.Sprintf("Artist: %s", artist.Name))
+			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
+			return
 		}
 	} else {
-		h.writeSimpleHTML(w, artist.Name, fmt.Sprintf("Artist: %s", artist.Name))
-	}
-}
-
-// SearchHandler handles search requests
-func (h *Handlers) SearchHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in SearchHandler: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
-	}()
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.InternalErrorHandler(w, r, "Templates not loaded")
 		return
 	}
-
-	query := r.URL.Query().Get("q")
-	results := h.service.SearchArtists(query)
-
-	response := struct {
-		Query   string          `json:"query"`
-		Results []models.Artist `json:"results"`
-		Count   int             `json:"count"`
-	}{
-		Query:   query,
-		Results: results,
-		Count:   len(results),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.InternalErrorHandler(w, r, "Failed to encode search response")
-	}
-}
-
-// SuggestHandler handles autocomplete suggestions
-func (h *Handlers) SuggestHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in SuggestHandler: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
-	}()
-
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	query := r.URL.Query().Get("q")
-	if len(query) < 2 {
-		// Return empty suggestions for very short queries
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]string{})
-		return
-	}
-
-	results := h.service.SearchArtists(query)
-	suggestions := make([]string, 0, len(results))
-
-	// Limit suggestions to first 10 results
-	limit := 10
-	if len(results) < limit {
-		limit = len(results)
-	}
-
-	for i := 0; i < limit; i++ {
-		suggestions = append(suggestions, results[i].Name)
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(suggestions); err != nil {
-		h.InternalErrorHandler(w, r, "Failed to encode suggestions response")
-	}
-}
-
-// RefreshHandler handles data refresh requests.
-func (h *Handlers) RefreshHandler(w http.ResponseWriter, r *http.Request) {
-	defer func() {
-		if err := recover(); err != nil {
-			log.Printf("Panic recovered in RefreshHandler: %v", err)
-			http.Error(w, "Internal server error", http.StatusInternalServerError)
-		}
-	}()
-
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	if h.apiClient == nil {
-		http.Error(w, "API client not configured", http.StatusInternalServerError)
-		return
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	// Use store's refresh functionality
-	err := h.store.RefreshData(ctx)
-	if err != nil {
-		log.Printf("Failed to refresh data: %v", err)
-		http.Error(w, "Failed to refresh data", http.StatusInternalServerError)
-		return
-	}
-
-	// Return success response
-	response := struct {
-		Status  string         `json:"status"`
-		Message string         `json:"message"`
-		Stats   map[string]int `json:"stats"`
-	}{
-		Status:  "success",
-		Message: "Data refreshed successfully",
-		Stats:   h.service.GetStats(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		h.InternalErrorHandler(w, r, "Failed to encode refresh response")
-		return
-	}
-
-	stats := h.service.GetStats()
-	log.Printf("Data refreshed: %d artists, %d locations, %d dates, %d relations",
-		stats["artists"], stats["locations"], stats["dates"], stats["relations"])
 }
 
 // HealthHandler handles health check requests
@@ -616,6 +492,7 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 
 		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 			log.Printf("Error template execution failed: %v", err)
+			// For 404 errors, still return simple HTML as final fallback since this is NotFoundHandler
 			h.writeSimpleHTML(w, "Not Found", "Page not found")
 		}
 	} else {

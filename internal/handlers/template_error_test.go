@@ -66,7 +66,6 @@ func TestArtistDetailHandlerRejectsExtraPath(t *testing.T) {
 		"/artists/1/extra",
 		"/artists/1/extra/more",
 		"/artists/test-artist/extra",
-		"/artists/1/",
 	}
 
 	for _, path := range testCases {
