@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/client"
 	"groupie-tracker/internal/data"
 )
 
@@ -25,12 +25,12 @@ func getProjectRoot() string {
 func getTestRepository() *data.Repository {
 	repo := data.NewRepository()
 
-	testData := &api.Response{
-		Artists: []api.Artist{
+	testData := &client.Response{
+		Artists: []client.Artist{
 			{ID: 1, Name: "Test Artist 1", CreationYear: 2000, FirstAlbum: "01-01-2001", Members: []string{"Member 1", "Member 2"}},
 			{ID: 2, Name: "Test Artist 2", CreationYear: 2010, FirstAlbum: "01-01-2011", Members: []string{"Member 3"}},
 		},
-		Relations: []api.Relation{
+		Relations: []client.Relation{
 			{
 				ID: 1,
 				DatesLocations: map[string][]string{

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/client"
 	"groupie-tracker/internal/data"
 )
 
@@ -14,12 +14,12 @@ import (
 func TestAuditCompliance(t *testing.T) {
 	// Setup: Load real data from API
 	repo := data.NewRepository()
-	client := api.NewClient("https://groupietrackers.herokuapp.com", 30*time.Second)
+	apiClient := client.NewClient("https://groupietrackers.herokuapp.com", 30*time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	apiResponse, err := client.FetchAll(ctx)
+	apiResponse, err := apiClient.FetchAll(ctx)
 	if err != nil {
 		t.Fatalf("Failed to load data from API: %v", err)
 	}

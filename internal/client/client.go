@@ -1,5 +1,5 @@
-// Package api provides functionality to fetch data from the Groupie Tracker API.
-package api
+// Package client provides functionality to fetch data from the Groupie Tracker API.
+package client
 
 import (
 	"context"

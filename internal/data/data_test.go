@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/client"
 )
 
 func TestNewRepository(t *testing.T) {
@@ -15,9 +15,9 @@ func TestNewRepository(t *testing.T) {
 	// Note: Fields may be initialized as empty slices rather than nil
 }
 
-func getTestData() *api.Response {
-	return &api.Response{
-		Artists: []api.Artist{
+func getTestData() *client.Response {
+	return &client.Response{
+		Artists: []client.Artist{
 			{
 				ID:           1,
 				Name:         "Queen",
@@ -35,7 +35,7 @@ func getTestData() *api.Response {
 				Image:        "https://groupietrackers.herokuapp.com/api/images/pink_floyd.jpeg",
 			},
 		},
-		Relations: []api.Relation{
+		Relations: []client.Relation{
 			{
 				ID: 1,
 				DatesLocations: map[string][]string{

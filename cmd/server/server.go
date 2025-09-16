@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/client"
 	"groupie-tracker/internal/data"
 	"groupie-tracker/internal/handlers"
 )
@@ -35,7 +35,7 @@ const (
 // Server represents the HTTP server with all its dependencies.
 type Server struct {
 	repo      *data.Repository
-	apiClient *api.Client
+	apiClient *client.Client
 	handlers  *handlers.Handlers
 	server    *http.Server
 }
@@ -43,7 +43,7 @@ type Server struct {
 // NewServer creates and configures a new server instance.
 func NewServer() (*Server, error) {
 	// Initialize API client
-	apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
+	apiClient := client.NewClient(DefaultAPIURL, RequestTimeout)
 
 	// Initialize repository
 	repo := data.NewRepository()

@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/client"
 )
 
 // Artist represents a musical artist in the application domain.
@@ -83,7 +83,7 @@ func NewRepository() *Repository {
 }
 
 // LoadFromAPI loads data from the API client and converts to domain models.
-func (r *Repository) LoadFromAPI(ctx context.Context, client *api.Client) error {
+func (r *Repository) LoadFromAPI(ctx context.Context, client *client.Client) error {
 	apiData, err := client.FetchAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch data from API: %w", err)
@@ -94,7 +94,7 @@ func (r *Repository) LoadFromAPI(ctx context.Context, client *api.Client) error 
 }
 
 // InitializeWithData initializes the repository with data from the API client.
-func (r *Repository) InitializeWithData(ctx context.Context, apiData *api.Response) error {
+func (r *Repository) InitializeWithData(ctx context.Context, apiData *client.Response) error {
 	if apiData == nil {
 		return fmt.Errorf("API data cannot be nil")
 	}
@@ -107,7 +107,7 @@ func (r *Repository) InitializeWithData(ctx context.Context, apiData *api.Respon
 	return nil
 }
 
-func (r *Repository) loadData(apiData *api.Response) {
+func (r *Repository) loadData(apiData *client.Response) {
 	// Clear existing data
 	r.artists = make(map[int]Artist)
 	r.relations = make(map[int]Relation)
