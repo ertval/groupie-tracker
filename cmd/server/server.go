@@ -109,7 +109,7 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	mux.HandleFunc("/artists/", h.ArtistDetailHandler)
 	mux.HandleFunc("/locations", h.LocationsHandler)
 	mux.HandleFunc("/locations/", h.LocationDetailHandler)
-	
+
 	// Home route - this catches everything else, so it must be last
 	mux.HandleFunc("/", h.HomeHandler)
 
