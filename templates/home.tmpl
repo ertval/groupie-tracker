@@ -61,7 +61,7 @@
                         {{range $index, $artist := .Artists}}
                         {{if lt $index 6}}
                         <div class="artist-card">
-                            <a href="/artists/{{$artist.GetSlug}}">
+                            <a href="/artists/{{$artist.Slug}}">
                                 <img src="{{$artist.Image}}" alt="{{$artist.Name}}" class="artist-image">
                                 <div class="artist-info">
                                     <h3>{{$artist.Name}}</h3>

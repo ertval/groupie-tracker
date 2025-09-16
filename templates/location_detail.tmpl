@@ -40,13 +40,13 @@
                         {{range .ArtistsWithDates}}
                         <div class="artist-card">
                             <div class="artist-image">
-                                <a href="/artists/{{.Artist.GetSlug}}">
+                                <a href="/artists/{{.Artist.Slug}}">
                                     <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-img">
                                 </a>
                             </div>
                             <div class="artist-info">
                                 <h3>
-                                    <a href="/artists/{{.Artist.GetSlug}}" class="artist-link">{{.Artist.Name}}</a>
+                                    <a href="/artists/{{.Artist.Slug}}" class="artist-link">{{.Artist.Name}}</a>
                                     {{if .Dates}}
                                     <span class="artist-dates">in {{join .Dates ", "}}</span>
                                     {{end}}

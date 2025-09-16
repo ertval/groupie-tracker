@@ -18,42 +18,40 @@ go test -cover ./...         # Coverage report
 go build -o groupie-tracker ./cmd/server
 ```
 
-## Current Architecture (Updated September 2025)
+## Current Architecture (Updated December 2024)
 
-### Clean Architecture - Recently Refactored
+### Repository Pattern - Clean & Simple
 ```
 cmd/server/main.go           # Entry point with graceful shutdown
 internal/
   ├── api/client.go         # External API consumption
-  ├── handlers/handlers.go  # HTTP handlers (590+ lines)
-  ├── models/models.go      # Core data structures
-  ├── storage/store.go      # Unified store with auto-refresh (330+ lines)
-  └── service/service.go    # Business logic layer (200+ lines)
+  ├── data/data.go          # Repository pattern with all business logic (570+ lines)
+  └── handlers/handlers.go  # HTTP handlers with adapter pattern
 templates/                  # Self-contained HTML templates (NO inheritance)
 static/css/                 # Page-specific stylesheets
 tests/                     # Audit compliance & E2E tests
 doc/                       # Architecture & refactoring documentation
 ```
 
-**✅ Architecture Issues Resolved:**
-- Single `storage/store.go` (no more wrapper complexity)
-- Unified store pattern with auto-refresh capability
-- Clean separation between storage, service, and handler layers
-- Proper error handling with template compatibility
+**🏗️ Current Architecture:**
+- Repository pattern: `data.Repository` manages all data operations
+- APIClient adapter pattern: `handlers.APIClientAdapter` bridges api↔data layers
+- Single initialization: Load data once at startup via `repo.InitializeWithAPI()`
+- Precomputed indexes: SEO slugs, location stats calculated at load time
 
-### Current Store Features (September 2025)
+### Repository Pattern (December 2024)
 ```go
-// Auto-refresh with configurable intervals
-store := storage.NewStoreWithCache(apiClient)
-store.StartAutoRefresh()    // Default: 1-hour refresh
-
-// Thread-safe operations
-func (s *Store) GetArtist(id int) (models.Artist, bool) {
-    s.mu.RLock()
-    defer s.mu.RUnlock()
-    artist, found := s.artists[id]
-    return artist, found
+// Repository initialization in server startup
+repo := data.NewRepository()
+apiClient := api.NewClient(url, timeout)
+if err := repo.InitializeWithAPI(ctx, adapter); err != nil {
+    return nil, err
 }
+
+// All data access through repository methods
+artists := repo.GetAllArtistsSorted()
+artist, found := repo.GetArtistBySlug("queen")
+locationStats := repo.CalculateLocationStats()
 ```
 
 ## Critical Data Flow Patterns
@@ -66,14 +64,14 @@ func (s *Store) GetArtist(id int) (models.Artist, bool) {
 ### Handler Error Template Pattern
 ```go
 // Error handlers expect specific struct fields
-data := struct {
-    Title        string
-    ErrorCode    int      // NOT "Code" 
-    RequestedURL string
-    ExtraCSS     string
-}{
-    ErrorCode: 404,
-    ExtraCSS:  "errors.css",
+data := ErrorData{
+    PageData: PageData{
+        Title:    "Page Not Found",
+        ExtraCSS: "errors.css",
+    },
+    ErrorCode:    404,        // NOT "Code" 
+    RequestedURL: r.URL.Path,
+    Message:      "The page you're looking for doesn't exist.",
 }
 ```
 
@@ -81,17 +79,19 @@ data := struct {
 - Each `.tmpl` file is complete HTML document
 - No template inheritance or `{{define "content"}}` blocks
 - Direct execution: `h.templates.ExecuteTemplate(w, "artist_detail.tmpl", data)`
-- Template functions: `add`, `sub`, `contains`, `safeLen`
+- Template functions: `add`, `sub`, `join`, `generateLocationSlug`, `normalizeLocationName`
 
-### Auto-Refresh Architecture
+### Data Initialization Pattern
 ```go
-// Server lifecycle integration
-store.StartAutoRefresh()    // After initial data load
-defer store.StopAutoRefresh() // On graceful shutdown
+// Server startup pattern in cmd/server/server.go
+repo := data.NewRepository()
+apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
 
-// Background refresh with proper error handling
-🔄 Auto-refreshing data from API...
-✅ Auto-refresh completed successfully
+// Use adapter to bridge api ↔ data layers
+adapter := &handlers.APIClientAdapter{Client: apiClient}
+if err := repo.InitializeWithAPI(ctx, adapter); err != nil {
+    return nil, fmt.Errorf("failed to initialize data: %w", err)
+}
 ```
 
 ## Zone01 Audit Requirements (Test Against These)
@@ -103,43 +103,45 @@ defer store.StopAutoRefresh() // On graceful shutdown
 - Foo Fighters: exactly 6 members
 
 **Required Endpoints:**
-- `GET /api/search?q=` (full search)
-- `GET /api/suggest?q=` (autocomplete)
-- `POST /api/refresh` (refresh cached data)
+- `GET /` (home page)
+- `GET /artists` (all artists)
+- `GET /artists/{slug}` (artist detail via SEO slug)
+- `GET /locations` (all locations)
+- `GET /locations/{slug}` (location detail)
+- `GET /health` (JSON health check)
 
-## Current Status (September 2025)
+## Current Status (December 2024)
 
 **✅ Recently Completed:**
 - Fixed 404 error page display (ErrorCode vs Code mismatch)
 - Removed "+X more" truncation in location artist lists
-- Implemented auto-refresh system (1-hour intervals)
-- Unified storage layer (no more base_store.go wrapper)
+- Unified repository pattern with single data load (no more wrapper complexity)
 - Comprehensive error handling with proper template compatibility
 - All tests passing (46+ comprehensive tests)
 
 **🔧 Current Architecture:**
-- Clean single-store pattern with auto-refresh
-- Thread-safe operations with proper mutex handling
-- Graceful server shutdown with auto-refresh cleanup
+- Clean repository pattern with single data load at startup
+- Thread-safe operations through repository methods
+- Graceful server shutdown with proper resource cleanup
 - Self-contained template system working correctly
 - SEO-friendly URL slugs (/artists/queen vs /artists/28)
 
 ## Development Workflow
 
 1. **Always write tests first** (Zone01 requirement)
-2. **Use the unified store pattern** (`internal/storage/store.go`)
+2. **Use the unified repository pattern** (`internal/data/data.go`)
 3. **Follow self-contained template pattern** (no inheritance)
 4. **Test with audit data** (Queen, Gorillaz, Travis Scott, Foo Fighters)
 5. **Check error template compatibility** (ErrorCode, ExtraCSS fields)
 
 **File Reading Priority:**
-1. `internal/storage/store.go` (unified store with auto-refresh)
+1. `internal/data/data.go` (repository with all business logic)
 2. `internal/handlers/handlers.go` (error handling patterns)
 3. `templates/*.tmpl` (self-contained template examples)
 4. `doc/BUG_FIXES_AND_FEATURES_SUMMARY.md` (recent changes)
 
 **Testing Strategy:**
 - All tests use audit-compliant data (Queen, Gorillaz, etc.)
-- Test auto-refresh functionality with mock API client
+- Test repository methods with mock API client
 - Verify template error handling with proper field structure
 - Ensure no regression in Zone01 audit requirements

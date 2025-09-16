@@ -194,11 +194,8 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	stats := h.repo.GetStats()
 	locations := h.repo.GetUniqueLocations()
 
-	// Calculate total members
-	totalMembers := 0
-	for _, artist := range artists {
-		totalMembers += len(artist.Members)
-	}
+	// Calculate total members via repository helper
+	totalMembers := h.repo.GetTotalMembers()
 
 	data := HomeData{
 		PageData: PageData{
@@ -299,15 +296,8 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 	locations := h.repo.GetUniqueLocations()
 	locationStats := h.repo.CalculateLocationStats()
 
-	// Calculate total countries
-	countrySet := make(map[string]bool)
-	for _, stat := range locationStats {
-		parts := strings.Split(stat.Name, "-")
-		if len(parts) >= 2 {
-			country := strings.TrimSpace(parts[len(parts)-1])
-			countrySet[country] = true
-		}
-	}
+	// Calculate total countries via repository helper
+	totalCountries := h.repo.GetTotalCountries()
 
 	data := LocationsData{
 		PageData: PageData{
@@ -318,7 +308,7 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 		Locations:      locations,
 		LocationStats:  locationStats, // Already sorted by CalculateLocationStats
 		TopLocations:   locationStats, // Same as LocationStats for template compatibility
-		TotalCountries: len(countrySet),
+		TotalCountries: totalCountries,
 		TotalConcerts:  h.repo.GetStats()["total_concerts"],
 	}
 

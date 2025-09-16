@@ -55,7 +55,7 @@
                 <section class="artists-grid">
                     {{range .Artists}}
                     <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}">
-                        <a href="/artists/{{.GetSlug}}">
+                        <a href="/artists/{{.Slug}}">
                             <div class="artist-image-container">
                                 <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
                             </div>

@@ -104,10 +104,10 @@
 
                 <div class="navigation-links">
                     {{if .PrevArtist}}
-                    <a href="/artists/{{.PrevArtist.GetSlug}}" class="btn btn-outline">← {{.PrevArtist.Name}}</a>
+                    <a href="/artists/{{.PrevArtist.Slug}}" class="btn btn-outline">← {{.PrevArtist.Name}}</a>
                     {{end}}
                     {{if .NextArtist}}
-                    <a href="/artists/{{.NextArtist.GetSlug}}" class="btn btn-outline">{{.NextArtist.Name}} →</a>
+                    <a href="/artists/{{.NextArtist.Slug}}" class="btn btn-outline">{{.NextArtist.Name}} →</a>
                     {{end}}
                 </div>
                 <div class="back-to-artists">

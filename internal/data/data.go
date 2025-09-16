@@ -239,6 +239,28 @@ func (r *Repository) GetStats() map[string]int {
 	return r.stats
 }
 
+// GetTotalMembers returns the total number of band members across all artists
+func (r *Repository) GetTotalMembers() int {
+	total := 0
+	for _, artist := range r.artists {
+		total += len(artist.Members)
+	}
+	return total
+}
+
+// GetTotalCountries returns the number of unique countries present in locations
+func (r *Repository) GetTotalCountries() int {
+	countrySet := make(map[string]bool)
+	for _, loc := range r.uniqueLocations {
+		parts := strings.Split(loc, "-")
+		if len(parts) >= 2 {
+			country := strings.TrimSpace(parts[len(parts)-1])
+			countrySet[country] = true
+		}
+	}
+	return len(countrySet)
+}
+
 // -----------------------------
 // Business Logic Methods
 // -----------------------------
