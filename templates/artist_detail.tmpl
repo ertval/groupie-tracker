@@ -1,129 +1,93 @@
-<!DOCTYPE html>
-<html lang="en">
-
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>{{.Title}} - Groupie Tracker</title>
-    <link rel="stylesheet" href="/static/css/base.css">
-    {{if .ExtraCSS}}
-    <link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">
-    {{end}}
-</head>
-
-<body>
-    <header class="site-header">
-        <div class="container">
-            <h1><a href="/">Groupie Tracker</a></h1>
-            <nav>
-                <a href="/">Home</a> •
-                <a href="/artists">Artists</a> •
-                <a href="/locations">Locations</a>
-            </nav>
+{{define "content"}}
+<div class="page artist-detail">
+    <header class="page-header">
+        <div class="artist-header">
+            <div class="artist-image-large">
+                <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-image">
+            </div>
+            <div class="artist-basic-info">
+                <h1>{{.Artist.Name}}</h1>
+                <div class="artist-meta">
+                    <p><strong>Creation Year:</strong> {{.Artist.CreationYear}}</p>
+                    <p><strong>First Album:</strong> {{.Artist.FirstAlbum}}</p>
+                    <p><strong>Members:</strong> {{len .Artist.Members}}</p>
+                </div>
+            </div>
         </div>
     </header>
 
-    <main class="container">
-        <div class="page artist-detail">
-            <header class="page-header">
-                <div class="artist-header">
-                    <div class="artist-image-large">
-                        <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-image">
-                    </div>
-                    <div class="artist-basic-info">
-                        <h1>{{.Artist.Name}}</h1>
-                        <div class="artist-meta">
-                            <p><strong>Creation Year:</strong> {{.Artist.CreationYear}}</p>
-                            <p><strong>First Album:</strong> {{.Artist.FirstAlbum}}</p>
-                            <p><strong>Members:</strong> {{len .Artist.Members}}</p>
-                        </div>
-                    </div>
+    <main class="page-body">
+        <section class="artist-members">
+            <h2>Band Members</h2>
+            <div class="members-grid">
+                {{range .Artist.Members}}
+                <div class="member-card">
+                    <span class="member-name">{{.}}</span>
                 </div>
-            </header>
-
-            <main class="page-body">
-                <section class="artist-members">
-                    <h2>Band Members</h2>
-                    <div class="members-grid">
-                        {{range .Artist.Members}}
-                        <div class="member-card">
-                            <span class="member-name">{{.}}</span>
-                        </div>
-                        {{end}}
-                    </div>
-                </section>
-
-                {{if .Relation}}
-                <section class="concert-info">
-                    <h2>Concert Locations & Dates</h2>
-                    <div class="concerts-container">
-                        {{range $location, $dates := .Relation.DatesLocations}}
-                        <div class="location-section">
-                            <h3 class="location-name">
-                                <a href="/locations/{{$location | generateLocationSlug}}" class="location-link">{{$location | normalizeLocationName}}</a>
-                            </h3>
-                            <div class="dates-list">
-                                {{range $dates}}
-                                <span class="concert-date">{{.}}</span>
-                                {{end}}
-                            </div>
-                        </div>
-                        {{end}}
-                    </div>
-                </section>
-                {{else}}
-                <section class="no-concerts">
-                    <h2>Concert Information</h2>
-                    <p class="muted">No concert information available for this artist.</p>
-                </section>
                 {{end}}
+            </div>
+        </section>
 
-                <section class="artist-stats">
-                    <h2>Statistics</h2>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-number">{{len .Artist.Members}}</span>
-                            <span class="stat-label">Members</span>
-                        </div>
-                        {{if .Relation}}
-                        <div class="stat-item">
-                            <span class="stat-number">{{len .Relation.DatesLocations}}</span>
-                            <span class="stat-label">Locations</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number">{{.TotalShows}}</span>
-                            <span class="stat-label">Total Concerts</span>
-                        </div>
+        {{if .Relation}}
+        <section class="concert-info">
+            <h2>Concert Locations & Dates</h2>
+            <div class="concerts-container">
+                {{range $location, $dates := .Relation.DatesLocations}}
+                <div class="location-section">
+                    <h3 class="location-name">
+                        <a href="/locations/{{generateLocationSlug $location}}" class="location-link">{{normalizeLocationName $location}}</a>
+                    </h3>
+                    <div class="dates-list">
+                        {{range $dates}}
+                        <span class="concert-date">{{.}}</span>
                         {{end}}
-                        <div class="stat-item">
-                            <span class="stat-number">{{sub 2024 .Artist.CreationYear}}</span>
-                            <span class="stat-label">Years Active</span>
-                        </div>
                     </div>
-                </section>
+                </div>
+                {{end}}
+            </div>
+        </section>
+        {{else}}
+        <section class="no-concerts">
+            <h2>Concert Information</h2>
+            <p class="muted">No concert information available for this artist.</p>
+        </section>
+        {{end}}
 
-                <div class="navigation-links">
-                    {{if .PrevArtist}}
-                    <a href="/artists/{{.PrevArtist.GetSlug}}" class="btn btn-outline">← {{.PrevArtist.Name}}</a>
-                    {{end}}
-                    {{if .NextArtist}}
-                    <a href="/artists/{{.NextArtist.GetSlug}}" class="btn btn-outline">{{.NextArtist.Name}} →</a>
-                    {{end}}
+        <section class="artist-stats">
+            <h2>Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-number">{{len .Artist.Members}}</span>
+                    <span class="stat-label">Members</span>
                 </div>
-                <div class="back-to-artists">
-                  <a href="/artists" class="btn btn-secondary">← Back to Artists</a>
+                {{if .Relation}}
+                <div class="stat-item">
+                    <span class="stat-number">{{len .Relation.DatesLocations}}</span>
+                    <span class="stat-label">Locations</span>
                 </div>
-            </main>
+                <div class="stat-item">
+                    <span class="stat-number">{{.TotalShows}}</span>
+                    <span class="stat-label">Total Concerts</span>
+                </div>
+                {{end}}
+                <div class="stat-item">
+                    <span class="stat-number">{{sub 2024 .Artist.CreationYear}}</span>
+                    <span class="stat-label">Years Active</span>
+                </div>
+            </div>
+        </section>
+
+        <div class="navigation-links">
+            {{if .PrevArtist}}
+            <a href="/artists/{{.PrevArtist.GetSlug}}" class="btn btn-outline">← {{.PrevArtist.Name}}</a>
+            {{end}}
+            {{if .NextArtist}}
+            <a href="/artists/{{.NextArtist.GetSlug}}" class="btn btn-outline">{{.NextArtist.Name}} →</a>
+            {{end}}
+        </div>
+        <div class="back-to-artists">
+          <a href="/artists" class="btn btn-secondary">← Back to Artists</a>
         </div>
     </main>
-
-    <footer class="site-footer">
-        <div class="container">© 2025 Groupie Tracker</div>
-    </footer>
-
-    {{if .ExtraJS}}
-    <script src="/static/js/{{.ExtraJS}}"></script>
-    {{end}}
-</body>
-
-</html>
+</div>
+{{end}}

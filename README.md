@@ -68,14 +68,15 @@ groupie-tracker/
 
 ## 🏛️ Architecture Overview
 
-The application follows a clean, layered architecture:
+The application follows a clean, layered architecture with simplified data management:
 
-### Storage Layer (`internal/storage`)
-- **Single Store**: Unified data store handling all operations
-- **Thread-safe**: Concurrent read/write operations
-- **Auto-refresh**: Periodic API data updates (1-hour intervals)
-- **Caching**: Optional API client integration for data refresh
-- **Data Management**: Efficient storage and retrieval of API data
+### Data Layer (`internal/data`)
+- **Unified Package**: Combined data structures and repository in one package
+- **Simple Repository**: Non-concurrent data store that loads once at startup
+- **SOLID Principles**: Clean separation of concerns, single responsibility
+- **Zero Dependencies**: No mutexes, channels, or complex concurrency patterns
+- **Data Validation**: Built-in validation for all data structures
+- **URL-friendly Slugs**: Automatic generation for SEO-friendly URLs
 
 ### Service Layer (`internal/service`) 
 - **Business Logic**: All calculations and data processing
@@ -145,8 +146,8 @@ go test ./...
 
 ### Run Specific Package Tests
 ```bash
-# Storage tests
-go test ./internal/storage/ -v
+# Data layer tests (models + repository)
+go test ./internal/data/ -v
 
 # Service tests
 go test ./internal/service/ -v
@@ -154,8 +155,20 @@ go test ./internal/service/ -v
 # Handler tests
 go test ./internal/handlers/ -v
 
+# API client tests
+go test ./internal/api/ -v
+
 # Server tests
 go test ./cmd/server/ -v
+```
+
+### Test Coverage
+```bash
+# Overall coverage
+go test ./... -cover
+
+# Detailed coverage report
+go test ./internal/data/ ./internal/api/ ./internal/service/ ./internal/handlers/ -cover
 ```
 
 ### Test Coverage

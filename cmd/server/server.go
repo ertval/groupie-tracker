@@ -13,9 +13,8 @@ import (
 	"time"
 
 	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/data"
 	"groupie-tracker/internal/handlers"
-	"groupie-tracker/internal/service"
-	"groupie-tracker/internal/storage"
 )
 
 const (
@@ -39,8 +38,7 @@ const (
 
 // Server represents the HTTP server with all its dependencies.
 type Server struct {
-	store     *storage.Store
-	service   *service.Service
+	repo      *data.Repository
 	apiClient *api.Client
 	handlers  *handlers.Handlers
 	server    *http.Server
@@ -53,38 +51,29 @@ func NewServer() (*Server, error) {
 	// Initialize API client
 	apiClient := api.NewClient(DefaultAPIURL, RequestTimeout)
 
-	// Initialize store with cache functionality
-	store := storage.NewStoreWithCache(apiClient)
+	// Initialize repository
+	repo := data.NewRepository()
 
 	// Load initial data using API client
 	log.Println(colorCyan + "⏳ Loading initial data..." + colorReset)
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	data, err := apiClient.FetchAllData(loadCtx)
+	err := repo.InitializeWithAPI(loadCtx, apiClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch initial data: %w", err)
+		return nil, fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	// Load data into store
-	store.LoadData(*data)
-
 	// Check if data was loaded
-	artists := store.GetAllArtists()
+	artists := repo.GetAllArtists()
 	if len(artists) == 0 {
 		return nil, fmt.Errorf("failed to load initial data from API")
 	}
 
 	log.Printf(colorCyan+"✅ Data loaded successfully - %d artists"+colorReset, len(artists))
 
-	// Start auto-refresh for the store
-	store.StartAutoRefresh()
-
-	// Initialize service
-	service := service.NewService(store)
-
 	// Initialize handlers
-	h := handlers.NewHandlers(store, service, apiClient)
+	h := handlers.NewHandlers(repo, apiClient)
 
 	// Create context for future extensions
 	ctx, cancel := context.WithCancel(context.Background())
@@ -103,8 +92,7 @@ func NewServer() (*Server, error) {
 	}
 
 	return &Server{
-		store:     store,
-		service:   service,
+		repo:      repo,
 		apiClient: apiClient,
 		handlers:  h,
 		server:    server,
@@ -113,14 +101,14 @@ func NewServer() (*Server, error) {
 	}, nil
 }
 
-// waitForDataLoad waits for the store to load initial data
-func waitForDataLoad(service *service.Service, ctx context.Context) error {
+// waitForDataLoad waits for the repo to load initial data
+func waitForDataLoad(repo *data.Repository, ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf("timeout waiting for initial data load from API")
 		default:
-			stats := service.GetStats()
+			stats := repo.GetStats()
 			if stats["artists"] > 0 {
 				return nil
 			}
@@ -154,11 +142,8 @@ func (s *Server) Start() error {
 	<-quit
 	log.Println(colorYellow + "🛑 Server is shutting down..." + colorReset)
 
-	// Stop the cache first
+	// Graceful shutdown
 	log.Println(colorYellow + "🛑 Shutting down..." + colorReset)
-
-	// Stop auto-refresh
-	s.store.StopAutoRefresh()
 
 	s.cancel() // Cancel the context
 

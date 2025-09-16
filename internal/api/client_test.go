@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"groupie-tracker/internal/models"
+	"groupie-tracker/internal/data"
 )
 
 func TestClient_FetchArtists(t *testing.T) {
 	// Mock API server
-	mockArtists := []models.Artist{
+	mockArtists := []data.Artist{
 		{
 			ID:           1,
 			Name:         "Queen",
@@ -63,7 +63,7 @@ func TestClient_FetchArtists(t *testing.T) {
 }
 
 func TestClient_FetchLocations(t *testing.T) {
-	mockLocations := []models.Location{
+	mockLocations := []data.Location{
 		{
 			ID:        1,
 			Locations: []string{"london-uk", "manchester-uk"},
@@ -80,7 +80,7 @@ func TestClient_FetchLocations(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string][]models.Location{
+		json.NewEncoder(w).Encode(map[string][]data.Location{
 			"index": mockLocations,
 		})
 	}))
@@ -99,7 +99,7 @@ func TestClient_FetchLocations(t *testing.T) {
 }
 
 func TestClient_FetchDates(t *testing.T) {
-	mockDates := []models.Date{
+	mockDates := []data.Date{
 		{
 			ID:    1,
 			Dates: []string{"23-08-2019", "22-08-2019"},
@@ -116,7 +116,7 @@ func TestClient_FetchDates(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string][]models.Date{
+		json.NewEncoder(w).Encode(map[string][]data.Date{
 			"index": mockDates,
 		})
 	}))
@@ -135,7 +135,7 @@ func TestClient_FetchDates(t *testing.T) {
 }
 
 func TestClient_FetchRelations(t *testing.T) {
-	mockRelations := []models.Relation{
+	mockRelations := []data.Relation{
 		{
 			ID: 1,
 			DatesLocations: map[string][]string{
@@ -151,7 +151,7 @@ func TestClient_FetchRelations(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string][]models.Relation{
+		json.NewEncoder(w).Encode(map[string][]data.Relation{
 			"index": mockRelations,
 		})
 	}))
@@ -172,12 +172,12 @@ func TestClient_FetchRelations(t *testing.T) {
 func TestClient_FetchAllData(t *testing.T) {
 	// Mock complete API response
 	mockData := struct {
-		Artists   []models.Artist   `json:"artists"`
-		Locations []models.Location `json:"locations"`
-		Dates     []models.Date     `json:"dates"`
-		Relations []models.Relation `json:"relations"`
+		Artists   []data.Artist   `json:"artists"`
+		Locations []data.Location `json:"locations"`
+		Dates     []data.Date     `json:"dates"`
+		Relations []data.Relation `json:"relations"`
 	}{
-		Artists: []models.Artist{
+		Artists: []data.Artist{
 			{
 				ID:           1,
 				Name:         "Queen",
@@ -186,13 +186,13 @@ func TestClient_FetchAllData(t *testing.T) {
 				FirstAlbum:   "14-12-1973",
 			},
 		},
-		Locations: []models.Location{
+		Locations: []data.Location{
 			{ID: 1, Locations: []string{"london-uk"}},
 		},
-		Dates: []models.Date{
+		Dates: []data.Date{
 			{ID: 1, Dates: []string{"23-08-2019"}},
 		},
-		Relations: []models.Relation{
+		Relations: []data.Relation{
 			{
 				ID: 1,
 				DatesLocations: map[string][]string{
@@ -207,11 +207,11 @@ func TestClient_FetchAllData(t *testing.T) {
 		case "/api/artists":
 			json.NewEncoder(w).Encode(mockData.Artists)
 		case "/api/locations":
-			json.NewEncoder(w).Encode(map[string][]models.Location{"index": mockData.Locations})
+			json.NewEncoder(w).Encode(map[string][]data.Location{"index": mockData.Locations})
 		case "/api/dates":
-			json.NewEncoder(w).Encode(map[string][]models.Date{"index": mockData.Dates})
+			json.NewEncoder(w).Encode(map[string][]data.Date{"index": mockData.Dates})
 		case "/api/relation":
-			json.NewEncoder(w).Encode(map[string][]models.Relation{"index": mockData.Relations})
+			json.NewEncoder(w).Encode(map[string][]data.Relation{"index": mockData.Relations})
 		default:
 			http.NotFound(w, r)
 		}

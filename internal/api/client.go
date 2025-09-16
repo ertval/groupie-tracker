@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"groupie-tracker/internal/models"
+	"groupie-tracker/internal/data"
 )
 
 // Client represents an HTTP client for the Groupie Tracker API.
@@ -28,7 +28,7 @@ func NewClient(baseURL string, timeout time.Duration) *Client {
 }
 
 // FetchArtists retrieves all artists from the API.
-func (c *Client) FetchArtists(ctx context.Context) ([]models.Artist, error) {
+func (c *Client) FetchArtists(ctx context.Context) ([]data.Artist, error) {
 	url := c.baseURL + "/api/artists"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -46,7 +46,7 @@ func (c *Client) FetchArtists(ctx context.Context) ([]models.Artist, error) {
 		return nil, fmt.Errorf("API request failed with status: %d", resp.StatusCode)
 	}
 
-	var artists []models.Artist
+	var artists []data.Artist
 	if err := json.NewDecoder(resp.Body).Decode(&artists); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
@@ -55,7 +55,7 @@ func (c *Client) FetchArtists(ctx context.Context) ([]models.Artist, error) {
 }
 
 // FetchLocations retrieves all locations from the API.
-func (c *Client) FetchLocations(ctx context.Context) ([]models.Location, error) {
+func (c *Client) FetchLocations(ctx context.Context) ([]data.Location, error) {
 	url := c.baseURL + "/api/locations"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -74,7 +74,7 @@ func (c *Client) FetchLocations(ctx context.Context) ([]models.Location, error) 
 	}
 
 	var response struct {
-		Index []models.Location `json:"index"`
+		Index []data.Location `json:"index"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
@@ -85,7 +85,7 @@ func (c *Client) FetchLocations(ctx context.Context) ([]models.Location, error) 
 }
 
 // FetchDates retrieves all dates from the API.
-func (c *Client) FetchDates(ctx context.Context) ([]models.Date, error) {
+func (c *Client) FetchDates(ctx context.Context) ([]data.Date, error) {
 	url := c.baseURL + "/api/dates"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -104,7 +104,7 @@ func (c *Client) FetchDates(ctx context.Context) ([]models.Date, error) {
 	}
 
 	var response struct {
-		Index []models.Date `json:"index"`
+		Index []data.Date `json:"index"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
@@ -115,7 +115,7 @@ func (c *Client) FetchDates(ctx context.Context) ([]models.Date, error) {
 }
 
 // FetchRelations retrieves all relations from the API.
-func (c *Client) FetchRelations(ctx context.Context) ([]models.Relation, error) {
+func (c *Client) FetchRelations(ctx context.Context) ([]data.Relation, error) {
 	url := c.baseURL + "/api/relation"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -134,7 +134,7 @@ func (c *Client) FetchRelations(ctx context.Context) ([]models.Relation, error) 
 	}
 
 	var response struct {
-		Index []models.Relation `json:"index"`
+		Index []data.Relation `json:"index"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
@@ -145,36 +145,36 @@ func (c *Client) FetchRelations(ctx context.Context) ([]models.Relation, error) 
 }
 
 // FetchAllData retrieves all data from the API endpoints.
-func (c *Client) FetchAllData(ctx context.Context) (*models.APIResponse, error) {
-	data := &models.APIResponse{}
+func (c *Client) FetchAllData(ctx context.Context) (*data.APIResponse, error) {
+	response := &data.APIResponse{}
 
 	// Fetch artists
 	artists, err := c.FetchArtists(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("fetching artists: %w", err)
 	}
-	data.Artists = artists
+	response.Artists = artists
 
 	// Fetch locations
 	locations, err := c.FetchLocations(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("fetching locations: %w", err)
 	}
-	data.Locations = locations
+	response.Locations = locations
 
 	// Fetch dates
 	dates, err := c.FetchDates(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("fetching dates: %w", err)
 	}
-	data.Dates = dates
+	response.Dates = dates
 
 	// Fetch relations
 	relations, err := c.FetchRelations(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("fetching relations: %w", err)
 	}
-	data.Relations = relations
+	response.Relations = relations
 
-	return data, nil
+	return response, nil
 }

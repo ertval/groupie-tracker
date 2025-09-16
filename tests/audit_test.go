@@ -7,31 +7,24 @@ import (
 	"time"
 
 	"groupie-tracker/internal/api"
-	"groupie-tracker/internal/models"
-	"groupie-tracker/internal/storage"
+	"groupie-tracker/internal/data"
 )
 
 // TestAuditCompliance tests all the specific requirements from audit.md
 func TestAuditCompliance(t *testing.T) {
 	// Setup: Load real data from API
-	store := storage.NewStore()
+	store := data.NewRepository()
 	client := api.NewClient("https://groupietrackers.herokuapp.com", 30*time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	data, err := client.FetchAllData(ctx)
+	apiResponse, err := client.FetchAllData(ctx)
 	if err != nil {
 		t.Fatalf("Failed to load data from API: %v", err)
 	}
 
-	storeData := models.APIResponse{
-		Artists:   data.Artists,
-		Locations: data.Locations,
-		Dates:     data.Dates,
-		Relations: data.Relations,
-	}
-	store.LoadData(storeData)
+	store.LoadData(*apiResponse)
 
 	t.Run("Queen Members Verification", func(t *testing.T) {
 		expectedMembers := []string{
@@ -46,7 +39,7 @@ func TestAuditCompliance(t *testing.T) {
 
 		// Find Queen in the artists
 		artists := store.GetAllArtists()
-		var queen *models.Artist
+		var queen *data.Artist
 		for _, artist := range artists {
 			if artist.Name == "Queen" {
 				queen = &artist
@@ -80,7 +73,7 @@ func TestAuditCompliance(t *testing.T) {
 
 		// Find Gorillaz in the artists
 		artists := store.GetAllArtists()
-		var gorillaz *models.Artist
+		var gorillaz *data.Artist
 		for _, artist := range artists {
 			if artist.Name == "Gorillaz" {
 				gorillaz = &artist
@@ -115,7 +108,7 @@ func TestAuditCompliance(t *testing.T) {
 
 		// Find Travis Scott in the artists
 		artists := store.GetAllArtists()
-		var travisScott *models.Artist
+		var travisScott *data.Artist
 		var travisScottID int
 		for _, artist := range artists {
 			if artist.Name == "Travis Scott" {
@@ -164,7 +157,7 @@ func TestAuditCompliance(t *testing.T) {
 
 		// Find Foo Fighters in the artists
 		artists := store.GetAllArtists()
-		var fooFighters *models.Artist
+		var fooFighters *data.Artist
 		for _, artist := range artists {
 			if artist.Name == "Foo Fighters" {
 				fooFighters = &artist
