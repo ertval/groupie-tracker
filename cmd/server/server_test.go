@@ -102,15 +102,15 @@ func TestServerInitialization(t *testing.T) {
 	defer os.Chdir(originalDir)
 
 	// Test that server can be initialized without crashing
-	server, err := NewServer()
+	server, err := newServer()
 	if err != nil {
 		// If we can't load templates in test environment, that's OK
 		// Just check that we get a server struct back
 		if server == nil {
-			t.Errorf("NewServer() should return a server struct even if there are errors: %v", err)
+			t.Errorf("newServer() should return a server struct even if there are errors: %v", err)
 		}
 	} else if server == nil {
-		t.Error("NewServer() should not return nil")
+		t.Error("newServer() should not return nil")
 	}
 }
 
@@ -268,8 +268,8 @@ func TestGetPortEnv(t *testing.T) {
 	os.Unsetenv("PORT")
 
 	port := getPort()
-	if port != DefaultPort {
-		t.Fatalf("expected default port %s, got %s", DefaultPort, port)
+	if port != defaultPort {
+		t.Fatalf("expected default port %s, got %s", defaultPort, port)
 	}
 
 	// When PORT set without colon
@@ -287,21 +287,19 @@ func TestGetPortEnv(t *testing.T) {
 	}
 }
 
-func TestApplyMiddleware_RecoversPanic(t *testing.T) {
-	// Prepare a repository and handlers
-	h := createTestHandlersWithoutTemplates()
-
+func TestRecoveryMiddleware_RecoversPanic(t *testing.T) {
 	// Handler that panics
 	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("boom")
 	})
 
-	mux := applyMiddleware(panicHandler, h)
+	// Wrap with recovery middleware
+	recoveredHandler := withRecovery(panicHandler)
 
 	req, _ := http.NewRequest("GET", "/", nil)
 	rr := httptest.NewRecorder()
 
-	mux.ServeHTTP(rr, req)
+	recoveredHandler.ServeHTTP(rr, req)
 
 	if rr.Code != http.StatusInternalServerError {
 		t.Fatalf("expected status 500 after panic recovery, got %d", rr.Code)
@@ -501,7 +499,7 @@ func TestGetPortEnvironmentVariable(t *testing.T) {
 	// Test without environment variable
 	os.Unsetenv("PORT")
 	port = getPort()
-	expected = DefaultPort
+	expected = defaultPort
 	if port != expected {
 		t.Errorf("getPort() without PORT env var should return %v, got %v", expected, port)
 	}

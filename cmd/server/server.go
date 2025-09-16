@@ -16,39 +16,23 @@ import (
 )
 
 const (
-	DefaultPort    = ":8080"
-	DefaultAPIURL  = "https://groupietrackers.herokuapp.com"
-	RequestTimeout = 30 * time.Second
-	ReadTimeout    = 15 * time.Second
-	WriteTimeout   = 15 * time.Second
-	IdleTimeout    = 60 * time.Second
+	defaultPort    = ":8080"
+	defaultAPIURL  = "https://groupietrackers.herokuapp.com"
+	requestTimeout = 30 * time.Second
+	readTimeout    = 15 * time.Second
+	writeTimeout   = 15 * time.Second
+	idleTimeout    = 60 * time.Second
 )
 
-// ANSI color codes for pretty CLI output (standard library only)
-const (
-	colorReset = "\033[0m"
-	colorGreen = "\033[32m"
-	colorCyan  = "\033[36m"
-	// colorYellow = "\033[33m"
-)
-
-// Server represents the HTTP server with all its dependencies.
-type Server struct {
-	repo      *data.Repository
-	apiClient *client.Client
-	handlers  *handlers.Handlers
-	server    *http.Server
-}
-
-// NewServer creates and configures a new server instance.
-func NewServer() (*Server, error) {
+// newServer creates and initializes a new HTTP server.
+func newServer() (*http.Server, error) {
 	// Initialize API client
-	apiClient := client.NewClient(DefaultAPIURL, RequestTimeout)
+	apiClient := client.NewClient(defaultAPIURL, requestTimeout)
 
 	// Initialize repository with data from API
 	repo := data.NewRepository()
 
-	log.Println(colorCyan + "⏳ Loading initial data..." + colorReset)
+	log.Println("Loading initial data...")
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
@@ -56,33 +40,28 @@ func NewServer() (*Server, error) {
 		return nil, fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	log.Printf(colorCyan+"✅ Data loaded successfully - %d artists"+colorReset, len(repo.GetAllArtists()))
+	log.Printf("Data loaded successfully - %d artists", len(repo.GetAllArtists()))
 
 	// Initialize handlers with the repository
-	handlers := handlers.NewHandlers(repo)
+	h := handlers.NewHandlers(repo)
 
 	// Create HTTP server
 	port := getPort()
 	server := &http.Server{
 		Addr:         port,
-		Handler:      createRouter(handlers),
-		ReadTimeout:  ReadTimeout,
-		WriteTimeout: WriteTimeout,
-		IdleTimeout:  IdleTimeout,
+		Handler:      withLogging(withRecovery(createRouter(h))),
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+		IdleTimeout:  idleTimeout,
 	}
 
-	return &Server{
-		repo:      repo,
-		apiClient: apiClient,
-		handlers:  handlers,
-		server:    server,
-	}, nil
+	return server, nil
 }
 
-// Start starts the server.
-func (s *Server) Start() error {
-	// Build a clickable URL for convenience (works in most terminals)
-	addr := s.server.Addr
+// start starts the HTTP server.
+func start(server *http.Server) error {
+	// Build a clickable URL for convenience
+	addr := server.Addr
 	url := addr
 	if strings.HasPrefix(addr, ":") {
 		url = "http://localhost" + addr
@@ -90,17 +69,17 @@ func (s *Server) Start() error {
 		url = "http://" + addr
 	}
 
-	log.Printf(colorGreen+"🚀 Server starting — open %s in your browser"+colorReset, url)
+	log.Printf("Server starting — open %s in your browser", url)
 
 	// Start server (blocking)
-	err := s.server.ListenAndServe()
+	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
 		return fmt.Errorf("server failed to start: %w", err)
 	}
 	return nil
 }
 
-// createRouter sets up all routes and middleware.
+// createRouter sets up all routes.
 func createRouter(h *handlers.Handlers) *http.ServeMux {
 	mux := http.NewServeMux()
 
@@ -119,40 +98,36 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	// Development: panic trigger endpoint (DEV ONLY)
 	mux.HandleFunc("/dev/panic", h.PanicHandler)
 
-	// Apply middleware to all routes
-	return applyMiddleware(mux, h)
+	return mux
 }
 
-// applyMiddleware applies logging and recovery middleware to all routes.
-func applyMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeMux {
-	mux := http.NewServeMux()
-
-	// Apply middleware to all requests
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-
-		// Panic recovery
+// withRecovery wraps a handler with panic recovery middleware.
+func withRecovery(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		defer func() {
 			if err := recover(); err != nil {
-				h.InternalErrorHandler(w, r, fmt.Sprintf("Panic recovered: %v", err))
+				log.Printf("Panic recovered: %v", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			}
 		}()
+		next.ServeHTTP(w, r)
+	})
+}
 
-		// Serve request
-		handler.ServeHTTP(w, r)
-
-		// Log request
+// withLogging wraps a handler with request logging middleware.
+func withLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next.ServeHTTP(w, r)
 		log.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(start))
 	})
-
-	return mux
 }
 
 // getPort returns the port to run the server on.
 func getPort() string {
 	port := os.Getenv("PORT")
 	if port == "" {
-		return DefaultPort
+		return defaultPort
 	}
 
 	// Add colon if not present
