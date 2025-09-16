@@ -14,70 +14,16 @@ import (
 	"groupie-tracker/internal/data"
 )
 
-// PageData represents common data structure for all pages.
-type PageData struct {
-	Title    string
-	ExtraCSS string
-	ExtraJS  string
-}
+// TemplateData provides a flexible way to pass data to templates
+// while maintaining backward compatibility
+type TemplateData map[string]interface{}
 
-// HomeData represents data needed for the home page.
-type HomeData struct {
-	PageData
-	Artists        []data.Artist
-	Stats          map[string]int
-	TotalArtists   int
-	TotalMembers   int
-	TotalLocations int
-}
-
-// ArtistsData represents data needed for the artists page.
-type ArtistsData struct {
-	PageData
-	Artists []data.Artist
-}
-
-// ArtistDetailData represents data needed for artist detail page.
-type ArtistDetailData struct {
-	PageData
-	Artist     data.Artist
-	Relation   data.Relation
-	PrevArtist *data.Artist
-	NextArtist *data.Artist
-	TotalShows int
-	Countries  []string
-}
-
-// LocationsData represents data needed for locations page.
-type LocationsData struct {
-	PageData
-	Locations      []string
-	LocationStats  []data.LocationStat
-	TopLocations   []data.LocationStat
-	TotalCountries int
-	TotalConcerts  int
-}
-
-// LocationDetailData represents data needed for location detail page.
-type LocationDetailData struct {
-	PageData
-	LocationName     string
-	DisplayName      string
-	Artists          []data.Artist
-	ArtistsWithDates []data.ArtistWithDates
-	ConcertDates     []string
-	ArtistCount      int
-	ConcertCount     int
-}
-
-// ErrorData represents data needed for error pages.
-type ErrorData struct {
-	PageData
-	Message      string
-	ErrorCode    int
-	RequestedURL string
-	Timestamp    string
-	ErrorMessage string
+// newTemplateData creates template data with common fields
+func newTemplateData(title, extraCSS string) TemplateData {
+	return TemplateData{
+		"Title":    title,
+		"ExtraCSS": extraCSS,
+	}
 }
 
 // Handlers contains all HTTP handlers for the application.
@@ -142,20 +88,12 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	artists := h.repo.GetAllArtistsSorted()
-	stats := h.repo.GetStats()
 	locations := h.repo.GetUniqueLocations()
 
-	data := HomeData{
-		PageData: PageData{
-			Title:    "Home",
-			ExtraCSS: "home.css",
-		},
-		Artists:        artists,
-		Stats:          stats,
-		TotalArtists:   stats["artists"],
-		TotalMembers:   h.repo.GetTotalMembers(),
-		TotalLocations: len(locations),
-	}
+	data := newTemplateData("Home", "home.css")
+	data["Artists"] = artists
+	data["TotalMembers"] = h.repo.GetTotalMembers()
+	data["TotalLocations"] = len(locations)
 
 	h.executeTemplate(w, r, "home.tmpl", data)
 }
@@ -167,13 +105,8 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	artists := h.repo.GetAllArtistsSorted()
-	data := ArtistsData{
-		PageData: PageData{
-			Title:    "Artists",
-			ExtraCSS: "artists.css",
-		},
-		Artists: artists,
-	}
+	data := newTemplateData("Artists", "artists.css")
+	data["Artists"] = artists
 
 	h.executeTemplate(w, r, "artists.tmpl", data)
 }
@@ -211,18 +144,13 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	relation, _ := h.repo.GetRelation(artist.ID)
 	prevArtist, nextArtist := h.repo.GetArtistNavigation(artist)
 
-	data := ArtistDetailData{
-		PageData: PageData{
-			Title:    artist.Name,
-			ExtraCSS: "artist_detail.css",
-		},
-		Artist:     artist,
-		Relation:   relation,
-		PrevArtist: prevArtist,
-		NextArtist: nextArtist,
-		TotalShows: h.repo.CalculateTotalShows(relation),
-		Countries:  h.repo.ExtractCountries(relation),
-	}
+	data := newTemplateData(artist.Name, "artist_detail.css")
+	data["Artist"] = artist
+	data["Relation"] = relation
+	data["PrevArtist"] = prevArtist
+	data["NextArtist"] = nextArtist
+	data["TotalShows"] = h.repo.CalculateTotalShows(relation)
+	data["Countries"] = h.repo.ExtractCountries(relation)
 
 	h.executeTemplate(w, r, "artist_detail.tmpl", data)
 }
@@ -236,17 +164,12 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 	locations := h.repo.GetUniqueLocations()
 	locationStats := h.repo.CalculateLocationStats()
 
-	data := LocationsData{
-		PageData: PageData{
-			Title:    "Locations",
-			ExtraCSS: "locations.css",
-		},
-		Locations:      locations,
-		LocationStats:  locationStats,
-		TopLocations:   locationStats,
-		TotalCountries: h.repo.GetTotalCountries(),
-		TotalConcerts:  h.repo.GetStats()["total_concerts"],
-	}
+	data := newTemplateData("Locations", "locations.css")
+	data["Locations"] = locations
+	data["LocationStats"] = locationStats
+	data["TopLocations"] = locationStats
+	data["TotalCountries"] = h.repo.GetTotalCountries()
+	data["TotalConcerts"] = h.repo.GetStats()["total_concerts"]
 
 	h.executeTemplate(w, r, "locations.tmpl", data)
 }
@@ -272,19 +195,14 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 
 	artistsWithDates := h.repo.GetArtistsWithDatesForLocation(locationDetail.Name)
 
-	data := LocationDetailData{
-		PageData: PageData{
-			Title:    fmt.Sprintf("%s - Location", locationDetail.DisplayName),
-			ExtraCSS: "locations.css",
-		},
-		LocationName:     locationDetail.Name,
-		DisplayName:      locationDetail.DisplayName,
-		Artists:          locationDetail.Artists,
-		ArtistsWithDates: artistsWithDates,
-		ConcertDates:     locationDetail.Dates,
-		ArtistCount:      locationDetail.ArtistCount,
-		ConcertCount:     locationDetail.ConcertCount,
-	}
+	data := newTemplateData(fmt.Sprintf("%s - Location", locationDetail.DisplayName), "locations.css")
+	data["LocationName"] = locationDetail.Name
+	data["DisplayName"] = locationDetail.DisplayName
+	data["Artists"] = locationDetail.Artists
+	data["ArtistsWithDates"] = artistsWithDates
+	data["ConcertDates"] = locationDetail.Dates
+	data["ArtistCount"] = locationDetail.ArtistCount
+	data["ConcertCount"] = locationDetail.ConcertCount
 
 	h.executeTemplate(w, r, "location_detail.tmpl", data)
 }
@@ -321,15 +239,10 @@ func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 
-	data := ErrorData{
-		PageData: PageData{
-			Title:    "Page Not Found",
-			ExtraCSS: "errors.css",
-		},
-		Message:      "The page you're looking for doesn't exist.",
-		ErrorCode:    404,
-		RequestedURL: r.URL.Path,
-	}
+	data := newTemplateData("Page Not Found", "errors.css")
+	data["Message"] = "The page you're looking for doesn't exist."
+	data["ErrorCode"] = 404
+	data["RequestedURL"] = r.URL.Path
 
 	h.executeTemplate(w, r, "error.tmpl", data)
 }
@@ -342,16 +255,11 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusInternalServerError)
 
 	if h.templates != nil {
-		data := ErrorData{
-			PageData: PageData{
-				Title:    "Internal Server Error",
-				ExtraCSS: "errors.css",
-			},
-			Message:      "Something went wrong on our end. We're working to fix it!",
-			ErrorCode:    500,
-			ErrorMessage: message,
-			Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
-		}
+		data := newTemplateData("Internal Server Error", "errors.css")
+		data["Message"] = "Something went wrong on our end. We're working to fix it!"
+		data["ErrorCode"] = 500
+		data["RequestedURL"] = r.URL.Path
+		data["Timestamp"] = time.Now().Format("2006-01-02 15:04:05")
 
 		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
