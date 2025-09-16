@@ -49,7 +49,7 @@ func newServer() (*http.Server, error) {
 	port := getPort()
 	server := &http.Server{
 		Addr:         port,
-		Handler:      withLogging(withRecovery(createRouter(h))),
+		Handler:      withMiddleware(createRouter(h)),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,
@@ -99,6 +99,11 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	mux.HandleFunc("/dev/panic", h.PanicHandler)
 
 	return mux
+}
+
+// withMiddleware applies all middleware to a handler.
+func withMiddleware(next http.Handler) http.Handler {
+	return withLogging(withRecovery(next))
 }
 
 // withRecovery wraps a handler with panic recovery middleware.

@@ -246,13 +246,16 @@ func TestPanicHandler(t *testing.T) {
 	handlers := createTestHandlersWithoutTemplates()
 	mux := createRouter(handlers)
 
+	// Apply the middleware to handle panics
+	wrappedHandler := withMiddleware(mux)
+
 	req, err := http.NewRequest("GET", "/dev/panic", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
-	mux.ServeHTTP(rr, req)
+	wrappedHandler.ServeHTTP(rr, req)
 
 	// The panic handler should trigger panic recovery middleware
 	// and return 500 internal server error
@@ -330,21 +333,13 @@ func TestMiddlewareApplication(t *testing.T) {
 
 // TestMiddlewarePanicRecovery tests that the middleware properly recovers from panics
 func TestMiddlewarePanicRecovery(t *testing.T) {
-	repo := data.NewRepository()
-	testData := &client.Response{
-		Artists: []client.Artist{
-			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
-		},
-	}
-	repo.Initialize(context.Background(), nil, testData)
-
 	// Create a handler that panics
 	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("This is a test panic")
 	})
 
-	// Apply middleware
-	mux := applyMiddleware(panicHandler, createTestHandlersWithoutTemplates())
+	// Apply recovery middleware
+	recoveredHandler := withRecovery(panicHandler)
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -352,7 +347,7 @@ func TestMiddlewarePanicRecovery(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	mux.ServeHTTP(rr, req)
+	recoveredHandler.ServeHTTP(rr, req)
 
 	// Should return 500 status due to panic recovery
 	if status := rr.Code; status != http.StatusInternalServerError {
@@ -360,16 +355,15 @@ func TestMiddlewarePanicRecovery(t *testing.T) {
 	}
 }
 
-// TestApplyMiddleware tests that the middleware properly wraps handlers
-func TestApplyMiddleware(t *testing.T) {
+// TestLoggingMiddleware tests that the logging middleware works correctly
+func TestLoggingMiddleware(t *testing.T) {
 	// Create a simple test handler
 	testHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("test response"))
 	})
 
-	handlers := createTestHandlersWithoutTemplates()
-	wrappedMux := applyMiddleware(testHandler, handlers)
+	loggedHandler := withLogging(testHandler)
 
 	req, err := http.NewRequest("GET", "/", nil)
 	if err != nil {
@@ -377,7 +371,7 @@ func TestApplyMiddleware(t *testing.T) {
 	}
 
 	rr := httptest.NewRecorder()
-	wrappedMux.ServeHTTP(rr, req)
+	loggedHandler.ServeHTTP(rr, req)
 
 	// Should return OK status
 	if status := rr.Code; status != http.StatusOK {
@@ -396,8 +390,11 @@ func TestCreateRouter(t *testing.T) {
 	handlers := createTestHandlersWithoutTemplates()
 	mux := createRouter(handlers)
 
+	// Wrap with middleware for the panic endpoint test
+	wrappedMux := withMiddleware(mux)
+
 	// Verify that all expected routes are registered by checking they don't return 404 for valid paths
-	testPaths := []string{"/", "/artists", "/locations", "/healthz", "/dev/panic"}
+	testPaths := []string{"/", "/artists", "/locations", "/healthz"}
 
 	for _, path := range testPaths {
 		req, err := http.NewRequest("GET", path, nil)
@@ -408,20 +405,34 @@ func TestCreateRouter(t *testing.T) {
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
 
-		// None of these should return a server error (500), though some might return 404
-		// in test environment due to missing templates/static files
-		if status := rr.Code; status == http.StatusInternalServerError && path != "/dev/panic" {
+		// None of these should return a server error (500) in test environment
+		// (they might return 404 due to missing templates/static files)
+		if status := rr.Code; status == http.StatusInternalServerError {
 			t.Errorf("CreateRouter test for path %s returned server error: %v", path, status)
 		}
 	}
 
-	// Verify static file serving route is registered
-	req, err := http.NewRequest("GET", "/static/test.css", nil)
+	// Test panic endpoint separately with middleware
+	req, err := http.NewRequest("GET", "/dev/panic", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	rr := httptest.NewRecorder()
+	wrappedMux.ServeHTTP(rr, req)
+
+	// Panic endpoint should return 500 after recovery
+	if status := rr.Code; status != http.StatusInternalServerError {
+		t.Errorf("CreateRouter test for /dev/panic should return 500, got: %v", status)
+	}
+
+	// Verify static file serving route is registered
+	req, err = http.NewRequest("GET", "/static/test.css", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr = httptest.NewRecorder()
 	mux.ServeHTTP(rr, req)
 
 	// Static file serving should either work (200) or return 404 if file doesn't exist
@@ -456,30 +467,24 @@ func TestServerStartMethod(t *testing.T) {
 	}
 	defer os.Chdir(originalDir)
 
-	server, err := NewServer()
+	server, err := newServer()
 	if err != nil {
 		// If we can't load templates in test environment, that's OK
 		// Just check that we get a server struct back
 		if server == nil {
-			t.Errorf("NewServer() should return a server struct even if there are errors: %v", err)
+			t.Errorf("newServer() should return a server struct even if there are errors: %v", err)
 		}
 	} else if server == nil {
-		t.Error("NewServer() should not return nil")
+		t.Error("newServer() should not return nil")
 	} else {
-		// Test that Start method is available and server is properly configured
-		// We can't actually call Start() as it would block the test
+		// Test that server is properly configured
+		// We can't actually call start() as it would block the test
 		// But we can check that the server struct has the expected fields
-		if server.server == nil {
-			t.Error("Server should have HTTP server configured")
+		if server.Addr == "" {
+			t.Error("Server should have address configured")
 		}
-		if server.handlers == nil {
-			t.Error("Server should have handlers configured")
-		}
-		if server.repo == nil {
-			t.Error("Server should have repository configured")
-		}
-		if server.apiClient == nil {
-			t.Error("Server should have API client configured")
+		if server.Handler == nil {
+			t.Error("Server should have handler configured")
 		}
 	}
 }
