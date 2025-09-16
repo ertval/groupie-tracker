@@ -180,6 +180,38 @@ func (s *Service) GetAllArtistsSorted() []models.Artist {
 	return s.sortArtistsByName(artists)
 }
 
+// GetArtistNavigation returns the previous and next artists for navigation based on alphabetical ordering.
+func (s *Service) GetArtistNavigation(currentArtist models.Artist) (prevArtist *models.Artist, nextArtist *models.Artist) {
+	allArtists := s.GetAllArtistsSorted()
+	currentIndex := -1
+
+	// Find current artist index
+	for i, a := range allArtists {
+		if a.ID == currentArtist.ID {
+			currentIndex = i
+			break
+		}
+	}
+
+	if currentIndex == -1 {
+		return nil, nil // Artist not found in list
+	}
+
+	// Get previous artist
+	if currentIndex > 0 {
+		prev := allArtists[currentIndex-1]
+		prevArtist = &prev
+	}
+
+	// Get next artist
+	if currentIndex < len(allArtists)-1 {
+		next := allArtists[currentIndex+1]
+		nextArtist = &next
+	}
+
+	return prevArtist, nextArtist
+}
+
 // GetUniqueLocationsSorted returns unique locations sorted alphabetically.
 func (s *Service) GetUniqueLocationsSorted() []string {
 	locations := s.store.GetUniqueLocations()

@@ -188,7 +188,7 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 
 	// Extract location slug from URL path
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(pathParts) < 2 {
+	if len(pathParts) != 2 {
 		h.NotFoundHandler(w, r)
 		return
 	}
@@ -301,27 +301,8 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	// Get related data
 	relation, _ := h.store.GetRelation(artist.ID)
 
-	// Compute previous and next artist for navigation (based on alphabetical list)
-	allArtists := h.service.GetAllArtistsSorted()
-	prevArtist := (*models.Artist)(nil)
-	nextArtist := (*models.Artist)(nil)
-	currentIndex := -1
-	for i, a := range allArtists {
-		if a.ID == artist.ID {
-			currentIndex = i
-			break
-		}
-	}
-	if currentIndex != -1 {
-		if currentIndex > 0 {
-			p := allArtists[currentIndex-1]
-			prevArtist = &p
-		}
-		if currentIndex < len(allArtists)-1 {
-			n := allArtists[currentIndex+1]
-			nextArtist = &n
-		}
-	}
+	// Get previous and next artist for navigation
+	prevArtist, nextArtist := h.service.GetArtistNavigation(artist)
 
 	data := struct {
 		Title      string

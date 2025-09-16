@@ -368,3 +368,62 @@ func TestServiceExtractCountries(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceGetArtistNavigation(t *testing.T) {
+	// Create test data with artists sorted: AC/DC, Beatles, Queen
+	artists := []models.Artist{
+		{ID: 1, Name: "Queen"},
+		{ID: 2, Name: "AC/DC"},
+		{ID: 3, Name: "Beatles"},
+	}
+
+	mockStore := &MockDataStore{
+		artists: artists,
+	}
+
+	service := NewService(mockStore)
+
+	// Test middle artist (Beatles) - should have both prev and next
+	beatles := artists[2] // Beatles
+	prevArtist, nextArtist := service.GetArtistNavigation(beatles)
+
+	if prevArtist == nil || prevArtist.Name != "AC/DC" {
+		t.Errorf("Expected previous artist to be AC/DC, got %v", prevArtist)
+	}
+
+	if nextArtist == nil || nextArtist.Name != "Queen" {
+		t.Errorf("Expected next artist to be Queen, got %v", nextArtist)
+	}
+
+	// Test first artist (AC/DC) - should have only next
+	acdc := artists[1] // AC/DC
+	prevArtist, nextArtist = service.GetArtistNavigation(acdc)
+
+	if prevArtist != nil {
+		t.Errorf("Expected no previous artist for first artist, got %v", prevArtist)
+	}
+
+	if nextArtist == nil || nextArtist.Name != "Beatles" {
+		t.Errorf("Expected next artist to be Beatles, got %v", nextArtist)
+	}
+
+	// Test last artist (Queen) - should have only prev
+	queen := artists[0] // Queen
+	prevArtist, nextArtist = service.GetArtistNavigation(queen)
+
+	if prevArtist == nil || prevArtist.Name != "Beatles" {
+		t.Errorf("Expected previous artist to be Beatles, got %v", prevArtist)
+	}
+
+	if nextArtist != nil {
+		t.Errorf("Expected no next artist for last artist, got %v", nextArtist)
+	}
+
+	// Test non-existent artist
+	nonExistent := models.Artist{ID: 999, Name: "Non-existent"}
+	prevArtist, nextArtist = service.GetArtistNavigation(nonExistent)
+
+	if prevArtist != nil || nextArtist != nil {
+		t.Errorf("Expected no navigation for non-existent artist, got prev: %v, next: %v", prevArtist, nextArtist)
+	}
+}
