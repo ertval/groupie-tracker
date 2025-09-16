@@ -27,19 +27,11 @@ func getTestRepository() *data.Repository {
 	repo := data.NewRepository()
 
 	testData := data.APIResponse{
-		Artists: []data.Artist{
+		Artists: []data.APIArtist{
 			{ID: 1, Name: "Test Artist 1", CreationYear: 2000, FirstAlbum: "01-01-2001", Members: []string{"Member 1", "Member 2"}},
 			{ID: 2, Name: "Test Artist 2", CreationYear: 2010, FirstAlbum: "01-01-2011", Members: []string{"Member 3"}},
 		},
-		Locations: []data.Location{
-			{ID: 1, Locations: []string{"new_york-usa", "london-uk"}},
-			{ID: 2, Locations: []string{"paris-france", "tokyo-japan"}},
-		},
-		Dates: []data.Date{
-			{ID: 1, Dates: []string{"01-01-2020", "02-01-2020"}},
-			{ID: 2, Dates: []string{"03-01-2020", "04-01-2020"}},
-		},
-		Relations: []data.Relation{
+		Relations: []data.APIRelation{
 			{
 				ID: 1,
 				DatesLocations: map[string][]string{

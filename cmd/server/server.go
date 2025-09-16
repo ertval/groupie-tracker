@@ -49,12 +49,14 @@ func NewServer() (*Server, error) {
 	// Initialize repository
 	repo := data.NewRepository()
 
-	// Load initial data using API client
+	// Load initial data using API client with adapter
 	log.Println(colorCyan + "⏳ Loading initial data..." + colorReset)
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	err := repo.InitializeWithAPI(loadCtx, apiClient)
+	// Create an adapter to convert between API types and data types
+	adapter := &handlers.APIClientAdapter{Client: apiClient}
+	err := repo.InitializeWithAPI(loadCtx, adapter)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize repository: %w", err)
 	}

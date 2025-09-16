@@ -24,7 +24,33 @@ func TestAuditCompliance(t *testing.T) {
 		t.Fatalf("Failed to load data from API: %v", err)
 	}
 
-	store.LoadData(*apiResponse)
+	// Convert API response to data format
+	dataResponse := data.APIResponse{
+		Artists:   make([]data.APIArtist, len(apiResponse.Artists)),
+		Relations: make([]data.APIRelation, len(apiResponse.Relations)),
+	}
+
+	// Convert artists
+	for i, artist := range apiResponse.Artists {
+		dataResponse.Artists[i] = data.APIArtist{
+			ID:           artist.ID,
+			Image:        artist.Image,
+			Name:         artist.Name,
+			Members:      artist.Members,
+			CreationYear: artist.CreationYear,
+			FirstAlbum:   artist.FirstAlbum,
+		}
+	}
+
+	// Convert relations
+	for i, relation := range apiResponse.Relations {
+		dataResponse.Relations[i] = data.APIRelation{
+			ID:             relation.ID,
+			DatesLocations: relation.DatesLocations,
+		}
+	}
+
+	store.LoadData(dataResponse)
 
 	t.Run("Queen Members Verification", func(t *testing.T) {
 		expectedMembers := []string{

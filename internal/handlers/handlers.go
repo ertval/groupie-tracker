@@ -2,6 +2,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -96,6 +97,47 @@ func NewHandlers(repo *data.Repository, apiClient *api.Client) *Handlers {
 	}
 	h.loadTemplates()
 	return h
+}
+
+// APIClientAdapter adapts the api.Client to work with the data.APIClient interface
+type APIClientAdapter struct {
+	Client *api.Client
+}
+
+// FetchAllData implements the data.APIClient interface
+func (a *APIClientAdapter) FetchAllData(ctx context.Context) (*data.APIResponse, error) {
+	apiResponse, err := a.Client.FetchAllData(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert api.APIResponse to data.APIResponse
+	dataResponse := &data.APIResponse{
+		Artists:   make([]data.APIArtist, len(apiResponse.Artists)),
+		Relations: make([]data.APIRelation, len(apiResponse.Relations)),
+	}
+
+	// Convert artists
+	for i, artist := range apiResponse.Artists {
+		dataResponse.Artists[i] = data.APIArtist{
+			ID:           artist.ID,
+			Image:        artist.Image,
+			Name:         artist.Name,
+			Members:      artist.Members,
+			CreationYear: artist.CreationYear,
+			FirstAlbum:   artist.FirstAlbum,
+		}
+	}
+
+	// Convert relations
+	for i, relation := range apiResponse.Relations {
+		dataResponse.Relations[i] = data.APIRelation{
+			ID:             relation.ID,
+			DatesLocations: relation.DatesLocations,
+		}
+	}
+
+	return dataResponse, nil
 }
 
 // loadTemplates loads all HTML templates with helper functions

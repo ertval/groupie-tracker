@@ -4,12 +4,105 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
-
-	"groupie-tracker/internal/data"
 )
+
+// -----------------------------
+// API Data Models (1:1 with External API)
+// -----------------------------
+
+// Artist represents a musical artist or band as returned by the external API.
+type Artist struct {
+	ID           int      `json:"id"`
+	Image        string   `json:"image"`
+	Name         string   `json:"name"`
+	Members      []string `json:"members"`
+	CreationYear int      `json:"creationDate"`
+	FirstAlbum   string   `json:"firstAlbum"`
+}
+
+// Relation represents the relationship between artists with their concert locations and dates from the API.
+type Relation struct {
+	ID             int                 `json:"id"`
+	DatesLocations map[string][]string `json:"datesLocations"`
+}
+
+// Location represents a location data structure from the API
+type Location struct {
+	ID        int      `json:"id"`
+	Locations []string `json:"locations"`
+}
+
+// Date represents a date data structure from the API
+type Date struct {
+	ID    int      `json:"id"`
+	Dates []string `json:"dates"`
+}
+
+// APIResponse represents the main API response structure.
+type APIResponse struct {
+	Artists   []Artist   `json:"artists,omitempty"`
+	Locations []Location `json:"locations,omitempty"`
+	Dates     []Date     `json:"dates,omitempty"`
+	Relations []Relation `json:"relations,omitempty"`
+}
+
+// -----------------------------
+// API Validation Methods
+// -----------------------------
+
+// Validate checks if the Artist struct has valid data.
+func (a *Artist) Validate() error {
+	if a.Name == "" {
+		return errors.New("artist name cannot be empty")
+	}
+
+	if a.CreationYear <= 0 {
+		return errors.New("creation year must be greater than 0")
+	}
+
+	if len(a.Members) == 0 {
+		return errors.New("artist must have at least one member")
+	}
+
+	return nil
+}
+
+// Validate checks if the Relation struct has valid data.
+func (r *Relation) Validate() error {
+	if r.ID <= 0 {
+		return errors.New("relation ID must be greater than 0")
+	}
+
+	if len(r.DatesLocations) == 0 {
+		return errors.New("relation must have at least one dates-location mapping")
+	}
+
+	return nil
+}
+
+// GetFirstAlbumDate parses the FirstAlbum string and returns a time.Time.
+// Expected format is "DD-MM-YYYY".
+func (a *Artist) GetFirstAlbumDate() (time.Time, error) {
+	if a.FirstAlbum == "" {
+		return time.Time{}, errors.New("first album date is empty")
+	}
+
+	// Parse the date in DD-MM-YYYY format
+	parsedTime, err := time.Parse("02-01-2006", a.FirstAlbum)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("invalid date format '%s': expected DD-MM-YYYY", a.FirstAlbum)
+	}
+
+	return parsedTime, nil
+}
+
+// -----------------------------
+// HTTP Client
+// -----------------------------
 
 // Client represents an HTTP client for the Groupie Tracker API.
 type Client struct {
@@ -28,7 +121,7 @@ func NewClient(baseURL string, timeout time.Duration) *Client {
 }
 
 // FetchArtists retrieves all artists from the API.
-func (c *Client) FetchArtists(ctx context.Context) ([]data.Artist, error) {
+func (c *Client) FetchArtists(ctx context.Context) ([]Artist, error) {
 	url := c.baseURL + "/api/artists"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -46,7 +139,7 @@ func (c *Client) FetchArtists(ctx context.Context) ([]data.Artist, error) {
 		return nil, fmt.Errorf("API request failed with status: %d", resp.StatusCode)
 	}
 
-	var artists []data.Artist
+	var artists []Artist
 	if err := json.NewDecoder(resp.Body).Decode(&artists); err != nil {
 		return nil, fmt.Errorf("decoding response: %w", err)
 	}
@@ -55,7 +148,7 @@ func (c *Client) FetchArtists(ctx context.Context) ([]data.Artist, error) {
 }
 
 // FetchLocations retrieves all locations from the API.
-func (c *Client) FetchLocations(ctx context.Context) ([]data.Location, error) {
+func (c *Client) FetchLocations(ctx context.Context) ([]Location, error) {
 	url := c.baseURL + "/api/locations"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -74,7 +167,7 @@ func (c *Client) FetchLocations(ctx context.Context) ([]data.Location, error) {
 	}
 
 	var response struct {
-		Index []data.Location `json:"index"`
+		Index []Location `json:"index"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
@@ -85,7 +178,7 @@ func (c *Client) FetchLocations(ctx context.Context) ([]data.Location, error) {
 }
 
 // FetchDates retrieves all dates from the API.
-func (c *Client) FetchDates(ctx context.Context) ([]data.Date, error) {
+func (c *Client) FetchDates(ctx context.Context) ([]Date, error) {
 	url := c.baseURL + "/api/dates"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -104,7 +197,7 @@ func (c *Client) FetchDates(ctx context.Context) ([]data.Date, error) {
 	}
 
 	var response struct {
-		Index []data.Date `json:"index"`
+		Index []Date `json:"index"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
@@ -115,7 +208,7 @@ func (c *Client) FetchDates(ctx context.Context) ([]data.Date, error) {
 }
 
 // FetchRelations retrieves all relations from the API.
-func (c *Client) FetchRelations(ctx context.Context) ([]data.Relation, error) {
+func (c *Client) FetchRelations(ctx context.Context) ([]Relation, error) {
 	url := c.baseURL + "/api/relation"
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -134,7 +227,7 @@ func (c *Client) FetchRelations(ctx context.Context) ([]data.Relation, error) {
 	}
 
 	var response struct {
-		Index []data.Relation `json:"index"`
+		Index []Relation `json:"index"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&response); err != nil {
@@ -145,8 +238,8 @@ func (c *Client) FetchRelations(ctx context.Context) ([]data.Relation, error) {
 }
 
 // FetchAllData retrieves all data from the API endpoints.
-func (c *Client) FetchAllData(ctx context.Context) (*data.APIResponse, error) {
-	response := &data.APIResponse{}
+func (c *Client) FetchAllData(ctx context.Context) (*APIResponse, error) {
+	response := &APIResponse{}
 
 	// Fetch artists
 	artists, err := c.FetchArtists(ctx)

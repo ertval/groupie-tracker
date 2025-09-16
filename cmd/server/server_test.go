@@ -26,7 +26,7 @@ func getProjectRoot() string {
 func createTestHandlers() *handlers.Handlers {
 	repo := data.NewRepository()
 	testData := data.APIResponse{
-		Artists: []data.Artist{
+		Artists: []data.APIArtist{
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},
 	}
