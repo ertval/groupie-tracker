@@ -39,16 +39,16 @@ func getTestData() *api.Response {
 			{
 				ID: 1,
 				DatesLocations: map[string][]string{
-					"new_york-usa":    {"23-08-2019", "22-08-2020"},
-					"london-uk":       {"20-02-2019", "25-07-2020"},
-					"paris-france":    {"28-09-2019"},
+					"new_york-usa": {"23-08-2019", "22-08-2020"},
+					"london-uk":    {"20-02-2019", "25-07-2020"},
+					"paris-france": {"28-09-2019"},
 				},
 			},
 			{
 				ID: 2,
 				DatesLocations: map[string][]string{
-					"tokyo-japan":     {"15-03-2019", "10-05-2020"},
-					"berlin-germany":  {"18-04-2019"},
+					"tokyo-japan":      {"15-03-2019", "10-05-2020"},
+					"berlin-germany":   {"18-04-2019"},
 					"sydney-australia": {"22-11-2019", "05-12-2020"},
 				},
 			},

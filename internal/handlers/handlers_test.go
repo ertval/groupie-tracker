@@ -55,23 +55,23 @@ func getTestRepository() *data.Repository {
 // getTestHandlers creates handlers with test data and proper template loading
 func getTestHandlers() *Handlers {
 	repo := getTestRepository()
-	
+
 	// Change to project root directory for template loading
 	projectRoot := getProjectRoot()
 	originalDir, _ := os.Getwd()
 	os.Chdir(projectRoot)
-	
+
 	handlers := NewHandlers(repo)
-	
+
 	// Restore original directory
 	os.Chdir(originalDir)
-	
+
 	return handlers
 }
 
 func TestNewHandlers(t *testing.T) {
 	repo := getTestRepository()
-	
+
 	// Test basic creation without template loading for now
 	h := &Handlers{
 		repo: repo,
