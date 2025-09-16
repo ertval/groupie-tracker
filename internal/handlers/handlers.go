@@ -197,7 +197,7 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.executeTemplate(w, r, "base.tmpl", data)
+	h.executeTemplate(w, r, "artists.tmpl", data)
 }
 
 // ArtistDetailHandler handles requests to specific artist pages
@@ -254,7 +254,7 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.executeTemplate(w, r, "base.tmpl", data)
+	h.executeTemplate(w, r, "artist_detail.tmpl", data)
 }
 
 // LocationsHandler handles the locations page.
@@ -293,7 +293,7 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.executeTemplate(w, r, "base.tmpl", data)
+	h.executeTemplate(w, r, "locations.tmpl", data)
 }
 
 // LocationDetailHandler handles requests to specific location pages
