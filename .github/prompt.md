@@ -171,3 +171,10 @@ We need to do the following changes:
 - The handler for artist details mux.HandleFunc("/artists/", h.ArtistDetailHandler) should not allow url like /artists/123/extra, it should return 404 for such urls.
 - Remove the all extra functionality like search,filter and refresh. Remove all related code, templates, handlers, tests, etc. We want to keep it simple.
 - Update the readme file to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
+
+---
+
+Simplify the data package to have a single store struct and a single service struct (or as few as possible if one is not sufficient). Remove any unnecessary abstractions or layers. Make sure the code is easy to read and understand.
+- Move all the API structs to the api package from the data package. Keep them one to one with what the external API returns. No custom fields or modifications. Have also the validation methods here.
+- Keep only the repository structs in the data package. These should be simple structs that represent the application's data model. Simplify them as much as possible, removing any unnecessary fields or methods, reduce duplication, and dont recalculate things that can be precomputed once and stored.
+- Be consistent with naming conventions, and file structures to make it easy to navigate and understand the codebase.

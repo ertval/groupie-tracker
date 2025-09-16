@@ -26,7 +26,7 @@ type Handlers struct {
 type PageData struct {
 	Title    string
 	ExtraCSS string
-	ExtraJS  string
+	ExtraJS  string // Kept for template compatibility
 }
 
 // HomeData represents data needed for the home page
@@ -61,7 +61,7 @@ type LocationsData struct {
 	PageData
 	Locations      []string
 	LocationStats  []data.LocationStat
-	TopLocations   []data.LocationStat
+	TopLocations   []data.LocationStat // For template compatibility
 	TotalCountries int
 	TotalConcerts  int
 }
@@ -137,8 +137,6 @@ func (h *Handlers) loadTemplates() {
 
 // HomeHandler handles the home page
 func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.handlePanicRecovery(w, r, "HomeHandler")
-
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
@@ -164,7 +162,7 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 		PageData: PageData{
 			Title:    "Home",
 			ExtraCSS: "home.css",
-			ExtraJS:  "",
+			ExtraJS:  "", // Empty for now
 		},
 		Artists:        artists,
 		Stats:          stats,
@@ -173,14 +171,11 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 		TotalLocations: len(locations),
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	h.executeTemplate(w, r, "home.tmpl", data)
 }
 
 // ArtistsHandler handles requests to /artists page
 func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.handlePanicRecovery(w, r, "ArtistsHandler")
-
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
@@ -190,19 +185,16 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 		PageData: PageData{
 			Title:    "Artists",
 			ExtraCSS: "artists.css",
-			ExtraJS:  "",
+			ExtraJS:  "", // Empty for now
 		},
 		Artists: artists,
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	h.executeTemplate(w, r, "artists.tmpl", data)
 }
 
 // ArtistDetailHandler handles requests to specific artist pages
 func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.handlePanicRecovery(w, r, "ArtistDetailHandler")
-
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
@@ -242,7 +234,7 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 		PageData: PageData{
 			Title:    artist.Name,
 			ExtraCSS: "artist_detail.css",
-			ExtraJS:  "",
+			ExtraJS:  "", // Empty for now
 		},
 		Artist:     artist,
 		Relation:   relation,
@@ -252,14 +244,11 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 		Countries:  h.repo.ExtractCountries(relation),
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	h.executeTemplate(w, r, "artist_detail.tmpl", data)
 }
 
 // LocationsHandler handles the locations page.
 func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.handlePanicRecovery(w, r, "LocationsHandler")
-
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
@@ -282,23 +271,20 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 		PageData: PageData{
 			Title:    "Locations",
 			ExtraCSS: "locations.css",
-			ExtraJS:  "",
+			ExtraJS:  "", // Empty for now
 		},
 		Locations:      locations,
-		LocationStats:  locationStats,
-		TopLocations:   locationStats, // Already sorted by CalculateLocationStats
+		LocationStats:  locationStats, // Already sorted by CalculateLocationStats
+		TopLocations:   locationStats, // Same as LocationStats for template compatibility
 		TotalCountries: len(countrySet),
 		TotalConcerts:  h.repo.GetStats()["total_concerts"],
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	h.executeTemplate(w, r, "locations.tmpl", data)
 }
 
 // LocationDetailHandler handles requests to specific location pages
 func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.handlePanicRecovery(w, r, "LocationDetailHandler")
-
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
@@ -327,7 +313,7 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 		PageData: PageData{
 			Title:    fmt.Sprintf("%s - Location", locationDetail.DisplayName),
 			ExtraCSS: "locations.css",
-			ExtraJS:  "",
+			ExtraJS:  "", // Empty for now
 		},
 		LocationName:     locationDetail.Name,
 		DisplayName:      locationDetail.DisplayName,
@@ -338,14 +324,11 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 		ConcertCount:     locationDetail.ConcertCount,
 	}
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	h.executeTemplate(w, r, "location_detail.tmpl", data)
 }
 
 // HealthHandler handles health check requests
 func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.handlePanicRecovery(w, r, "HealthHandler")
-
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
@@ -374,16 +357,13 @@ func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 
 // NotFoundHandler handles 404 errors
 func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
-	defer h.handlePanicRecovery(w, r, "NotFoundHandler")
-
 	w.WriteHeader(http.StatusNotFound)
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
 	data := ErrorData{
 		PageData: PageData{
 			Title:    "Page Not Found",
 			ExtraCSS: "errors.css",
-			ExtraJS:  "",
+			ExtraJS:  "", // Empty for now
 		},
 		Message:      "The page you're looking for doesn't exist.",
 		ErrorCode:    404,
@@ -406,7 +386,7 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 			PageData: PageData{
 				Title:    "Internal Server Error",
 				ExtraCSS: "errors.css",
-				ExtraJS:  "",
+				ExtraJS:  "", // Empty for now
 			},
 			Message:      "Something went wrong on our end. We're working to fix it!",
 			ErrorCode:    500,
@@ -444,14 +424,6 @@ func (h *Handlers) writeSimpleHTML(w http.ResponseWriter, title, content string)
 	fmt.Fprint(w, html)
 }
 
-// handlePanicRecovery returns a defer function that recovers from panics
-func (h *Handlers) handlePanicRecovery(w http.ResponseWriter, r *http.Request, handlerName string) {
-	if err := recover(); err != nil {
-		log.Printf("Panic in %s: %v", handlerName, err)
-		h.InternalErrorHandler(w, r, fmt.Sprintf("Panic in %s: %v", handlerName, err))
-	}
-}
-
 // validateMethod checks if the request method matches the expected method
 func (h *Handlers) validateMethod(w http.ResponseWriter, r *http.Request, expectedMethod string) bool {
 	if r.Method != expectedMethod {
@@ -463,12 +435,15 @@ func (h *Handlers) validateMethod(w http.ResponseWriter, r *http.Request, expect
 
 // executeTemplate executes a template with error handling
 func (h *Handlers) executeTemplate(w http.ResponseWriter, r *http.Request, templateName string, data interface{}) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if h.templates != nil {
 		if err := h.templates.ExecuteTemplate(w, templateName, data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			h.InternalErrorHandler(w, r, fmt.Sprintf("Template error: %v", err))
 		}
 	} else {
+		log.Printf("Templates not available for %s", templateName)
+		w.WriteHeader(http.StatusInternalServerError)
 		h.writeSimpleHTML(w, "Template Error", "Templates are not available.")
 	}
 }

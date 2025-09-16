@@ -123,15 +123,15 @@ func TestAuditCompliance(t *testing.T) {
 		}
 
 		// Get locations for Travis Scott
-		location, exists := store.GetLocation(travisScottID)
+		relation, exists := store.GetRelation(travisScottID)
 		if !exists {
-			t.Fatalf("Locations not found for Travis Scott (ID: %d)", travisScottID)
+			t.Fatalf("Relations not found for Travis Scott (ID: %d)", travisScottID)
 		}
 
 		// Verify all expected locations are present
 		for _, expectedLocation := range expectedLocations {
 			found := false
-			for _, actualLocation := range location.Locations {
+			for actualLocation := range relation.DatesLocations {
 				if actualLocation == expectedLocation {
 					found = true
 					break
@@ -142,7 +142,7 @@ func TestAuditCompliance(t *testing.T) {
 			}
 		}
 
-		t.Logf("Travis Scott locations verified: %v", location.Locations)
+		t.Logf("Travis Scott locations verified: %d locations found", len(relation.DatesLocations))
 	})
 
 	t.Run("Foo Fighters Members", func(t *testing.T) {

@@ -404,3 +404,337 @@ func TestHandlersTemplateError(t *testing.T) {
 		t.Errorf("Handler with failed templates should return 500, got %v", status)
 	}
 }
+
+func TestHandlersValidateMethod(t *testing.T) {
+	// Create handlers without template loading to avoid path issues
+	mockRepo := data.NewRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	tests := []struct {
+		name           string
+		method         string
+		expectedMethod string
+		wantValid      bool
+		wantStatus     int
+	}{
+		{
+			name:           "valid GET request",
+			method:         http.MethodGet,
+			expectedMethod: http.MethodGet,
+			wantValid:      true,
+			wantStatus:     0, // No status set when valid
+		},
+		{
+			name:           "invalid method - POST when GET expected",
+			method:         http.MethodPost,
+			expectedMethod: http.MethodGet,
+			wantValid:      false,
+			wantStatus:     http.StatusMethodNotAllowed,
+		},
+		{
+			name:           "valid POST request",
+			method:         http.MethodPost,
+			expectedMethod: http.MethodPost,
+			wantValid:      true,
+			wantStatus:     0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, "/test", nil)
+			w := httptest.NewRecorder()
+
+			valid := handlers.validateMethod(w, req, tt.expectedMethod)
+
+			if valid != tt.wantValid {
+				t.Errorf("validateMethod() = %v, want %v", valid, tt.wantValid)
+			}
+
+			if tt.wantStatus != 0 && w.Code != tt.wantStatus {
+				t.Errorf("Expected status %d, got %d", tt.wantStatus, w.Code)
+			}
+		})
+	}
+}
+
+func TestHandlersWriteSimpleHTML(t *testing.T) {
+	// Create handlers without template loading to avoid path issues
+	mockRepo := data.NewRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	w := httptest.NewRecorder()
+
+	handlers.writeSimpleHTML(w, "Test Title", "Test Content")
+
+	// Check status code
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+	}
+
+	// Check content type
+	contentType := w.Header().Get("Content-Type")
+	if contentType != "text/html; charset=utf-8" {
+		t.Errorf("Expected content type 'text/html; charset=utf-8', got '%s'", contentType)
+	}
+
+	// Check body contains expected content
+	body := w.Body.String()
+	if !strings.Contains(body, "Test Title") {
+		t.Errorf("Expected body to contain 'Test Title', got: %s", body)
+	}
+	if !strings.Contains(body, "Test Content") {
+		t.Errorf("Expected body to contain 'Test Content', got: %s", body)
+	}
+	if !strings.Contains(body, "<html>") {
+		t.Errorf("Expected body to contain HTML structure, got: %s", body)
+	}
+}
+
+func TestHandlersArtistDetailHandlerBySlug(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/artists/test-artist-1", nil)
+	w := httptest.NewRecorder()
+
+	handlers.ArtistDetailHandler(w, req)
+
+	// With nil templates, this should trigger the template error path and return 500
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+}
+
+func TestHandlersArtistDetailHandlerInvalidPath(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	// Test with invalid path (too many segments)
+	req := httptest.NewRequest(http.MethodGet, "/artists/1/extra/segment", nil)
+	w := httptest.NewRecorder()
+
+	handlers.ArtistDetailHandler(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestHandlersLocationDetailHandlerNotFound(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/locations/non-existent-location", nil)
+	w := httptest.NewRecorder()
+
+	handlers.LocationDetailHandler(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestHandlersMethodNotAllowed(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	// Test POST request to GET-only endpoint
+	req := httptest.NewRequest(http.MethodPost, "/", nil)
+	w := httptest.NewRecorder()
+
+	handlers.HomeHandler(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status %d, got %d", http.StatusMethodNotAllowed, w.Code)
+	}
+}
+
+func TestHandlersExecuteTemplateError(t *testing.T) {
+	// Create handlers with no templates loaded
+	mockRepo := data.NewRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil, // No templates loaded
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	w := httptest.NewRecorder()
+
+	// Use executeTemplate directly
+	handlers.executeTemplate(w, req, "home.tmpl", struct {
+		Title string
+	}{Title: "Test"})
+
+	// Should get internal server error
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Expected status %d, got %d", http.StatusInternalServerError, w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Templates are not available") {
+		t.Errorf("Expected template error message in response body, got: %s", body)
+	}
+}
+
+func TestHandlersArtistDetailHandlerInvalidID(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	// Test with invalid ID (non-numeric)
+	req := httptest.NewRequest(http.MethodGet, "/artists/invalid-id", nil)
+	w := httptest.NewRecorder()
+
+	handlers.ArtistDetailHandler(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestHandlersLocationDetailHandlerInvalidPath(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	// Test with invalid path (too many segments)
+	req := httptest.NewRequest(http.MethodGet, "/locations/some/extra/segments", nil)
+	w := httptest.NewRecorder()
+
+	handlers.LocationDetailHandler(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+	}
+}
+
+func TestHandlersHealthHandlerWrongMethod(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	// Test with wrong method
+	req := httptest.NewRequest(http.MethodPost, "/health", nil)
+	w := httptest.NewRecorder()
+
+	handlers.HealthHandler(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status %d, got %d", http.StatusMethodNotAllowed, w.Code)
+	}
+}
+
+func TestHandlersLocationDetailHandlerWrongMethod(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	// Test with wrong method
+	req := httptest.NewRequest(http.MethodPost, "/locations/some-location", nil)
+	w := httptest.NewRecorder()
+
+	handlers.LocationDetailHandler(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status %d, got %d", http.StatusMethodNotAllowed, w.Code)
+	}
+}
+
+func TestHandlersArtistsHandlerWrongMethod(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	// Test with wrong method
+	req := httptest.NewRequest(http.MethodPost, "/artists", nil)
+	w := httptest.NewRecorder()
+
+	handlers.ArtistsHandler(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status %d, got %d", http.StatusMethodNotAllowed, w.Code)
+	}
+}
+
+func TestHandlersLocationsHandlerWrongMethod(t *testing.T) {
+	// Use the test repository helper
+	mockRepo := getTestRepository()
+	mockAPIClient := &api.Client{}
+	handlers := &Handlers{
+		repo:      mockRepo,
+		apiClient: mockAPIClient,
+		templates: nil,
+	}
+
+	// Test with wrong method
+	req := httptest.NewRequest(http.MethodPost, "/locations", nil)
+	w := httptest.NewRecorder()
+
+	handlers.LocationsHandler(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("Expected status %d, got %d", http.StatusMethodNotAllowed, w.Code)
+	}
+}
