@@ -68,13 +68,6 @@ func (h *Handlers) loadTemplates() {
 	if err != nil {
 		log.Fatalf("Failed to parse templates: %v", err)
 	}
-
-	if h.templates.Lookup("base.tmpl") == nil {
-		log.Fatalf("base.tmpl template not found after parsing")
-	}
-	if h.templates.Lookup("home.tmpl") == nil {
-		log.Fatalf("home.tmpl template not found after parsing")
-	}
 }
 
 // HomeHandler handles the home page.
