@@ -16,7 +16,7 @@ import (
 
 // TemplateData provides a flexible way to pass data to templates
 // while maintaining backward compatibility
-type TemplateData map[string]interface{}
+type TemplateData map[string]any
 
 // newTemplateData creates template data with common fields
 func newTemplateData(title, extraCSS string, extraJS string) TemplateData {
