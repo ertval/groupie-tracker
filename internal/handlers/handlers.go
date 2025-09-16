@@ -2,7 +2,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -12,25 +11,17 @@ import (
 	"strings"
 	"time"
 
-	"groupie-tracker/internal/api"
 	"groupie-tracker/internal/data"
 )
 
-// Handlers contains all HTTP handlers for the application.
-type Handlers struct {
-	repo      *data.Repository
-	templates *template.Template
-	apiClient *api.Client
-}
-
-// PageData represents common data structure for all pages
+// PageData represents common data structure for all pages.
 type PageData struct {
 	Title    string
 	ExtraCSS string
-	ExtraJS  string // Kept for template compatibility
+	ExtraJS  string
 }
 
-// HomeData represents data needed for the home page
+// HomeData represents data needed for the home page.
 type HomeData struct {
 	PageData
 	Artists        []data.Artist
@@ -40,13 +31,13 @@ type HomeData struct {
 	TotalLocations int
 }
 
-// ArtistsData represents data needed for the artists page
+// ArtistsData represents data needed for the artists page.
 type ArtistsData struct {
 	PageData
 	Artists []data.Artist
 }
 
-// ArtistDetailData represents data needed for artist detail page
+// ArtistDetailData represents data needed for artist detail page.
 type ArtistDetailData struct {
 	PageData
 	Artist     data.Artist
@@ -57,17 +48,17 @@ type ArtistDetailData struct {
 	Countries  []string
 }
 
-// LocationsData represents data needed for locations page
+// LocationsData represents data needed for locations page.
 type LocationsData struct {
 	PageData
 	Locations      []string
 	LocationStats  []data.LocationStat
-	TopLocations   []data.LocationStat // For template compatibility
+	TopLocations   []data.LocationStat
 	TotalCountries int
 	TotalConcerts  int
 }
 
-// LocationDetailData represents data needed for location detail page
+// LocationDetailData represents data needed for location detail page.
 type LocationDetailData struct {
 	PageData
 	LocationName     string
@@ -79,7 +70,7 @@ type LocationDetailData struct {
 	ConcertCount     int
 }
 
-// ErrorData represents data needed for error pages
+// ErrorData represents data needed for error pages.
 type ErrorData struct {
 	PageData
 	Message      string
@@ -89,58 +80,21 @@ type ErrorData struct {
 	ErrorMessage string
 }
 
+// Handlers contains all HTTP handlers for the application.
+type Handlers struct {
+	repo      *data.Repository
+	templates *template.Template
+}
+
 // NewHandlers creates a new handlers instance.
-func NewHandlers(repo *data.Repository, apiClient *api.Client) *Handlers {
+func NewHandlers(repo *data.Repository) *Handlers {
 	h := &Handlers{
-		repo:      repo,
-		apiClient: apiClient,
+		repo: repo,
 	}
 	h.loadTemplates()
 	return h
 }
 
-// APIClientAdapter adapts the api.Client to work with the data.APIClient interface
-type APIClientAdapter struct {
-	Client *api.Client
-}
-
-// FetchAllData implements the data.APIClient interface
-func (a *APIClientAdapter) FetchAllData(ctx context.Context) (*data.APIResponse, error) {
-	apiResponse, err := a.Client.FetchAllData(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert api.APIResponse to data.APIResponse
-	dataResponse := &data.APIResponse{
-		Artists:   make([]data.APIArtist, len(apiResponse.Artists)),
-		Relations: make([]data.APIRelation, len(apiResponse.Relations)),
-	}
-
-	// Convert artists
-	for i, artist := range apiResponse.Artists {
-		dataResponse.Artists[i] = data.APIArtist{
-			ID:           artist.ID,
-			Image:        artist.Image,
-			Name:         artist.Name,
-			Members:      artist.Members,
-			CreationYear: artist.CreationYear,
-			FirstAlbum:   artist.FirstAlbum,
-		}
-	}
-
-	// Convert relations
-	for i, relation := range apiResponse.Relations {
-		dataResponse.Relations[i] = data.APIRelation{
-			ID:             relation.ID,
-			DatesLocations: relation.DatesLocations,
-		}
-	}
-
-	return dataResponse, nil
-}
-
-// loadTemplates loads all HTML templates with helper functions
 func (h *Handlers) loadTemplates() {
 	templateFiles := []string{
 		"templates/base.tmpl",
@@ -168,7 +122,6 @@ func (h *Handlers) loadTemplates() {
 		log.Fatalf("Failed to parse templates: %v", err)
 	}
 
-	// Verify critical templates exist
 	if h.templates.Lookup("base.tmpl") == nil {
 		log.Fatalf("base.tmpl template not found after parsing")
 	}
@@ -177,43 +130,37 @@ func (h *Handlers) loadTemplates() {
 	}
 }
 
-// HomeHandler handles the home page
+// HomeHandler handles the home page.
 func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	// Handle root path routing
 	if r.URL.Path != "/" {
 		h.NotFoundHandler(w, r)
 		return
 	}
 
-	// Get data for the home page
 	artists := h.repo.GetAllArtistsSorted()
 	stats := h.repo.GetStats()
 	locations := h.repo.GetUniqueLocations()
-
-	// Calculate total members via repository helper
-	totalMembers := h.repo.GetTotalMembers()
 
 	data := HomeData{
 		PageData: PageData{
 			Title:    "Home",
 			ExtraCSS: "home.css",
-			ExtraJS:  "", // Empty for now
 		},
 		Artists:        artists,
 		Stats:          stats,
 		TotalArtists:   stats["artists"],
-		TotalMembers:   totalMembers,
+		TotalMembers:   h.repo.GetTotalMembers(),
 		TotalLocations: len(locations),
 	}
 
 	h.executeTemplate(w, r, "home.tmpl", data)
 }
 
-// ArtistsHandler handles requests to /artists page
+// ArtistsHandler handles requests to /artists page.
 func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
@@ -224,7 +171,6 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 		PageData: PageData{
 			Title:    "Artists",
 			ExtraCSS: "artists.css",
-			ExtraJS:  "", // Empty for now
 		},
 		Artists: artists,
 	}
@@ -232,13 +178,12 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 	h.executeTemplate(w, r, "artists.tmpl", data)
 }
 
-// ArtistDetailHandler handles requests to specific artist pages
+// ArtistDetailHandler handles requests to specific artist pages.
 func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	// Extract artist identifier from URL path
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(pathParts) != 2 {
 		h.NotFoundHandler(w, r)
@@ -263,17 +208,13 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get related data
 	relation, _ := h.repo.GetRelation(artist.ID)
-
-	// Get previous and next artist for navigation
 	prevArtist, nextArtist := h.repo.GetArtistNavigation(artist)
 
 	data := ArtistDetailData{
 		PageData: PageData{
 			Title:    artist.Name,
 			ExtraCSS: "artist_detail.css",
-			ExtraJS:  "", // Empty for now
 		},
 		Artist:     artist,
 		Relation:   relation,
@@ -292,36 +233,30 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get data from repository
 	locations := h.repo.GetUniqueLocations()
 	locationStats := h.repo.CalculateLocationStats()
-
-	// Calculate total countries via repository helper
-	totalCountries := h.repo.GetTotalCountries()
 
 	data := LocationsData{
 		PageData: PageData{
 			Title:    "Locations",
 			ExtraCSS: "locations.css",
-			ExtraJS:  "", // Empty for now
 		},
 		Locations:      locations,
-		LocationStats:  locationStats, // Already sorted by CalculateLocationStats
-		TopLocations:   locationStats, // Same as LocationStats for template compatibility
-		TotalCountries: totalCountries,
+		LocationStats:  locationStats,
+		TopLocations:   locationStats,
+		TotalCountries: h.repo.GetTotalCountries(),
 		TotalConcerts:  h.repo.GetStats()["total_concerts"],
 	}
 
 	h.executeTemplate(w, r, "locations.tmpl", data)
 }
 
-// LocationDetailHandler handles requests to specific location pages
+// LocationDetailHandler handles requests to specific location pages.
 func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request) {
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
 	}
 
-	// Extract location slug from URL path
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(pathParts) != 2 {
 		h.NotFoundHandler(w, r)
@@ -329,23 +264,18 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	locationSlug := pathParts[1]
-
-	// Get location details from repository
 	locationDetail, found := h.repo.GetLocationDetailsBySlug(locationSlug)
 	if !found {
 		h.NotFoundHandler(w, r)
 		return
 	}
 
-	// Get per-artist dates for this location
 	artistsWithDates := h.repo.GetArtistsWithDatesForLocation(locationDetail.Name)
 
-	// Prepare data for template
 	data := LocationDetailData{
 		PageData: PageData{
 			Title:    fmt.Sprintf("%s - Location", locationDetail.DisplayName),
 			ExtraCSS: "locations.css",
-			ExtraJS:  "", // Empty for now
 		},
 		LocationName:     locationDetail.Name,
 		DisplayName:      locationDetail.DisplayName,
@@ -359,7 +289,7 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 	h.executeTemplate(w, r, "location_detail.tmpl", data)
 }
 
-// HealthHandler handles health check requests
+// HealthHandler handles health check requests.
 func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	if !h.validateMethod(w, r, http.MethodGet) {
 		return
@@ -387,7 +317,7 @@ func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// NotFoundHandler handles 404 errors
+// NotFoundHandler handles 404 errors.
 func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 
@@ -395,7 +325,6 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 		PageData: PageData{
 			Title:    "Page Not Found",
 			ExtraCSS: "errors.css",
-			ExtraJS:  "", // Empty for now
 		},
 		Message:      "The page you're looking for doesn't exist.",
 		ErrorCode:    404,
@@ -405,20 +334,18 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	h.executeTemplate(w, r, "error.tmpl", data)
 }
 
-// InternalErrorHandler handles 500 errors
+// InternalErrorHandler handles 500 errors.
 func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, message string) {
 	log.Printf("Internal error: %s", message)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusInternalServerError)
 
-	// Use direct template execution to avoid infinite recursion
 	if h.templates != nil {
 		data := ErrorData{
 			PageData: PageData{
 				Title:    "Internal Server Error",
 				ExtraCSS: "errors.css",
-				ExtraJS:  "", // Empty for now
 			},
 			Message:      "Something went wrong on our end. We're working to fix it!",
 			ErrorCode:    500,
@@ -435,7 +362,6 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-// writeSimpleHTML writes a simple HTML response when templates are not available.
 func (h *Handlers) writeSimpleHTML(w http.ResponseWriter, title, content string) {
 	html := fmt.Sprintf(`<!DOCTYPE html>
 <html>
@@ -456,7 +382,6 @@ func (h *Handlers) writeSimpleHTML(w http.ResponseWriter, title, content string)
 	fmt.Fprint(w, html)
 }
 
-// validateMethod checks if the request method matches the expected method
 func (h *Handlers) validateMethod(w http.ResponseWriter, r *http.Request, expectedMethod string) bool {
 	if r.Method != expectedMethod {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
@@ -465,7 +390,6 @@ func (h *Handlers) validateMethod(w http.ResponseWriter, r *http.Request, expect
 	return true
 }
 
-// executeTemplate executes a template with error handling
 func (h *Handlers) executeTemplate(w http.ResponseWriter, r *http.Request, templateName string, data interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if h.templates != nil {
@@ -480,8 +404,7 @@ func (h *Handlers) executeTemplate(w http.ResponseWriter, r *http.Request, templ
 	}
 }
 
-// PanicHandler is a dev/test handler that intentionally panics to exercise the recovery middleware.
-// NOTE: This should only be used in development or test environments.
+// PanicHandler is a dev/test handler that intentionally panics.
 func (h *Handlers) PanicHandler(w http.ResponseWriter, r *http.Request) {
 	panic("This is an intentional panic for testing the recovery middleware")
 }

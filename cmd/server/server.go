@@ -26,11 +26,10 @@ const (
 
 // ANSI color codes for pretty CLI output (standard library only)
 const (
-	colorReset  = "\033[0m"
-	colorRed    = "\033[31m"
-	colorGreen  = "\033[32m"
-	colorYellow = "\033[33m"
-	colorCyan   = "\033[36m"
+	colorReset = "\033[0m"
+	colorGreen = "\033[32m"
+	colorCyan  = "\033[36m"
+	// colorYellow = "\033[33m"
 )
 
 // Server represents the HTTP server with all its dependencies.
@@ -49,16 +48,21 @@ func NewServer() (*Server, error) {
 	// Initialize repository
 	repo := data.NewRepository()
 
-	// Load initial data using API client with adapter
+	// Load initial data directly from API client
 	log.Println(colorCyan + "⏳ Loading initial data..." + colorReset)
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	// Create an adapter to convert between API types and data types
-	adapter := &handlers.APIClientAdapter{Client: apiClient}
-	err := repo.InitializeWithAPI(loadCtx, adapter)
+	// Fetch all data from API
+	apiData, err := apiClient.FetchAll(loadCtx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to initialize repository: %w", err)
+		return nil, fmt.Errorf("failed to fetch data from API: %w", err)
+	}
+
+	// Load data into repository
+	err = repo.InitializeWithData(loadCtx, apiData)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize repository with data: %w", err)
 	}
 
 	// Check if data was loaded
@@ -69,8 +73,8 @@ func NewServer() (*Server, error) {
 
 	log.Printf(colorCyan+"✅ Data loaded successfully - %d artists"+colorReset, len(artists))
 
-	// Initialize handlers
-	handlers := handlers.NewHandlers(repo, apiClient)
+	// Initialize handlers with just the repository
+	handlers := handlers.NewHandlers(repo)
 
 	// Create HTTP server
 	port := getPort()
