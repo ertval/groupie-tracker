@@ -102,7 +102,6 @@ func NewHandlers(repo *data.Repository, apiClient *api.Client) *Handlers {
 func (h *Handlers) loadTemplates() {
 	templateFiles := []string{
 		"templates/base.tmpl",
-		"templates/base_error.tmpl",
 		"templates/home.tmpl",
 		"templates/artists.tmpl",
 		"templates/artist_detail.tmpl",
@@ -340,7 +339,7 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	h.executeTemplate(w, r, "base.tmpl", data)
+	h.executeTemplate(w, r, "location_detail.tmpl", data)
 }
 
 // HealthHandler handles health check requests
@@ -391,7 +390,7 @@ func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 		RequestedURL: r.URL.Path,
 	}
 
-	h.executeTemplate(w, r, "base.tmpl", data)
+	h.executeTemplate(w, r, "error.tmpl", data)
 }
 
 // InternalErrorHandler handles 500 errors
@@ -415,7 +414,7 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 			Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
 		}
 
-		if err := h.templates.ExecuteTemplate(w, "base_error.tmpl", data); err != nil {
+		if err := h.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 			log.Printf("Template execution error: %v", err)
 			h.writeSimpleHTML(w, "Internal Server Error", "An error occurred while rendering the page.")
 		}
