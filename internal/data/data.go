@@ -1,5 +1,12 @@
 // Package data provides unified data structures, repository, and business logic for the Groupie Tracker application.
+//
 // This package follows SOLID principles and provides a simple, unified data access layer.
+// S: Single Responsibility Principle — Each module/class should have one responsibility.
+// O: Open/Closed Principle — Software entities should be open for extension, but closed for modification.
+// L: Liskov Substitution Principle — Subtypes must be substitutable for their base types.
+// I: Interface Segregation Principle — Prefer several specific interfaces over one general-purpose interface.
+// D: Dependency Inversion Principle — Depend on abstractions, not concrete implementations.
+
 package data
 
 import (
@@ -17,7 +24,7 @@ import (
 // Structs (Core Data Models)
 // -----------------------------
 
-// Artist represents a musical artist or band with all their information.
+// (API Struct) Artist represents a musical artist or band with all their information from the API.
 type Artist struct {
 	ID           int      `json:"id"`
 	Image        string   `json:"image"`
@@ -28,25 +35,25 @@ type Artist struct {
 	Slug         string   `json:"slug,omitempty"`
 }
 
-// Relation links artists with their concert locations and dates.
+// (API Struct) Relation represents the relationship between artists with their concert locations and dates from the API.
 type Relation struct {
 	ID             int                 `json:"id"`
 	DatesLocations map[string][]string `json:"datesLocations"`
 }
 
-// Location represents a location data structure from the API
+// (API Struct) Location represents a location data structure from the API
 type Location struct {
 	ID        int      `json:"id"`
 	Locations []string `json:"locations"`
 }
 
-// Date represents a date data structure from the API
+// (API Struct) Date represents a date data structure from the API
 type Date struct {
 	ID    int      `json:"id"`
 	Dates []string `json:"dates"`
 }
 
-// LocationStat represents statistics for a location.
+// (Custom Data Struct) LocationStat represents statistics for a location.
 type LocationStat struct {
 	Name         string
 	DisplayName  string
@@ -57,13 +64,13 @@ type LocationStat struct {
 	Dates        []string
 }
 
-// ArtistWithDates pairs an artist with the concert dates they played at a location.
+// (Custom Data Struct) ArtistWithDates pairs an artist with the concert dates they played at a location.
 type ArtistWithDates struct {
 	Artist Artist
 	Dates  []string
 }
 
-// PageData represents common data needed for all pages.
+// (Custom Data Struct) PageData represents common data needed for all pages.
 type PageData struct {
 	Title    string
 	ExtraCSS string
@@ -115,8 +122,8 @@ func NewRepository() *Repository {
 
 // InitializeWithAPI loads data from the API client into the repository.
 // This should be called once at application startup.
-func (r *Repository) InitializeWithAPI(ctx context.Context, client APIClient) error {
-	data, err := client.FetchAllData(ctx)
+func (r *Repository) InitializeWithAPI(ctx context.Context, api APIClient) error {
+	data, err := api.FetchAllData(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch data from API: %w", err)
 	}

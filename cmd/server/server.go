@@ -7,9 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"os/signal"
 	"strings"
-	"syscall"
 	"time"
 
 	"groupie-tracker/internal/api"
@@ -18,13 +16,12 @@ import (
 )
 
 const (
-	DefaultPort     = ":8080"
-	DefaultAPIURL   = "https://groupietrackers.herokuapp.com"
-	RequestTimeout  = 30 * time.Second
-	ShutdownTimeout = 10 * time.Second
-	ReadTimeout     = 15 * time.Second
-	WriteTimeout    = 15 * time.Second
-	IdleTimeout     = 60 * time.Second
+	DefaultPort    = ":8080"
+	DefaultAPIURL  = "https://groupietrackers.herokuapp.com"
+	RequestTimeout = 30 * time.Second
+	ReadTimeout    = 15 * time.Second
+	WriteTimeout   = 15 * time.Second
+	IdleTimeout    = 60 * time.Second
 )
 
 // ANSI color codes for pretty CLI output (standard library only)
@@ -42,8 +39,6 @@ type Server struct {
 	apiClient *api.Client
 	handlers  *handlers.Handlers
 	server    *http.Server
-	ctx       context.Context
-	cancel    context.CancelFunc
 }
 
 // NewServer creates and configures a new server instance.
@@ -73,19 +68,13 @@ func NewServer() (*Server, error) {
 	log.Printf(colorCyan+"✅ Data loaded successfully - %d artists"+colorReset, len(artists))
 
 	// Initialize handlers
-	h := handlers.NewHandlers(repo, apiClient)
-
-	// Create context for future extensions
-	ctx, cancel := context.WithCancel(context.Background())
-
-	// Create router
-	mux := createRouter(h)
+	handlers := handlers.NewHandlers(repo, apiClient)
 
 	// Create HTTP server
 	port := getPort()
 	server := &http.Server{
 		Addr:         port,
-		Handler:      mux,
+		Handler:      createRouter(handlers),
 		ReadTimeout:  ReadTimeout,
 		WriteTimeout: WriteTimeout,
 		IdleTimeout:  IdleTimeout,
@@ -94,69 +83,29 @@ func NewServer() (*Server, error) {
 	return &Server{
 		repo:      repo,
 		apiClient: apiClient,
-		handlers:  h,
+		handlers:  handlers,
 		server:    server,
-		ctx:       ctx,
-		cancel:    cancel,
 	}, nil
 }
 
-// waitForDataLoad waits for the repo to load initial data
-func waitForDataLoad(repo *data.Repository, ctx context.Context) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timeout waiting for initial data load from API")
-		default:
-			stats := repo.GetStats()
-			if stats["artists"] > 0 {
-				return nil
-			}
-			time.Sleep(50 * time.Millisecond)
-		}
-	}
-}
-
-// Start starts the server and handles graceful shutdown.
+// Start starts the server.
 func (s *Server) Start() error {
-	// Start server in a goroutine
-	go func() {
-		// Build a clickable URL for convenience (works in most terminals)
-		addr := s.server.Addr
-		url := addr
-		if strings.HasPrefix(addr, ":") {
-			url = "http://localhost" + addr
-		} else if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
-			url = "http://" + addr
-		}
-
-		log.Printf(colorGreen+"🚀 Server starting — open %s in your browser"+colorReset, url)
-		if err := s.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf(colorRed+"❌ Server failed to start: %v"+colorReset, err)
-		}
-	}()
-
-	// Wait for interrupt signal to gracefully shutdown the server
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
-	log.Println(colorYellow + "🛑 Server is shutting down..." + colorReset)
-
-	// Graceful shutdown
-	log.Println(colorYellow + "🛑 Shutting down..." + colorReset)
-
-	s.cancel() // Cancel the context
-
-	// Create a deadline to wait for
-	ctx, cancel := context.WithTimeout(context.Background(), ShutdownTimeout)
-	defer cancel()
-
-	// Attempt graceful shutdown
-	if err := s.server.Shutdown(ctx); err != nil {
-		return fmt.Errorf("server forced to shutdown: %w", err)
+	// Build a clickable URL for convenience (works in most terminals)
+	addr := s.server.Addr
+	url := addr
+	if strings.HasPrefix(addr, ":") {
+		url = "http://localhost" + addr
+	} else if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
+		url = "http://" + addr
 	}
 
-	log.Println(colorGreen + "👋 Server exited" + colorReset)
+	log.Printf(colorGreen+"🚀 Server starting — open %s in your browser"+colorReset, url)
+
+	// Start server (blocking)
+	err := s.server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		return fmt.Errorf("server failed to start: %w", err)
+	}
 	return nil
 }
 
@@ -196,54 +145,36 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	mux.HandleFunc("/healthz", h.HealthHandler)
 
 	// Development: panic trigger endpoint (DEV ONLY)
-	// This intentionally panics so the recovery middleware and InternalErrorHandler can be exercised.
-	mux.HandleFunc("/dev/panic", func(w http.ResponseWriter, r *http.Request) {
-		h.PanicHandler(w, r)
-	})
+	mux.HandleFunc("/dev/panic", h.PanicHandler)
 
-	// Wrap with middleware (pass handlers so recovery can use InternalErrorHandler)
-	return wrapWithMiddleware(mux, h)
+	// Apply middleware to all routes
+	return applyMiddleware(mux, h)
 }
 
-// wrapWithMiddleware wraps the entire mux with middleware.
-// It accepts handlers so the recovery middleware can render errors via InternalErrorHandler.
-func wrapWithMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeMux {
+// applyMiddleware applies logging and recovery middleware to all routes.
+func applyMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// Wrap all requests with middleware
+	// Apply middleware to all requests
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		loggingMiddleware(
-			recoveryMiddlewareWithHandler(handler, h),
-		).ServeHTTP(w, r)
-	})
+		start := time.Now()
 
-	return mux
-}
-
-// recoveryMiddlewareWithHandler recovers from panics using custom error handler.
-func recoveryMiddlewareWithHandler(next http.Handler, h *handlers.Handlers) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Panic recovery
 		defer func() {
 			if err := recover(); err != nil {
 				log.Printf("Panic recovered: %v", err)
 				h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
 			}
 		}()
-		next.ServeHTTP(w, r)
-	})
-}
 
-// loggingMiddleware logs HTTP requests.
-func loggingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
+		// Serve request
+		handler.ServeHTTP(w, r)
 
-		// Call the next handler
-		next.ServeHTTP(w, r)
-
-		// Log the request
+		// Log request
 		log.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(start))
 	})
+
+	return mux
 }
 
 // getPort returns the port to run the server on.
