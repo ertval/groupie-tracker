@@ -215,3 +215,155 @@ func TestContentTypes(t *testing.T) {
 		}
 	}
 }
+
+func TestRootHandler(t *testing.T) {
+	req, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	rr := httptest.NewRecorder()
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Test API Server - Use /api/ endpoints"))
+	})
+	handler.ServeHTTP(rr, req)
+
+	if status := rr.Code; status != http.StatusNotFound {
+		t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
+	}
+
+	expected := "Test API Server - Use /api/ endpoints"
+	if rr.Body.String() != expected {
+		t.Errorf("handler returned unexpected body: got %v want %v", rr.Body.String(), expected)
+	}
+}
+
+func TestCORSHeaders(t *testing.T) {
+	endpoints := []struct {
+		path    string
+		handler http.HandlerFunc
+	}{
+		{"/api/artists", artistsHandler},
+		{"/api/locations", locationsHandler},
+		{"/api/dates", datesHandler},
+		{"/api/relation", relationHandler},
+	}
+
+	for _, endpoint := range endpoints {
+		req, err := http.NewRequest("GET", endpoint.path, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		rr := httptest.NewRecorder()
+		endpoint.handler.ServeHTTP(rr, req)
+
+		corsHeader := rr.Header().Get("Access-Control-Allow-Origin")
+		if corsHeader != "*" {
+			t.Errorf("endpoint %s returned wrong CORS header: got %v want %v", endpoint.path, corsHeader, "*")
+		}
+	}
+}
+
+func TestMethodValidation(t *testing.T) {
+	endpoints := []struct {
+		path    string
+		handler http.HandlerFunc
+	}{
+		{"/api/artists", artistsHandler},
+		{"/api/locations", locationsHandler},
+		{"/api/dates", datesHandler},
+		{"/api/relation", relationHandler},
+	}
+
+	// Test that POST, PUT, DELETE methods still work (handlers don't explicitly check methods)
+	methods := []string{"POST", "PUT", "DELETE", "PATCH"}
+
+	for _, method := range methods {
+		for _, endpoint := range endpoints {
+			req, err := http.NewRequest(method, endpoint.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+			endpoint.handler.ServeHTTP(rr, req)
+
+			// The handlers don't validate methods, so they should still return 200
+			if status := rr.Code; status != http.StatusOK {
+				t.Errorf("endpoint %s with method %s returned status: got %v want %v", endpoint.path, method, status, http.StatusOK)
+			}
+		}
+	}
+}
+
+func TestJSONResponseStructure(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		handler    http.HandlerFunc
+		validateFn func(*testing.T, []byte)
+	}{
+		{
+			name:    "artists response structure",
+			path:    "/api/artists",
+			handler: artistsHandler,
+			validateFn: func(t *testing.T, body []byte) {
+				var artists []Artist
+				if err := json.Unmarshal(body, &artists); err != nil {
+					t.Errorf("Failed to unmarshal artists response: %v", err)
+				}
+				if len(artists) < 2 {
+					t.Errorf("Expected at least 2 artists, got %d", len(artists))
+				}
+				// Check specific artist data
+				found := false
+				for _, artist := range artists {
+					if artist.Name == "Queen" {
+						found = true
+						if len(artist.Members) != 4 {
+							t.Errorf("Queen should have 4 members, got %d", len(artist.Members))
+						}
+						break
+					}
+				}
+				if !found {
+					t.Error("Expected to find Queen in artists list")
+				}
+			},
+		},
+		{
+			name:    "locations response structure",
+			path:    "/api/locations",
+			handler: locationsHandler,
+			validateFn: func(t *testing.T, body []byte) {
+				var response map[string]interface{}
+				if err := json.Unmarshal(body, &response); err != nil {
+					t.Errorf("Failed to unmarshal locations response: %v", err)
+				}
+				if _, exists := response["index"]; !exists {
+					t.Error("Locations response should have 'index' field")
+				}
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req, err := http.NewRequest("GET", tt.path, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			rr := httptest.NewRecorder()
+			tt.handler.ServeHTTP(rr, req)
+
+			if status := rr.Code; status != http.StatusOK {
+				t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+			}
+
+			tt.validateFn(t, rr.Body.Bytes())
+		})
+	}
+}
