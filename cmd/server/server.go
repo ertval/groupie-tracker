@@ -86,17 +86,32 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	// Static file serving
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 
-	// Web routes
-	mux.HandleFunc("/", h.HomeHandler)
+	// Favicon: serve static/favicon.ico if present, otherwise return 204 No Content.
+	// This must be registered before the "/" catch-all route
+	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		// Prefer a physical file under static/favicon.ico so browsers get a real icon.
+		faviconPath := "static/favicon.ico"
+		if _, err := os.Stat(faviconPath); err == nil {
+			http.ServeFile(w, r, faviconPath)
+			return
+		}
+		// No favicon available; return 204 to indicate "no content" and avoid extra logs.
+		w.WriteHeader(http.StatusNoContent)
+	})
+
+	// Health check (register before "/" to avoid catch-all)
+	mux.HandleFunc("/healthz", h.HealthHandler)
+	// Development: panic trigger endpoint (DEV ONLY)
+	mux.HandleFunc("/dev/panic", h.PanicHandler)
+
+	// Web routes - specific routes first, then more general ones
 	mux.HandleFunc("/artists", h.ArtistsHandler)
 	mux.HandleFunc("/artists/", h.ArtistDetailHandler)
 	mux.HandleFunc("/locations", h.LocationsHandler)
 	mux.HandleFunc("/locations/", h.LocationDetailHandler)
-
-	// Health check
-	mux.HandleFunc("/healthz", h.HealthHandler)
-	// Development: panic trigger endpoint (DEV ONLY)
-	mux.HandleFunc("/dev/panic", h.PanicHandler)
+	
+	// Home route - this catches everything else, so it must be last
+	mux.HandleFunc("/", h.HomeHandler)
 
 	return mux
 }

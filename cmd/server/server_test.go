@@ -157,6 +157,12 @@ func TestServerRoutes(t *testing.T) {
 			expectedStatus: http.StatusOK,
 		},
 		{
+			name:           "Favicon - No Content when file missing",
+			method:         "GET",
+			url:            "/favicon.ico",
+			expectedStatus: http.StatusNoContent,
+		},
+		{
 			name:           "Not found page",
 			method:         "GET",
 			url:            "/nonexistent",
