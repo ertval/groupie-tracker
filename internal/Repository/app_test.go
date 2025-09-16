@@ -1,5 +1,5 @@
 // Package app provides tests for the core application functionality.
-package app
+package repository
 
 import (
 	"context"
@@ -80,8 +80,8 @@ var testConcerts = []Concert{
 	},
 }
 
-func createTestStore() *Store {
-	store := NewStore("http://test-api", time.Second*5)
+func createTestStore() *Repository {
+	store := NewRepository("http://test-api", time.Second*5)
 
 	// Manually populate with test data for faster tests
 	store.processArtists(testArtists)

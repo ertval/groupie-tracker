@@ -8,9 +8,9 @@ import (
 	"groupie-tracker/internal/app"
 )
 
-func createTestStore() *app.Store {
+func createTestStore() *app.Repository {
 	// Create test store with mock data
-	store := app.NewStore("http://test-api", time.Second*5)
+	store := app.NewRepository("http://test-api", time.Second*5)
 	return store
 }
 
@@ -42,11 +42,11 @@ func TestServerStructureExists(t *testing.T) {
 	store := createTestStore()
 
 	// We can't instantiate without templates, but we can check the function exists
-	server := &Server{
-		store: store,
+	server := &AppData{
+		repo: store,
 	}
 
-	if server.store == nil {
-		t.Error("Server store should not be nil")
+	if server.repo == nil {
+		t.Error("AppData store should not be nil")
 	}
 }

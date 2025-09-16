@@ -25,8 +25,8 @@ const (
 
 // newServer creates and initializes a new HTTP server.
 func newServer() (*http.Server, error) {
-	// Initialize data store
-	store := app.NewStore(defaultAPIURL, requestTimeout)
+	// Initialize data repository
+	store := app.NewRepository(defaultAPIURL, requestTimeout)
 
 	// Load data from API
 	log.Println("Loading initial data...")
@@ -40,13 +40,13 @@ func newServer() (*http.Server, error) {
 	log.Printf("Data loaded successfully - %d artists", store.GetStats()["total_artists"])
 
 	// Initialize handlers
-	server := handlers.NewServer(store)
+	handler := handlers.NewHandler(store)
 
 	// Create HTTP server
 	port := getPort()
 	httpServer := &http.Server{
 		Addr:         port,
-		Handler:      withMiddleware(createRouter(server)),
+		Handler:      withMiddleware(createRouter(handler)),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,
@@ -77,7 +77,7 @@ func start(server *http.Server) error {
 }
 
 // createRouter sets up all routes.
-func createRouter(s *handlers.Server) *http.ServeMux {
+func createRouter(s *handlers.AppData) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Static file serving

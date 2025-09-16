@@ -15,34 +15,34 @@ import (
 	"groupie-tracker/internal/app"
 )
 
-// Server holds the application state and handlers.
-type Server struct {
-	store     *app.Store
+// AppData holds the application state and handlers.
+type AppData struct {
+	repo      *app.Repository
 	templates *template.Template
 }
 
-// NewServer creates a new server with the given store.
-func NewServer(store *app.Store) *Server {
-	s := &Server{store: store}
-	s.loadTemplates()
-	return s
+// NewHandler creates a new handler with the given repository.
+func NewHandler(repo *app.Repository) *AppData {
+	h := &AppData{repo: repo}
+	h.loadTemplates()
+	return h
 }
 
 // Home handles the home page.
-func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
+func (a *AppData) Home(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	if r.URL.Path != "/" {
-		s.NotFound(w, r)
+		a.NotFound(w, r)
 		return
 	}
 
-	artists := s.store.GetArtists()
-	stats := s.store.GetStats()
-	locations := s.store.GetLocations()
+	artists := a.repo.GetArtists()
+	stats := a.repo.GetStats()
+	locations := a.repo.GetLocations()
 
 	data := struct {
 		Title          string
@@ -60,22 +60,22 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		TotalLocations: len(locations),
 	}
 
-	s.render(w, r, "home.tmpl", data)
+	a.render(w, r, "home.tmpl", data)
 }
 
 // Artists handles the artists listing page.
-func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
+func (a *AppData) Artists(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	if r.URL.Path != "/artists" {
-		s.NotFound(w, r)
+		a.NotFound(w, r)
 		return
 	}
 
-	artists := s.store.GetArtists()
+	artists := a.repo.GetArtists()
 
 	data := struct {
 		Title    string
@@ -89,11 +89,11 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		Artists:  artists,
 	}
 
-	s.render(w, r, "artists.tmpl", data)
+	a.render(w, r, "artists.tmpl", data)
 }
 
 // ArtistDetail handles individual artist pages.
-func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
+func (a *AppData) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -102,7 +102,7 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	// Extract artist identifier from URL
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
-		s.NotFound(w, r)
+		a.NotFound(w, r)
 		return
 	}
 
@@ -110,19 +110,19 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	var found bool
 
 	// Try slug first, then ID
-	if artist, found = s.store.GetArtistBySlug(path); !found {
+	if artist, found = a.repo.GetArtistBySlug(path); !found {
 		if id, err := strconv.Atoi(path); err == nil {
-			artist, found = s.store.GetArtist(id)
+			artist, found = a.repo.GetArtist(id)
 		}
 	}
 
 	if !found {
-		s.NotFound(w, r)
+		a.NotFound(w, r)
 		return
 	}
 
-	concert, _ := s.store.GetConcert(artist.ID)
-	prev, next := s.store.GetNextPrevArtist(artist)
+	concert, _ := a.repo.GetConcert(artist.ID)
+	prev, next := a.repo.GetNextPrevArtist(artist)
 
 	data := struct {
 		Title      string
@@ -140,30 +140,30 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraJS:    "",
 		Artist:     artist,
 		Relation:   concert, // Using "Relation" for template compatibility
-		TotalShows: s.store.CountShows(concert),
-		Countries:  s.store.GetCountries(concert),
+		TotalShows: a.repo.CountShows(concert),
+		Countries:  a.repo.GetCountries(concert),
 		PrevArtist: prev,
 		NextArtist: next,
 	}
 
-	s.render(w, r, "artist_detail.tmpl", data)
+	a.render(w, r, "artist_detail.tmpl", data)
 }
 
 // Locations handles the locations listing page.
-func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
+func (a *AppData) Locations(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
 	if r.URL.Path != "/locations" {
-		s.NotFound(w, r)
+		a.NotFound(w, r)
 		return
 	}
 
-	locations := s.store.GetLocations()
-	locationStats := s.store.GetLocationStats()
-	globalStats := s.store.GetStats()
+	locations := a.repo.GetLocations()
+	locationStats := a.repo.GetLocationStats()
+	globalStats := a.repo.GetStats()
 
 	data := struct {
 		Title          string
@@ -185,11 +185,11 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		TotalConcerts:  globalStats["total_shows"],
 	}
 
-	s.render(w, r, "locations.tmpl", data)
+	a.render(w, r, "locations.tmpl", data)
 }
 
 // LocationDetail handles individual location pages.
-func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
+func (a *AppData) LocationDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -198,13 +198,13 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 	// Extract location slug from URL
 	slug := strings.TrimPrefix(r.URL.Path, "/locations/")
 	if slug == "" {
-		s.NotFound(w, r)
+		a.NotFound(w, r)
 		return
 	}
 
-	location, found := s.store.GetLocationBySlug(slug)
+	location, found := a.repo.GetLocationBySlug(slug)
 	if !found {
-		s.NotFound(w, r)
+		a.NotFound(w, r)
 		return
 	}
 
@@ -226,11 +226,11 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		Artists:      location.Artists,
 	}
 
-	s.render(w, r, "location_detail.tmpl", data)
+	a.render(w, r, "location_detail.tmpl", data)
 }
 
 // Health provides a health check endpoint.
-func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
+func (a *AppData) Health(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -239,7 +239,7 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	response := map[string]interface{}{
 		"status":    "healthy",
 		"timestamp": r.Header.Get("X-Request-Time"),
-		"stats":     s.store.GetStats(),
+		"stats":     a.repo.GetStats(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -247,7 +247,7 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 // NotFound handles 404 errors.
-func (s *Server) NotFound(w http.ResponseWriter, r *http.Request) {
+func (a *AppData) NotFound(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		Title        string
 		ExtraCSS     string
@@ -269,14 +269,14 @@ func (s *Server) NotFound(w http.ResponseWriter, r *http.Request) {
 	// Let render method handle both Content-Type and status
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusNotFound)
-	if err := s.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
+	if err := a.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 		log.Printf("Template execution error for error.tmpl: %v", err)
 		// Don't try to call render again, just log the error
 	}
 }
 
 // InternalError handles 500 errors.
-func (s *Server) InternalError(w http.ResponseWriter, r *http.Request, message string) {
+func (a *AppData) InternalError(w http.ResponseWriter, r *http.Request, message string) {
 	data := struct {
 		Title        string
 		ExtraCSS     string
@@ -298,20 +298,20 @@ func (s *Server) InternalError(w http.ResponseWriter, r *http.Request, message s
 	// Handle status and template execution directly to avoid cycles
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusInternalServerError)
-	if err := s.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
+	if err := a.templates.ExecuteTemplate(w, "error.tmpl", data); err != nil {
 		log.Printf("Template execution error for error.tmpl: %v", err)
 		// Don't try to call render again, just log the error
 	}
 }
 
 // DevPanic is a development endpoint to test panic recovery.
-func (s *Server) DevPanic(w http.ResponseWriter, r *http.Request) {
+func (a *AppData) DevPanic(w http.ResponseWriter, r *http.Request) {
 	panic("Development panic triggered")
 }
 
 // Private helper methods
 
-func (s *Server) loadTemplates() {
+func (a *AppData) loadTemplates() {
 	templateFiles := []string{
 		"templates/base.tmpl",
 		"templates/home.tmpl",
@@ -344,15 +344,15 @@ func (s *Server) loadTemplates() {
 	}
 
 	var err error
-	s.templates, err = template.New("").Funcs(funcMap).ParseFiles(templateFiles...)
+	a.templates, err = template.New("").Funcs(funcMap).ParseFiles(templateFiles...)
 	if err != nil {
 		log.Fatalf("Failed to parse templates: %v", err)
 	}
 }
 
-func (s *Server) render(w http.ResponseWriter, r *http.Request, templateName string, data interface{}) {
+func (a *AppData) render(w http.ResponseWriter, r *http.Request, templateName string, data interface{}) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := s.templates.ExecuteTemplate(w, templateName, data); err != nil {
+	if err := a.templates.ExecuteTemplate(w, templateName, data); err != nil {
 		log.Printf("Template execution error for %s: %v", templateName, err)
 		// Don't call InternalError as it would create a cycle
 		// Only write error response if this isn't an error template already failing

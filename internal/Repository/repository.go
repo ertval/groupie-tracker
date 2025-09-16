@@ -1,7 +1,7 @@
 // Package app provides the core functionality for the Groupie Tracker application.
 // This consolidates the data layer, API client, and domain models into a single,
 // cohesive package following idiomatic Go patterns.
-package app
+package repository
 
 import (
 	"context"
@@ -48,7 +48,7 @@ type LocationStats struct {
 }
 
 // Store manages all application data and API interactions.
-type Store struct {
+type Repository struct {
 	artists   map[int]Artist
 	concerts  map[int]Concert
 	slugToID  map[string]int
@@ -58,9 +58,9 @@ type Store struct {
 	client    *http.Client
 }
 
-// NewStore creates a new data store with the given API URL and timeout.
-func NewStore(baseURL string, timeout time.Duration) *Store {
-	return &Store{
+// NewRepository creates a new data repository with the given API URL and timeout.
+func NewRepository(baseURL string, timeout time.Duration) *Repository {
+	return &Repository{
 		artists:  make(map[int]Artist),
 		concerts: make(map[int]Concert),
 		slugToID: make(map[string]int),
@@ -73,10 +73,10 @@ func NewStore(baseURL string, timeout time.Duration) *Store {
 }
 
 // LoadData fetches and loads all data from the API.
-func (s *Store) LoadData(ctx context.Context) error {
+func (r *Repository) LoadData(ctx context.Context) error {
 	// Fetch artists
 	var artists []Artist
-	if err := s.fetchJSON(ctx, "/api/artists", &artists); err != nil {
+	if err := r.fetchJSON(ctx, "/api/artists", &artists); err != nil {
 		return fmt.Errorf("failed to fetch artists: %w", err)
 	}
 
@@ -84,22 +84,22 @@ func (s *Store) LoadData(ctx context.Context) error {
 	var relationResponse struct {
 		Index []Concert `json:"index"`
 	}
-	if err := s.fetchJSON(ctx, "/api/relation", &relationResponse); err != nil {
+	if err := r.fetchJSON(ctx, "/api/relation", &relationResponse); err != nil {
 		return fmt.Errorf("failed to fetch concerts: %w", err)
 	}
 
 	// Process and store data
-	s.processArtists(artists)
-	s.processConcerts(relationResponse.Index)
-	s.computeStats()
+	r.processArtists(artists)
+	r.processConcerts(relationResponse.Index)
+	r.computeStats()
 
 	return nil
 }
 
 // GetArtists returns all artists sorted by name.
-func (s *Store) GetArtists() []Artist {
-	artists := make([]Artist, 0, len(s.artists))
-	for _, artist := range s.artists {
+func (r *Repository) GetArtists() []Artist {
+	artists := make([]Artist, 0, len(r.artists))
+	for _, artist := range r.artists {
 		artists = append(artists, artist)
 	}
 	sort.Slice(artists, func(i, j int) bool {
@@ -109,37 +109,37 @@ func (s *Store) GetArtists() []Artist {
 }
 
 // GetArtist returns an artist by ID.
-func (s *Store) GetArtist(id int) (Artist, bool) {
-	artist, exists := s.artists[id]
+func (r *Repository) GetArtist(id int) (Artist, bool) {
+	artist, exists := r.artists[id]
 	return artist, exists
 }
 
 // GetArtistBySlug returns an artist by slug.
-func (s *Store) GetArtistBySlug(slug string) (Artist, bool) {
-	id, exists := s.slugToID[slug]
+func (r *Repository) GetArtistBySlug(slug string) (Artist, bool) {
+	id, exists := r.slugToID[slug]
 	if !exists {
 		return Artist{}, false
 	}
-	return s.GetArtist(id)
+	return r.GetArtist(id)
 }
 
 // GetConcert returns concert data for an artist.
-func (s *Store) GetConcert(artistID int) (Concert, bool) {
-	concert, exists := s.concerts[artistID]
+func (r *Repository) GetConcert(artistID int) (Concert, bool) {
+	concert, exists := r.concerts[artistID]
 	return concert, exists
 }
 
 // GetLocations returns all unique locations.
-func (s *Store) GetLocations() []string {
-	return s.locations
+func (r *Repository) GetLocations() []string {
+	return r.locations
 }
 
 // GetLocationStats returns statistics for all locations.
-func (s *Store) GetLocationStats() []LocationStats {
+func (r *Repository) GetLocationStats() []LocationStats {
 	locationMap := make(map[string]LocationStats)
 
 	// Process all concerts to build location stats
-	for _, concert := range s.concerts {
+	for _, concert := range r.concerts {
 		for location, dates := range concert.Locations {
 			normalizedLocation := normalizeLocation(location)
 
@@ -154,7 +154,7 @@ func (s *Store) GetLocationStats() []LocationStats {
 			}
 
 			// Add artist to location if not already there
-			artist, exists := s.artists[concert.ID]
+			artist, exists := r.artists[concert.ID]
 			if exists && !containsArtist(stat.Artists, artist) {
 				stat.Artists = append(stat.Artists, artist)
 			}
@@ -178,8 +178,8 @@ func (s *Store) GetLocationStats() []LocationStats {
 }
 
 // GetLocationBySlug returns location details by slug.
-func (s *Store) GetLocationBySlug(slug string) (LocationStats, bool) {
-	stats := s.GetLocationStats()
+func (r *Repository) GetLocationBySlug(slug string) (LocationStats, bool) {
+	stats := r.GetLocationStats()
 	for _, stat := range stats {
 		if stat.Slug == slug {
 			return stat, true
@@ -189,13 +189,13 @@ func (s *Store) GetLocationBySlug(slug string) (LocationStats, bool) {
 }
 
 // GetStats returns computed statistics.
-func (s *Store) GetStats() map[string]int {
-	return s.stats
+func (r *Repository) GetStats() map[string]int {
+	return r.stats
 }
 
 // GetNextPrevArtist returns navigation info for an artist.
-func (s *Store) GetNextPrevArtist(current Artist) (prev, next *Artist) {
-	artists := s.GetArtists()
+func (r *Repository) GetNextPrevArtist(current Artist) (prev, next *Artist) {
+	artists := r.GetArtists()
 	for i, artist := range artists {
 		if artist.ID == current.ID {
 			if i > 0 {
@@ -211,7 +211,7 @@ func (s *Store) GetNextPrevArtist(current Artist) (prev, next *Artist) {
 }
 
 // CountShows returns the total number of shows for a concert.
-func (s *Store) CountShows(concert Concert) int {
+func (r *Repository) CountShows(concert Concert) int {
 	total := 0
 	for _, dates := range concert.Locations {
 		total += len(dates)
@@ -220,7 +220,7 @@ func (s *Store) CountShows(concert Concert) int {
 }
 
 // GetCountries extracts unique countries from concert locations.
-func (s *Store) GetCountries(concert Concert) []string {
+func (r *Repository) GetCountries(concert Concert) []string {
 	countryMap := make(map[string]bool)
 	for location := range concert.Locations {
 		parts := strings.Split(location, "-")
@@ -240,13 +240,13 @@ func (s *Store) GetCountries(concert Concert) []string {
 
 // Private helper methods
 
-func (s *Store) fetchJSON(ctx context.Context, path string, dest interface{}) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", s.baseURL+path, nil)
+func (r *Repository) fetchJSON(ctx context.Context, path string, dest interface{}) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", r.baseURL+path, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
 
-	resp, err := s.client.Do(req)
+	resp, err := r.client.Do(req)
 	if err != nil {
 		return fmt.Errorf("making request: %w", err)
 	}
@@ -263,32 +263,32 @@ func (s *Store) fetchJSON(ctx context.Context, path string, dest interface{}) er
 	return nil
 }
 
-func (s *Store) processArtists(artists []Artist) {
+func (r *Repository) processArtists(artists []Artist) {
 	for _, artist := range artists {
 		artist.Slug = createSlug(artist.Name)
-		s.artists[artist.ID] = artist
-		s.slugToID[artist.Slug] = artist.ID
+		r.artists[artist.ID] = artist
+		r.slugToID[artist.Slug] = artist.ID
 	}
 }
 
-func (s *Store) processConcerts(concerts []Concert) {
+func (r *Repository) processConcerts(concerts []Concert) {
 	for _, concert := range concerts {
-		s.concerts[concert.ID] = concert
+		r.concerts[concert.ID] = concert
 	}
 }
 
-func (s *Store) computeStats() {
+func (r *Repository) computeStats() {
 	// Compute unique locations
 	locationSet := make(map[string]bool)
 	totalShows := 0
 	totalMembers := 0
 	countrySet := make(map[string]bool)
 
-	for _, artist := range s.artists {
+	for _, artist := range r.artists {
 		totalMembers += len(artist.Members)
 	}
 
-	for _, concert := range s.concerts {
+	for _, concert := range r.concerts {
 		for location, dates := range concert.Locations {
 			locationSet[normalizeLocation(location)] = true
 			totalShows += len(dates)
@@ -303,18 +303,18 @@ func (s *Store) computeStats() {
 	}
 
 	// Convert set to slice for locations
-	s.locations = make([]string, 0, len(locationSet))
+	r.locations = make([]string, 0, len(locationSet))
 	for location := range locationSet {
-		s.locations = append(s.locations, location)
+		r.locations = append(r.locations, location)
 	}
-	sort.Strings(s.locations)
+	sort.Strings(r.locations)
 
 	// Store computed stats
-	s.stats["total_artists"] = len(s.artists)
-	s.stats["total_members"] = totalMembers
-	s.stats["total_locations"] = len(locationSet)
-	s.stats["total_shows"] = totalShows
-	s.stats["total_countries"] = len(countrySet)
+	r.stats["total_artists"] = len(r.artists)
+	r.stats["total_members"] = totalMembers
+	r.stats["total_locations"] = len(locationSet)
+	r.stats["total_shows"] = totalShows
+	r.stats["total_countries"] = len(countrySet)
 }
 
 // Utility functions
