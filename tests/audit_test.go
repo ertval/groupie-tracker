@@ -13,44 +13,22 @@ import (
 // TestAuditCompliance tests all the specific requirements from audit.md
 func TestAuditCompliance(t *testing.T) {
 	// Setup: Load real data from API
-	store := data.NewRepository()
+	repo := data.NewRepository()
 	client := api.NewClient("https://groupietrackers.herokuapp.com", 30*time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	apiResponse, err := client.FetchAllData(ctx)
+	apiResponse, err := client.FetchAll(ctx)
 	if err != nil {
 		t.Fatalf("Failed to load data from API: %v", err)
 	}
 
-	// Convert API response to data format
-	dataResponse := data.APIResponse{
-		Artists:   make([]data.APIArtist, len(apiResponse.Artists)),
-		Relations: make([]data.APIRelation, len(apiResponse.Relations)),
+	// Load data into repository
+	err = repo.InitializeWithData(ctx, apiResponse)
+	if err != nil {
+		t.Fatalf("Failed to initialize repository: %v", err)
 	}
-
-	// Convert artists
-	for i, artist := range apiResponse.Artists {
-		dataResponse.Artists[i] = data.APIArtist{
-			ID:           artist.ID,
-			Image:        artist.Image,
-			Name:         artist.Name,
-			Members:      artist.Members,
-			CreationYear: artist.CreationYear,
-			FirstAlbum:   artist.FirstAlbum,
-		}
-	}
-
-	// Convert relations
-	for i, relation := range apiResponse.Relations {
-		dataResponse.Relations[i] = data.APIRelation{
-			ID:             relation.ID,
-			DatesLocations: relation.DatesLocations,
-		}
-	}
-
-	store.LoadData(dataResponse)
 
 	t.Run("Queen Members Verification", func(t *testing.T) {
 		expectedMembers := []string{
@@ -64,7 +42,7 @@ func TestAuditCompliance(t *testing.T) {
 		}
 
 		// Find Queen in the artists
-		artists := store.GetAllArtists()
+		artists := repo.GetAllArtists()
 		var queen *data.Artist
 		for _, artist := range artists {
 			if artist.Name == "Queen" {
@@ -98,7 +76,7 @@ func TestAuditCompliance(t *testing.T) {
 		expectedDate := "26-03-2001"
 
 		// Find Gorillaz in the artists
-		artists := store.GetAllArtists()
+		artists := repo.GetAllArtists()
 		var gorillaz *data.Artist
 		for _, artist := range artists {
 			if artist.Name == "Gorillaz" {
@@ -133,7 +111,7 @@ func TestAuditCompliance(t *testing.T) {
 		}
 
 		// Find Travis Scott in the artists
-		artists := store.GetAllArtists()
+		artists := repo.GetAllArtists()
 		var travisScott *data.Artist
 		var travisScottID int
 		for _, artist := range artists {
@@ -149,7 +127,7 @@ func TestAuditCompliance(t *testing.T) {
 		}
 
 		// Get locations for Travis Scott
-		relation, exists := store.GetRelation(travisScottID)
+		relation, exists := repo.GetRelation(travisScottID)
 		if !exists {
 			t.Fatalf("Relations not found for Travis Scott (ID: %d)", travisScottID)
 		}
@@ -182,7 +160,7 @@ func TestAuditCompliance(t *testing.T) {
 		}
 
 		// Find Foo Fighters in the artists
-		artists := store.GetAllArtists()
+		artists := repo.GetAllArtists()
 		var fooFighters *data.Artist
 		for _, artist := range artists {
 			if artist.Name == "Foo Fighters" {

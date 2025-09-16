@@ -123,33 +123,14 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 
 	// Web routes
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" {
-			h.NotFoundHandler(w, r)
-			return
-		}
-		h.HomeHandler(w, r)
-	})
-	mux.HandleFunc("/artists", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/artists" {
-			h.NotFoundHandler(w, r)
-			return
-		}
-		h.ArtistsHandler(w, r)
-	})
+	mux.HandleFunc("/", h.HomeHandler)
+	mux.HandleFunc("/artists", h.ArtistsHandler)
 	mux.HandleFunc("/artists/", h.ArtistDetailHandler)
-	mux.HandleFunc("/locations", func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/locations" {
-			h.NotFoundHandler(w, r)
-			return
-		}
-		h.LocationsHandler(w, r)
-	})
+	mux.HandleFunc("/locations", h.LocationsHandler)
 	mux.HandleFunc("/locations/", h.LocationDetailHandler)
 
 	// Health check
 	mux.HandleFunc("/healthz", h.HealthHandler)
-
 	// Development: panic trigger endpoint (DEV ONLY)
 	mux.HandleFunc("/dev/panic", h.PanicHandler)
 
@@ -168,8 +149,7 @@ func applyMiddleware(handler http.Handler, h *handlers.Handlers) *http.ServeMux 
 		// Panic recovery
 		defer func() {
 			if err := recover(); err != nil {
-				log.Printf("Panic recovered: %v", err)
-				h.InternalErrorHandler(w, r, fmt.Sprintf("Panic: %v", err))
+				h.InternalErrorHandler(w, r, fmt.Sprintf("Panic recovered: %v", err))
 			}
 		}()
 

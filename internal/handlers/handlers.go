@@ -19,10 +19,11 @@ import (
 type TemplateData map[string]interface{}
 
 // newTemplateData creates template data with common fields
-func newTemplateData(title, extraCSS string) TemplateData {
+func newTemplateData(title, extraCSS string, extraJS string) TemplateData {
 	return TemplateData{
 		"Title":    title,
 		"ExtraCSS": extraCSS,
+		"ExtraJS":  extraJS,
 	}
 }
 
@@ -90,7 +91,7 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	artists := h.repo.GetAllArtistsSorted()
 	locations := h.repo.GetUniqueLocations()
 
-	data := newTemplateData("Home", "home.css")
+	data := newTemplateData("Home", "home.css", "")
 	data["Artists"] = artists
 	data["TotalMembers"] = h.repo.GetTotalMembers()
 	data["TotalLocations"] = len(locations)
@@ -104,8 +105,14 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for exact path match URL
+	if r.URL.Path != "/artists" {
+		h.NotFoundHandler(w, r)
+		return
+	}
+
 	artists := h.repo.GetAllArtistsSorted()
-	data := newTemplateData("Artists", "artists.css")
+	data := newTemplateData("Artists", "artists.css", "")
 	data["Artists"] = artists
 
 	h.executeTemplate(w, r, "artists.tmpl", data)
@@ -117,6 +124,7 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for valid path mach URL
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(pathParts) != 2 {
 		h.NotFoundHandler(w, r)
@@ -144,7 +152,7 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	relation, _ := h.repo.GetRelation(artist.ID)
 	prevArtist, nextArtist := h.repo.GetArtistNavigation(artist)
 
-	data := newTemplateData(artist.Name, "artist_detail.css")
+	data := newTemplateData(artist.Name, "artist_detail.css", "")
 	data["Artist"] = artist
 	data["Relation"] = relation
 	data["PrevArtist"] = prevArtist
@@ -161,10 +169,15 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Check for exact path match URL
+	if r.URL.Path != "/locations" {
+		h.NotFoundHandler(w, r)
+		return
+	}
 	locations := h.repo.GetUniqueLocations()
 	locationStats := h.repo.CalculateLocationStats()
 
-	data := newTemplateData("Locations", "locations.css")
+	data := newTemplateData("Locations", "locations.css", "")
 	data["Locations"] = locations
 	data["LocationStats"] = locationStats
 	data["TopLocations"] = locationStats
@@ -180,6 +193,7 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Check for valid path match URL
 	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
 	if len(pathParts) != 2 {
 		h.NotFoundHandler(w, r)
@@ -195,7 +209,7 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 
 	artistsWithDates := h.repo.GetArtistsWithDatesForLocation(locationDetail.Name)
 
-	data := newTemplateData(fmt.Sprintf("%s - Location", locationDetail.DisplayName), "locations.css")
+	data := newTemplateData(fmt.Sprintf("%s - Location", locationDetail.DisplayName), "locations.css", "")
 	data["LocationName"] = locationDetail.Name
 	data["DisplayName"] = locationDetail.DisplayName
 	data["Artists"] = locationDetail.Artists
@@ -239,7 +253,7 @@ func (h *Handlers) HealthHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handlers) NotFoundHandler(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotFound)
 
-	data := newTemplateData("Page Not Found", "errors.css")
+	data := newTemplateData("Page Not Found", "errors.css", "")
 	data["Message"] = "The page you're looking for doesn't exist."
 	data["ErrorCode"] = 404
 	data["RequestedURL"] = r.URL.Path
@@ -255,7 +269,7 @@ func (h *Handlers) InternalErrorHandler(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusInternalServerError)
 
 	if h.templates != nil {
-		data := newTemplateData("Internal Server Error", "errors.css")
+		data := newTemplateData("Internal Server Error", "errors.css", "")
 		data["Message"] = "Something went wrong on our end. We're working to fix it!"
 		data["ErrorCode"] = 500
 		data["RequestedURL"] = r.URL.Path

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -8,7 +9,6 @@ import (
 	"runtime"
 	"strings"
 	"testing"
-	"time"
 
 	"groupie-tracker/internal/api"
 	"groupie-tracker/internal/data"
@@ -25,21 +25,19 @@ func getProjectRoot() string {
 // createTestHandlers creates handlers for testing with proper template loading
 func createTestHandlers() *handlers.Handlers {
 	repo := data.NewRepository()
-	testData := data.APIResponse{
-		Artists: []data.APIArtist{
+	testData := &api.Response{
+		Artists: []api.Artist{
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},
 	}
-	repo.LoadData(testData)
-
-	apiClient := api.NewClient("https://groupietrackers.herokuapp.com", 10*time.Second)
+	repo.InitializeWithData(context.Background(), testData)
 
 	// Change to project root to ensure templates are found
 	originalDir, _ := os.Getwd()
 	projectRoot := getProjectRoot()
 	os.Chdir(projectRoot)
 
-	h := handlers.NewHandlers(repo, apiClient)
+	h := handlers.NewHandlers(repo)
 
 	// Restore original directory
 	os.Chdir(originalDir)
