@@ -10,8 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"groupie-tracker/internal/client"
-	"groupie-tracker/internal/data"
+	"groupie-tracker/internal/app"
 	"groupie-tracker/internal/handlers"
 )
 
@@ -26,36 +25,34 @@ const (
 
 // newServer creates and initializes a new HTTP server.
 func newServer() (*http.Server, error) {
-	// Initialize API client
-	apiClient := client.NewClient(defaultAPIURL, requestTimeout)
+	// Initialize data store
+	store := app.NewStore(defaultAPIURL, requestTimeout)
 
-	// Initialize repository with data from API
-	repo := data.NewRepository()
-
+	// Load data from API
 	log.Println("Loading initial data...")
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	if err := repo.InitializeWithAPIClient(loadCtx, apiClient); err != nil {
-		return nil, fmt.Errorf("failed to initialize repository: %w", err)
+	if err := store.LoadData(loadCtx); err != nil {
+		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
-	// log.Printf("Data loaded successfully - %d artists", len(repo.GetAllArtists()))
+	log.Printf("Data loaded successfully - %d artists", store.GetStats()["total_artists"])
 
-	// Initialize handlers with the repository
-	h := handlers.NewHandlers(repo)
+	// Initialize handlers
+	server := handlers.NewServer(store)
 
 	// Create HTTP server
 	port := getPort()
-	server := &http.Server{
+	httpServer := &http.Server{
 		Addr:         port,
-		Handler:      withMiddleware(createRouter(h)),
+		Handler:      withMiddleware(createRouter(server)),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,
 	}
 
-	return server, nil
+	return httpServer, nil
 }
 
 // start starts the HTTP server.
@@ -80,7 +77,7 @@ func start(server *http.Server) error {
 }
 
 // createRouter sets up all routes.
-func createRouter(h *handlers.Handlers) *http.ServeMux {
+func createRouter(s *handlers.Server) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Static file serving
@@ -100,18 +97,18 @@ func createRouter(h *handlers.Handlers) *http.ServeMux {
 	})
 
 	// Health check (register before "/" to avoid catch-all)
-	mux.HandleFunc("/healthz", h.HealthHandler)
+	mux.HandleFunc("/health", s.Health)
 	// Development: panic trigger endpoint (DEV ONLY)
-	mux.HandleFunc("/dev/panic", h.PanicHandler)
+	mux.HandleFunc("/dev/panic", s.DevPanic)
 
 	// Web routes - specific routes first, then more general ones
-	mux.HandleFunc("/artists", h.ArtistsHandler)
-	mux.HandleFunc("/artists/", h.ArtistDetailHandler)
-	mux.HandleFunc("/locations", h.LocationsHandler)
-	mux.HandleFunc("/locations/", h.LocationDetailHandler)
+	mux.HandleFunc("/artists", s.Artists)
+	mux.HandleFunc("/artists/", s.ArtistDetail)
+	mux.HandleFunc("/locations", s.Locations)
+	mux.HandleFunc("/locations/", s.LocationDetail)
 
 	// Home route - this catches everything else, so it must be last
-	mux.HandleFunc("/", h.HomeHandler)
+	mux.HandleFunc("/", s.Home)
 
 	return mux
 }

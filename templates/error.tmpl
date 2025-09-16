@@ -50,8 +50,8 @@
                     <h1>500 - Internal Server Error</h1>
                     <p class="error-message">Something went wrong on our end. We're working to fix it!</p>
                     <div class="error-details">
-                        {{if .ErrorMessage}}
-                        <p>Error details: <code>{{.ErrorMessage}}</code></p>
+                        {{if .Message}}
+                        <p>Error details: <code>{{.Message}}</code></p>
                         {{end}}
                         <p>Time: {{.Timestamp}}</p>
                     </div>
@@ -69,7 +69,7 @@
                 <div class="error-generic">
                     <div class="error-icon">❌</div>
                     <h1>{{.ErrorCode}} - Error</h1>
-                    <p class="error-message">{{.ErrorMessage}}</p>
+                    <p class="error-message">{{.Message}}</p>
                     <div class="error-suggestions">
                         <ul>
                             <li>Go back to the <a href="/">home page</a></li>
@@ -97,7 +97,7 @@
                             <span class="help-icon">📍</span>
                             <span>Concert Locations</span>
                         </a>
-                        <a href="/healthz" class="help-link">
+                        <a href="/health" class="help-link">
                             <span class="help-icon">💚</span>
                             <span>System Status</span>
                         </a>
