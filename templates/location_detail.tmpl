@@ -52,6 +52,19 @@
                                     <span class="creation-year">{{.CreationYear}}</span>
                                     <span class="member-count">{{len .Members}} members</span>
                                 </div>
+                                {{if $.Location.ConcertDates}}
+                                <div class="concert-dates">
+                                    <h4>Concert Dates</h4>
+                                    {{$dates := index $.Location.ConcertDates .ID}}
+                                    {{if $dates}}
+                                    <ul class="dates-list">
+                                        {{range $dates}}
+                                        <li class="date-item">{{.}}</li>
+                                        {{end}}
+                                    </ul>
+                                    {{end}}
+                                </div>
+                                {{end}}
                             </div>
                         </div>
                         {{end}}

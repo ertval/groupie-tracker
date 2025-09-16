@@ -40,14 +40,48 @@ go test -cover ./...
 
 The server starts on **localhost:8080** by default. Set the `PORT` environment variable to use a different port.
 
-## 🏗️ Architecture (December 2024)
+## 🏗️ Architecture (September 2025)
 
-### Clean Repository Pattern
-The application follows a **repository pattern** with clear separation of concerns:
+### Idiomatic Go Repository Pattern
+The application follows idiomatic Go patterns with clean architecture:
 
 ```
 cmd/server/main.go           # Entry point with graceful shutdown
 internal/
+  └── repository/            # Core data management
+      ├── repository.go      # Single repository with all functionality
+      └── repository_test.go # Comprehensive test coverage
+  └── handlers/              # HTTP request handlers
+      ├── handlers.go        # All HTTP endpoints
+      └── handlers_test.go   # Handler tests
+templates/                   # Self-contained HTML templates
+static/css/                  # Page-specific stylesheets
+tests/                      # End-to-end and audit tests
+doc/                        # Current documentation
+```
+
+### Repository Design
+
+#### API Response Structs
+Direct mappings from the 4 API endpoints:
+- `ArtistAPIResponse` - from `/api/artists` 
+- `LocationAPIResponse` - from `/api/locations`
+- `DateAPIResponse` - from `/api/dates`
+- `RelationAPIResponse` - from `/api/relation`
+
+#### Domain Models
+Processed business logic structures:
+- `Artist` - Musical artist with SEO slug
+- `Concert` - Concert information with location-date mappings
+- `LocationStats` - Location statistics with concert dates per artist
+- `ComputedData` - Internal processed data structure
+
+#### Single Repository
+- One exported `Repository` struct
+- Thread-safe data access
+- Single initialization: `NewRepository(baseURL, timeout)`
+- Single data load: `LoadData(ctx)` fetches from all 4 endpoints
+- Precomputed indexes and statistics
   ├── api/client.go         # External API consumption (1:1 API mapping)
   ├── data/data.go          # Repository pattern with all business logic
   └── handlers/handlers.go  # HTTP handlers with adapter pattern
@@ -56,62 +90,58 @@ static/css/                 # Page-specific stylesheets
 tests/                     # Audit compliance & E2E tests
 ```
 
-### Key Design Patterns
+### Key Features
 
 #### Repository Pattern
 ```go
-// Single data repository manages all business logic
-repo := data.NewRepository()
-apiClient := api.NewClient(url, timeout)
+// Initialize repository with API connection
+repo := repository.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
 
-// Load data once at startup
-adapter := &handlers.APIClientAdapter{Client: apiClient}
-err := repo.InitializeWithAPI(ctx, adapter)
+// Load data once from all 4 API endpoints  
+err := repo.LoadData(ctx)
 
-// All data access through repository methods
-artists := repo.GetAllArtistsSorted()
-artist, found := repo.GetArtistBySlug("queen")
+// Access data through repository methods
+artists := repo.GetArtists()                    // All artists sorted by name
+artist, found := repo.GetArtistBySlug("queen")  // Artist by SEO slug
+locationStats := repo.GetLocationStats()        // All locations with statistics
 ```
 
+#### Enhanced Location Details
+- **Concert dates per artist**: Location detail pages now show specific concert dates for each artist
+- **Rich statistics**: Artist count, total shows, concert count per location
+- **SEO-friendly URLs**: Clean slugs for all artists and locations
+
 #### Template System
-- **Self-contained templates**: Each `.tmpl` file is a complete HTML document
-- **No template inheritance**: Direct execution without complex hierarchy
-- **Template functions**: `add`, `sub`, `join`, `generateLocationSlug`, `normalizeLocationName`
+- **Self-contained templates**: Each `.tmpl` file is a complete HTML document  
+- **No template inheritance**: Direct execution with clear data structures
+- **Concert dates display**: Shows dates under artist member count in location details
 
-#### Error Handling
-- **Centralized panic recovery**: Single middleware handles all panics
-- **Proper HTTP status codes**: 404, 500, etc. with custom error pages
-- **Graceful degradation**: Server never crashes, always returns valid responses
+## 📊 API Integration
 
-## 📊 API Data Structure
+Uses all 4 Groupie Trackers API endpoints efficiently:
 
-The application consumes four main API endpoints:
+1. **`/api/artists`** - Basic artist information (name, members, creation year, etc.)
+2. **`/api/locations`** - Available concert locations  
+3. **`/api/dates`** - Concert dates information
+4. **`/api/relation`** - Artist-location-date relationships (primary data source)
 
-1. **Artists** (`/api/artists`) - Band/artist information:
-   - Name, image, creation year, first album date, members
-
-2. **Locations** (`/api/locations`) - Concert venues by location
-
-3. **Dates** (`/api/dates`) - Concert dates (past and upcoming)
-
-4. **Relations** (`/api/relation`) - Links between artists, locations, and dates
-
-### Data Normalization
-- Artists: Direct array from `/api/artists`
-- Locations/Dates/Relations: Extract `.Index` field from `{"index": [...]}` format
-- SEO slugs: Auto-generated for artists and locations (`/artists/queen`, `/locations/new-york-usa`)
+### Data Processing Flow
+1. Fetch from API endpoints in parallel
+2. Process into domain models with SEO slugs
+3. Compute location statistics with concert dates per artist
+4. Generate global statistics for dashboard
+5. Create efficient lookup indexes for fast access
 
 ## 🌐 Available Endpoints
 
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/` | Home page with featured artists |
-| GET | `/artists` | All artists page |
+| GET | `/artists` | All artists listing page |
 | GET | `/artists/{slug}` | Artist detail page (SEO-friendly URLs) |
-| GET | `/artists/{id}` | Artist detail by ID (legacy support) |
 | GET | `/locations` | All locations with statistics |
-| GET | `/locations/{slug}` | Location detail page |
-| GET | `/healthz` | JSON health check endpoint |
+| GET | `/locations/{slug}` | Location detail with concert dates |
+| GET | `/health` | JSON health check endpoint |
 | GET | `/static/*` | Static assets (CSS, images) |
 
 ### SEO-Friendly URLs
@@ -167,56 +197,68 @@ go test -v ./tests           # Verbose audit tests
 go test -race ./...          # Race condition detection
 ```
 
+## 🔧 Development
+
 ### Environment Variables
 - `PORT`: Server port (default: 8080)
-- API URL is hardcoded to official Groupie Trackers API
+- API URL configured for official Groupie Trackers API
 
-### Adding New Features
-1. **API changes**: Update `internal/api/client.go`
-2. **Business logic**: Add methods to `internal/data/data.go`
-3. **Web handlers**: Extend `internal/handlers/handlers.go`
-4. **Templates**: Add new `.tmpl` files (self-contained)
-5. **Tests**: Always write tests first (TDD approach)
+### Project Structure Best Practices
+1. **Repository first**: All data logic in `internal/repository/repository.go`
+2. **Handler simplicity**: Minimal business logic in handlers 
+3. **Self-contained templates**: Each template is complete HTML
+4. **Comprehensive testing**: Test-driven development approach
+5. **Clean architecture**: Clear separation of concerns
 
-## 📈 Performance Features
+## 📈 Performance & Reliability
 
-- **Single data load**: All API data loaded once at startup
-- **Precomputed indexes**: SEO slugs, location stats calculated at initialization
-- **Thread-safe operations**: Repository methods are concurrent-safe
-- **Graceful shutdown**: Proper resource cleanup on server termination
-- **Panic recovery**: Server never crashes from handler panics
+- **Single data load**: Efficient startup with one API call per endpoint
+- **Precomputed data**: Statistics and indexes calculated once
+- **Thread-safe access**: Repository methods support concurrent requests  
+- **Memory efficient**: No data duplication across structures
+- **Panic recovery**: Server stability with graceful error handling
+- **Graceful shutdown**: Clean resource management on termination
 
 ## 🛡️ Error Handling
 
 ### HTTP Status Codes
-- **200 OK**: Successful requests
-- **404 Not Found**: Artist/location not found, invalid paths
+- **200 OK**: Successful requests with valid data
+- **404 Not Found**: Artist/location not found, invalid paths  
 - **405 Method Not Allowed**: Invalid HTTP methods
 - **500 Internal Server Error**: Server errors with panic recovery
 
 ### Error Pages
-- Custom error templates with consistent styling
-- User-friendly error messages
-- Proper HTTP status codes in headers
+- Custom error templates maintaining site design consistency
+- User-friendly error messages with navigation options
+- Proper HTTP status codes and headers
 
-## 📝 Recent Updates (December 2024)
+## 📝 Recent Updates (September 2025)
 
-### Major Bug Fixes (December 16, 2024)
-- ✅ **Fixed template field mismatches**: Corrected `.ErrorMessage` → `.Message`, `.Relation.DatesLocations` → `.Relation.Locations`
-- ✅ **Added missing ExtraJS fields**: All templates now have proper `ExtraJS` field support
-- ✅ **Resolved HTTP WriteHeader issues**: Eliminated superfluous `WriteHeader()` calls causing protocol violations
-- ✅ **Replaced deprecated functions**: Updated `strings.Title()` with modern implementation
-- ✅ **Template execution stability**: Server now runs without template execution errors
-- ✅ **Complete functionality verification**: All endpoints tested and working properly
+### Idiomatic Go Refactoring (September 16, 2025)
+- ✅ **Clean repository architecture**: Single repository struct with proper separation of concerns
+- ✅ **API response structs**: Direct mappings from all 4 API endpoints without duplication
+- ✅ **Enhanced location details**: Concert dates now displayed under artist member count  
+- ✅ **Domain model clarity**: Clear separation between API responses and domain models
+- ✅ **Comprehensive testing**: All tests updated and passing with new structure
+- ✅ **Documentation cleanup**: Removed outdated docs, created current architecture summary
+- ✅ **Performance optimization**: Single data load with precomputed statistics
+- ✅ **Thread safety**: Repository methods designed for concurrent access
 
-### Previous Updates
-- ✅ **Fixed duplicate panic recovery**: Eliminated duplicate log messages
-- ✅ **Comprehensive test coverage**: Achieved 77.1% overall coverage
-- ✅ **Updated all tests**: Compatible with current project structure
-- ✅ **Repository pattern**: Unified data access through single repository
-- ✅ **Self-contained templates**: No template inheritance complexity
-- ✅ **SEO-friendly URLs**: Artist and location slugs for better SEO
-- ✅ **Graceful shutdown**: Proper server lifecycle management
+### Architecture Improvements
+- **Four API endpoint usage**: Properly utilizes `/api/artists`, `/api/locations`, `/api/dates`, `/api/relation`
+- **No data duplication**: Single source of truth for all application data
+- **Computed data structure**: Efficient internal data organization for template needs
+- **Location concert dates**: Enhanced location pages show when each artist performed there
+
+## 🎯 Zone01 Audit Compliance
+
+- **Queen**: ✅ Exactly 7 members displayed
+- **Gorillaz**: ✅ First album "26-03-2001" correctly shown  
+- **Travis Scott**: ✅ 10+ concert locations verified
+- **Foo Fighters**: ✅ Exactly 6 members confirmed
+- **API endpoints**: ✅ All 4 endpoints properly consumed
+- **SEO URLs**: ✅ Artist and location slugs implemented
+- **Error handling**: ✅ Custom 404/500 pages with proper status codes
 
 ## 🏆 Zone01 Compliance
 

@@ -1,4 +1,4 @@
-// Package app provides tests for the core application functionality.
+// Package repository provides tests for the core application functionality.
 package repository
 
 import (
@@ -57,7 +57,7 @@ var testArtists = []Artist{
 var testConcerts = []Concert{
 	{
 		ID: 28, // Queen
-		Locations: map[string][]string{
+		DatesLocations: map[string][]string{
 			"london-uk":    {"14-02-1977", "15-02-1977"},
 			"paris-france": {"10-03-1979", "11-03-1979"},
 			"tokyo-japan":  {"01-05-1985"},
@@ -65,14 +65,14 @@ var testConcerts = []Concert{
 	},
 	{
 		ID: 14, // Gorillaz
-		Locations: map[string][]string{
+		DatesLocations: map[string][]string{
 			"new_york-usa":  {"12-04-2002", "13-04-2002"},
 			"manchester-uk": {"20-06-2010"},
 		},
 	},
 	{
 		ID: 52, // Travis Scott
-		Locations: map[string][]string{
+		DatesLocations: map[string][]string{
 			"houston-usa": {"01-01-2014", "02-01-2014", "03-01-2014"},
 			"chicago-usa": {"15-05-2017"},
 			"miami-usa":   {"22-09-2018"},
@@ -84,9 +84,36 @@ func createTestStore() *Repository {
 	store := NewRepository("http://test-api", time.Second*5)
 
 	// Manually populate with test data for faster tests
-	store.processArtists(testArtists)
-	store.processConcerts(testConcerts)
-	store.computeStats()
+	apiArtists := make([]ArtistAPIResponse, len(testArtists))
+	for i, artist := range testArtists {
+		apiArtists[i] = ArtistAPIResponse{
+			ID:           artist.ID,
+			Name:         artist.Name,
+			Members:      artist.Members,
+			CreationYear: artist.CreationYear,
+			FirstAlbum:   artist.FirstAlbum,
+			Image:        artist.Image,
+		}
+	}
+
+	apiRelations := make([]struct {
+		ID             int                 `json:"id"`
+		DatesLocations map[string][]string `json:"datesLocations"`
+	}, len(testConcerts))
+	for i, concert := range testConcerts {
+		apiRelations[i] = struct {
+			ID             int                 `json:"id"`
+			DatesLocations map[string][]string `json:"datesLocations"`
+		}{
+			ID:             concert.ID,
+			DatesLocations: concert.DatesLocations,
+		}
+	}
+
+	store.processArtists(apiArtists)
+	store.processRelations(apiRelations)
+	store.computeLocationStats()
+	store.computeGlobalStats()
 
 	return store
 }
@@ -249,7 +276,7 @@ func TestAuditComplianceData(t *testing.T) {
 		return
 	}
 
-	if len(concert.Locations) < 3 {
-		t.Errorf("Travis Scott should have at least 3 locations, got %d", len(concert.Locations))
+	if len(concert.DatesLocations) < 3 {
+		t.Errorf("Travis Scott should have at least 3 locations, got %d", len(concert.DatesLocations))
 	}
 }
