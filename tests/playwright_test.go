@@ -22,7 +22,7 @@ func TestPlaywrightBrowserAutomation(t *testing.T) {
 	})
 
 	t.Run("Search Functionality Browser Test", func(t *testing.T) {
-		testSearchFunctionalityBrowser(t)
+		t.Skip("Search UI removed from templates; skipping search browser tests")
 	})
 
 	t.Run("Navigation Browser Test", func(t *testing.T) {
