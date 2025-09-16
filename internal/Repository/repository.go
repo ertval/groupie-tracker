@@ -39,12 +39,13 @@ type Response struct {
 
 // LocationStats holds statistics for a location.
 type LocationStats struct {
-	Name        string
-	DisplayName string
-	Slug        string
-	Artists     []Artist
-	ArtistCount int
-	TotalShows  int
+	Name         string
+	DisplayName  string
+	Slug         string
+	Artists      []Artist
+	ArtistCount  int
+	TotalShows   int
+	ConcertCount int // Total number of concerts at this location
 }
 
 // Store manages all application data and API interactions.
@@ -161,6 +162,7 @@ func (r *Repository) GetLocationStats() []LocationStats {
 
 			stat.ArtistCount = len(stat.Artists)
 			stat.TotalShows += len(dates)
+			stat.ConcertCount = stat.TotalShows // Set ConcertCount to same as TotalShows
 			locationMap[normalizedLocation] = stat
 		}
 	}
