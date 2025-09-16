@@ -40,13 +40,14 @@ func newServer() (*http.Server, error) {
 	log.Printf("Data loaded successfully - %d artists", repo.GetStats()["total_artists"])
 
 	// Initialize handlers
-	appData := handlers.NewHandler(repo)
+	handler := handlers.NewHandler(repo)
+	mux := withMiddleware(createRouter(handler))
 
 	// Create HTTP server
 	port := getPort()
 	httpServer := &http.Server{
 		Addr:         port,
-		Handler:      withMiddleware(createRouter(appData)),
+		Handler:      mux,
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,
@@ -77,7 +78,7 @@ func start(server *http.Server) error {
 }
 
 // createRouter sets up all routes.
-func createRouter(s *handlers.AppData) *http.ServeMux {
+func createRouter(h *handlers.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Static file serving
@@ -97,18 +98,18 @@ func createRouter(s *handlers.AppData) *http.ServeMux {
 	})
 
 	// Health check (register before "/" to avoid catch-all)
-	mux.HandleFunc("/health", s.Health)
+	mux.HandleFunc("/health", h.Health)
 	// Development: panic trigger endpoint (DEV ONLY)
-	mux.HandleFunc("/dev/panic", s.DevPanic)
+	mux.HandleFunc("/dev/panic", h.DevPanic)
 
 	// Web routes - specific routes first, then more general ones
-	mux.HandleFunc("/artists", s.Artists)
-	mux.HandleFunc("/artists/", s.ArtistDetail)
-	mux.HandleFunc("/locations", s.Locations)
-	mux.HandleFunc("/locations/", s.LocationDetail)
+	mux.HandleFunc("/artists", h.Artists)
+	mux.HandleFunc("/artists/", h.ArtistDetail)
+	mux.HandleFunc("/locations", h.Locations)
+	mux.HandleFunc("/locations/", h.LocationDetail)
 
 	// Home route - this catches everything else, so it must be last
-	mux.HandleFunc("/", s.Home)
+	mux.HandleFunc("/", h.Home)
 
 	return mux
 }

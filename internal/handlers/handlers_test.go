@@ -41,12 +41,12 @@ func TestServerStructureExists(t *testing.T) {
 	// Test that the Server struct and methods exist
 	store := createTestStore()
 
-	// We can't instantiate without templates, but we can check the function exists
-	server := &AppData{
+	// We can't instantiate without templates, but we can check the type exists
+	server := &Handler{
 		repo: store,
 	}
 
 	if server.repo == nil {
-		t.Error("AppData store should not be nil")
+		t.Error("Handler store should not be nil")
 	}
 }
