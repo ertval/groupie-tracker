@@ -40,7 +40,7 @@ func newServer() (*http.Server, error) {
 		return nil, fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	log.Printf("Data loaded successfully - %d artists", len(repo.GetAllArtists()))
+	// log.Printf("Data loaded successfully - %d artists", len(repo.GetAllArtists()))
 
 	// Initialize handlers with the repository
 	h := handlers.NewHandlers(repo)

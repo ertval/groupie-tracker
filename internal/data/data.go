@@ -112,38 +112,6 @@ func (r *Repository) InitializeWithAPIClient(ctx context.Context, apiClient APIC
 	return nil
 }
 
-// Initialize loads and validates repository data. The caller may provide either
-// - an already-fetched `apiData` (preferred when caller manages fetching), or
-// - an `apiClient` to fetch data inside this method.
-// If both are provided, `apiData` takes precedence. At least one must be non-nil.
-func (r *Repository) Initialize(ctx context.Context, apiClient APIClient, apiData *client.Response) error {
-	// Choose data source: prefer explicit apiData when provided.
-	var dataToLoad *client.Response
-
-	if apiData != nil {
-		dataToLoad = apiData
-	} else if apiClient != nil {
-		fetched, err := apiClient.FetchAll(ctx)
-		if err != nil {
-			return fmt.Errorf("failed to fetch data from API: %w", err)
-		}
-		dataToLoad = fetched
-	} else {
-		return fmt.Errorf("either apiClient or apiData must be provided")
-	}
-
-	if dataToLoad == nil {
-		return fmt.Errorf("API data cannot be nil")
-	}
-
-	if len(dataToLoad.Artists) == 0 {
-		return fmt.Errorf("no artists data received from API")
-	}
-
-	r.loadData(dataToLoad)
-	return nil
-}
-
 func (r *Repository) loadData(apiData *client.Response) {
 	// Clear existing data
 	r.artists = make(map[int]Artist)
