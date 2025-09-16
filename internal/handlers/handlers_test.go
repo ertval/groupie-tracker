@@ -48,7 +48,7 @@ func getTestRepository() *data.Repository {
 		},
 	}
 
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 	return repo
 }
 
@@ -77,9 +77,8 @@ func TestNewHandlers(t *testing.T) {
 		repo: repo,
 	}
 
-	if h == nil {
-		t.Error("Expected handlers to be created, got nil")
-	}
+	// h is created as a composite literal and therefore cannot be nil here.
+	// Verify the repository field is set correctly.
 	if h.repo == nil {
 		t.Error("Expected repository to be set, got nil")
 	}

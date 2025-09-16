@@ -61,7 +61,7 @@ func TestInitializeWithData(t *testing.T) {
 	testData := getTestData()
 
 	ctx := context.Background()
-	err := repo.InitializeWithData(ctx, testData)
+	err := repo.Initialize(ctx, nil, testData)
 	if err != nil {
 		t.Errorf("InitializeWithData failed: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestInitializeWithData(t *testing.T) {
 func TestGetAllArtists(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	artists := repo.GetAllArtists()
 	if len(artists) != 2 {
@@ -99,7 +99,7 @@ func TestGetAllArtists(t *testing.T) {
 func TestGetAllArtistsSorted(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	artists := repo.GetAllArtistsSorted()
 	if len(artists) != 2 {
@@ -118,7 +118,7 @@ func TestGetAllArtistsSorted(t *testing.T) {
 func TestGetArtist(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	// Test existing artist
 	artist, found := repo.GetArtist(1)
@@ -139,7 +139,7 @@ func TestGetArtist(t *testing.T) {
 func TestGetArtistBySlug(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	// Test existing artist
 	artist, found := repo.GetArtistBySlug("queen")
@@ -160,7 +160,7 @@ func TestGetArtistBySlug(t *testing.T) {
 func TestGetRelation(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	// Test existing relation
 	relation, found := repo.GetRelation(1)
@@ -181,7 +181,7 @@ func TestGetRelation(t *testing.T) {
 func TestGetStats(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	stats := repo.GetStats()
 	if stats["artists"] != 2 {
@@ -195,7 +195,7 @@ func TestGetStats(t *testing.T) {
 func TestGetTotalMembers(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	total := repo.GetTotalMembers()
 	if total != 8 { // 4 Queen members + 4 Pink Floyd members
@@ -206,7 +206,7 @@ func TestGetTotalMembers(t *testing.T) {
 func TestGetTotalCountries(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	total := repo.GetTotalCountries()
 	if total == 0 {
@@ -217,7 +217,7 @@ func TestGetTotalCountries(t *testing.T) {
 func TestGetUniqueLocations(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	locations := repo.GetUniqueLocations()
 	if len(locations) == 0 {
@@ -228,7 +228,7 @@ func TestGetUniqueLocations(t *testing.T) {
 func TestCalculateLocationStats(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	stats := repo.CalculateLocationStats()
 	if len(stats) == 0 {
@@ -239,7 +239,7 @@ func TestCalculateLocationStats(t *testing.T) {
 func TestGetArtistNavigation(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	// Get first artist for navigation test
 	artists := repo.GetAllArtistsSorted()
@@ -259,7 +259,7 @@ func TestGetArtistNavigation(t *testing.T) {
 func TestCalculateTotalShows(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	relation, found := repo.GetRelation(1)
 	if !found {
@@ -275,7 +275,7 @@ func TestCalculateTotalShows(t *testing.T) {
 func TestExtractCountries(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	relation, found := repo.GetRelation(1)
 	if !found {
@@ -352,7 +352,7 @@ func TestNormalizeLocationName(t *testing.T) {
 func TestGetLocationDetailsBySlug(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	// Test with existing location
 	details, found := repo.GetLocationDetailsBySlug("new-york-usa")
@@ -374,7 +374,7 @@ func TestGetLocationDetailsBySlug(t *testing.T) {
 func TestGetArtistsWithDatesForLocation(t *testing.T) {
 	repo := NewRepository()
 	testData := getTestData()
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	artists := repo.GetArtistsWithDatesForLocation("new_york-usa")
 	if len(artists) == 0 {
@@ -390,5 +390,24 @@ func TestGetArtistsWithDatesForLocation(t *testing.T) {
 		if len(artist.Dates) == 0 {
 			t.Error("Expected some dates for the artist")
 		}
+	}
+}
+
+// mockClientNilResponse simulates a client whose FetchAll returns (nil, nil)
+type mockClientNilResponse struct{}
+
+func (m *mockClientNilResponse) FetchAll(ctx context.Context) (*client.Response, error) {
+	return nil, nil
+}
+
+// TestInitializeWithNilResponseFromClient ensures Initialize returns an error
+// when the provided client returns a nil response but no error.
+func TestInitializeWithNilResponseFromClient(t *testing.T) {
+	repo := NewRepository()
+	mock := &mockClientNilResponse{}
+
+	err := repo.Initialize(context.Background(), mock, nil)
+	if err == nil {
+		t.Fatal("expected error when client returns nil response, got nil")
 	}
 }

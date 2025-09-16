@@ -54,7 +54,7 @@ func createTestHandlers() *handlers.Handlers {
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},
 	}
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	// Change to project root to ensure templates are found
 	originalDir, _ := os.Getwd()
@@ -78,7 +78,7 @@ func createTestHandlersWithoutTemplates() *handlers.Handlers {
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},
 	}
-	_ = repo.InitializeWithData(context.Background(), testData)
+	_ = repo.Initialize(context.Background(), nil, testData)
 
 	// Create handlers with templates properly loaded by using createTestHandlers()
 	h := createTestHandlers()
@@ -338,7 +338,7 @@ func TestMiddlewarePanicRecovery(t *testing.T) {
 			{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury"}},
 		},
 	}
-	repo.InitializeWithData(context.Background(), testData)
+	repo.Initialize(context.Background(), nil, testData)
 
 	// Create a handler that panics
 	panicHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

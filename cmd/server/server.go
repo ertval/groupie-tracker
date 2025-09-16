@@ -45,35 +45,20 @@ func NewServer() (*Server, error) {
 	// Initialize API client
 	apiClient := client.NewClient(DefaultAPIURL, RequestTimeout)
 
-	// Initialize repository
+	// Initialize repository with data from API
 	repo := data.NewRepository()
 
-	// Load initial data directly from API client
 	log.Println(colorCyan + "⏳ Loading initial data..." + colorReset)
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	// Fetch all data from API
-	apiData, err := apiClient.FetchAll(loadCtx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch data from API: %w", err)
+	if err := repo.InitializeWithAPIClient(loadCtx, apiClient); err != nil {
+		return nil, fmt.Errorf("failed to initialize repository: %w", err)
 	}
 
-	// Load data into repository
-	err = repo.InitializeWithData(loadCtx, apiData)
-	if err != nil {
-		return nil, fmt.Errorf("failed to initialize repository with data: %w", err)
-	}
+	log.Printf(colorCyan+"✅ Data loaded successfully - %d artists"+colorReset, len(repo.GetAllArtists()))
 
-	// Check if data was loaded
-	artists := repo.GetAllArtists()
-	if len(artists) == 0 {
-		return nil, fmt.Errorf("failed to load initial data from API")
-	}
-
-	log.Printf(colorCyan+"✅ Data loaded successfully - %d artists"+colorReset, len(artists))
-
-	// Initialize handlers with just the repository
+	// Initialize handlers with the repository
 	handlers := handlers.NewHandlers(repo)
 
 	// Create HTTP server

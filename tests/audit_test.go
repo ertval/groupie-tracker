@@ -25,7 +25,7 @@ func TestAuditCompliance(t *testing.T) {
 	}
 
 	// Load data into repository
-	err = repo.InitializeWithData(ctx, apiResponse)
+	err = repo.Initialize(ctx, nil, apiResponse)
 	if err != nil {
 		t.Fatalf("Failed to initialize repository: %v", err)
 	}

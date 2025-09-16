@@ -69,6 +69,12 @@ type Repository struct {
 	stats           map[string]int
 }
 
+// APIClient defines the subset of the external client used by the repository.
+// Using an interface improves testability (allows mocks in tests).
+type APIClient interface {
+	FetchAll(ctx context.Context) (*client.Response, error)
+}
+
 // NewRepository creates a new empty repository.
 func NewRepository() *Repository {
 	return &Repository{
@@ -82,21 +88,20 @@ func NewRepository() *Repository {
 	}
 }
 
-// LoadFromAPI loads data from the API client and converts to domain models.
-func (r *Repository) LoadFromAPI(ctx context.Context, client *client.Client) error {
-	apiData, err := client.FetchAll(ctx)
+// InitializeWithAPIClient fetches data from the API and initializes the repository.
+// This is the recommended method for standard initialization.
+func (r *Repository) InitializeWithAPIClient(ctx context.Context, apiClient APIClient) error {
+	if apiClient == nil {
+		return fmt.Errorf("API client cannot be nil")
+	}
+
+	apiData, err := apiClient.FetchAll(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to fetch data from API: %w", err)
 	}
 
-	r.loadData(apiData)
-	return nil
-}
-
-// InitializeWithData initializes the repository with data from the API client.
-func (r *Repository) InitializeWithData(ctx context.Context, apiData *client.Response) error {
 	if apiData == nil {
-		return fmt.Errorf("API data cannot be nil")
+		return fmt.Errorf("API returned nil data")
 	}
 
 	if len(apiData.Artists) == 0 {
@@ -104,6 +109,38 @@ func (r *Repository) InitializeWithData(ctx context.Context, apiData *client.Res
 	}
 
 	r.loadData(apiData)
+	return nil
+}
+
+// Initialize loads and validates repository data. The caller may provide either
+// - an already-fetched `apiData` (preferred when caller manages fetching), or
+// - an `apiClient` to fetch data inside this method.
+// If both are provided, `apiData` takes precedence. At least one must be non-nil.
+func (r *Repository) Initialize(ctx context.Context, apiClient APIClient, apiData *client.Response) error {
+	// Choose data source: prefer explicit apiData when provided.
+	var dataToLoad *client.Response
+
+	if apiData != nil {
+		dataToLoad = apiData
+	} else if apiClient != nil {
+		fetched, err := apiClient.FetchAll(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to fetch data from API: %w", err)
+		}
+		dataToLoad = fetched
+	} else {
+		return fmt.Errorf("either apiClient or apiData must be provided")
+	}
+
+	if dataToLoad == nil {
+		return fmt.Errorf("API data cannot be nil")
+	}
+
+	if len(dataToLoad.Artists) == 0 {
+		return fmt.Errorf("no artists data received from API")
+	}
+
+	r.loadData(dataToLoad)
 	return nil
 }
 
