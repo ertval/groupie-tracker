@@ -76,9 +76,8 @@ func (h *Handlers) HomeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.URL.Path != "/" {
-		h.NotFoundHandler(w, r)
-		return
+	if h.validatePath(w, r, "/") == "" {
+		return // 404 already handled by validatePath
 	}
 
 	artists := h.repo.GetAllArtistsSorted()
@@ -98,10 +97,8 @@ func (h *Handlers) ArtistsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for exact path match URL
-	if r.URL.Path != "/artists" {
-		h.NotFoundHandler(w, r)
-		return
+	if h.validatePath(w, r, "/artists") == "" {
+		return // 404 already handled by validatePath
 	}
 
 	artists := h.repo.GetAllArtistsSorted()
@@ -117,14 +114,12 @@ func (h *Handlers) ArtistDetailHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for valid path mach URL
-	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(pathParts) != 2 {
-		h.NotFoundHandler(w, r)
-		return
+	// Extract artist identifier from path using parameterized validation
+	identifier := h.validatePath(w, r, "/artists/")
+	if identifier == "" {
+		return // 404 already handled by validatePath
 	}
 
-	identifier := pathParts[1]
 	var artist data.Artist
 	var found bool
 
@@ -162,11 +157,10 @@ func (h *Handlers) LocationsHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check for exact path match URL
-	if r.URL.Path != "/locations" {
-		h.NotFoundHandler(w, r)
-		return
+	if h.validatePath(w, r, "/locations") == "" {
+		return // 404 already handled by validatePath
 	}
+
 	locations := h.repo.GetUniqueLocations()
 	locationStats := h.repo.CalculateLocationStats()
 
@@ -186,14 +180,11 @@ func (h *Handlers) LocationDetailHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Check for valid path match URL
-	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
-	if len(pathParts) != 2 {
-		h.NotFoundHandler(w, r)
-		return
+	// Extract location slug from path using parameterized validation
+	locationSlug := h.validatePath(w, r, "/locations/")
+	if locationSlug == "" {
+		return // 404 already handled by validatePath
 	}
-
-	locationSlug := pathParts[1]
 	locationDetail, found := h.repo.GetLocationDetailsBySlug(locationSlug)
 	if !found {
 		h.NotFoundHandler(w, r)
@@ -322,4 +313,48 @@ func (h *Handlers) executeTemplate(w http.ResponseWriter, r *http.Request, templ
 // PanicHandler is a dev/test handler that intentionally panics.
 func (h *Handlers) PanicHandler(w http.ResponseWriter, r *http.Request) {
 	panic("This is an intentional panic for testing the recovery middleware")
+}
+
+// validatePath handles both exact path matching and parameterized path validation.
+// For exact paths (e.g., "/", "/artists"): returns "*" if valid, "" if invalid
+// For parameterized paths (e.g., "/artists/"): returns parameter if valid, "" if invalid
+// Always handles 404 response automatically for invalid paths.
+func (h *Handlers) validatePath(w http.ResponseWriter, r *http.Request, expectedPath string) string {
+	// Special case: root path "/" should be treated as exact match
+	if expectedPath == "/" {
+		if r.URL.Path == "/" {
+			return "*" // Special value indicating exact match success
+		}
+		h.NotFoundHandler(w, r)
+		return ""
+	}
+
+	// Handle exact path matching (doesn't end with "/" except for root)
+	if !strings.HasSuffix(expectedPath, "/") {
+		if r.URL.Path == expectedPath {
+			return "*" // Special value indicating exact match success
+		}
+		h.NotFoundHandler(w, r)
+		return ""
+	}
+
+	// Handle parameterized paths (ending with "/")
+	pathParts := strings.Split(strings.Trim(r.URL.Path, "/"), "/")
+	expectedParts := strings.Split(strings.Trim(expectedPath, "/"), "/")
+
+	if len(pathParts) != len(expectedParts)+1 { // +1 for the parameter
+		h.NotFoundHandler(w, r)
+		return ""
+	}
+
+	// Check that the base path matches
+	for i, expected := range expectedParts {
+		if pathParts[i] != expected {
+			h.NotFoundHandler(w, r)
+			return ""
+		}
+	}
+
+	// Return the parameter (last part of the path)
+	return pathParts[len(pathParts)-1]
 }

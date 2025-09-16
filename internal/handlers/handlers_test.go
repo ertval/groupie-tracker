@@ -170,6 +170,26 @@ func TestHandlersArtistDetailHandlerNotFound(t *testing.T) {
 	}
 }
 
+func TestHandlersArtistDetailHandlerInvalidPaths(t *testing.T) {
+	handlers := getTestHandlers()
+
+	// Missing parameter (should be 404)
+	req1, _ := http.NewRequest("GET", "/artists/", nil)
+	rr1 := httptest.NewRecorder()
+	handlers.ArtistDetailHandler(rr1, req1)
+	if status := rr1.Code; status != http.StatusNotFound {
+		t.Errorf("expected 404 for '/artists/' got %v", status)
+	}
+
+	// Too many parts (should be 404)
+	req2, _ := http.NewRequest("GET", "/artists/1/extra", nil)
+	rr2 := httptest.NewRecorder()
+	handlers.ArtistDetailHandler(rr2, req2)
+	if status := rr2.Code; status != http.StatusNotFound {
+		t.Errorf("expected 404 for '/artists/1/extra' got %v", status)
+	}
+}
+
 func TestHandlersLocationsHandler(t *testing.T) {
 	handlers := getTestHandlers()
 
@@ -189,6 +209,26 @@ func TestHandlersLocationsHandler(t *testing.T) {
 	body := rr.Body.String()
 	if !strings.Contains(body, "new_york-usa") || !strings.Contains(body, "london-uk") {
 		t.Errorf("Expected response to contain location data, got: %s", body)
+	}
+}
+
+func TestHandlersLocationDetailHandlerInvalidPaths(t *testing.T) {
+	handlers := getTestHandlers()
+
+	// Missing parameter (should be 404)
+	req1, _ := http.NewRequest("GET", "/locations/", nil)
+	rr1 := httptest.NewRecorder()
+	handlers.LocationDetailHandler(rr1, req1)
+	if status := rr1.Code; status != http.StatusNotFound {
+		t.Errorf("expected 404 for '/locations/' got %v", status)
+	}
+
+	// Too many parts (should be 404)
+	req2, _ := http.NewRequest("GET", "/locations/new_york-usa/extra", nil)
+	rr2 := httptest.NewRecorder()
+	handlers.LocationDetailHandler(rr2, req2)
+	if status := rr2.Code; status != http.StatusNotFound {
+		t.Errorf("expected 404 for '/locations/new_york-usa/extra' got %v", status)
 	}
 }
 
