@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
-	"groupie-tracker/internal/app"
 	"groupie-tracker/internal/handlers"
+	"groupie-tracker/internal/repository"
 )
 
 const (
@@ -26,27 +26,27 @@ const (
 // newServer creates and initializes a new HTTP server.
 func newServer() (*http.Server, error) {
 	// Initialize data repository
-	store := app.NewRepository(defaultAPIURL, requestTimeout)
+	repo := repository.NewRepository(defaultAPIURL, requestTimeout)
 
 	// Load data from API
 	log.Println("Loading initial data...")
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	if err := store.LoadData(loadCtx); err != nil {
+	if err := repo.LoadData(loadCtx); err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
-	log.Printf("Data loaded successfully - %d artists", store.GetStats()["total_artists"])
+	log.Printf("Data loaded successfully - %d artists", repo.GetStats()["total_artists"])
 
 	// Initialize handlers
-	handler := handlers.NewHandler(store)
+	appData := handlers.NewHandler(repo)
 
 	// Create HTTP server
 	port := getPort()
 	httpServer := &http.Server{
 		Addr:         port,
-		Handler:      withMiddleware(createRouter(handler)),
+		Handler:      withMiddleware(createRouter(appData)),
 		ReadTimeout:  readTimeout,
 		WriteTimeout: writeTimeout,
 		IdleTimeout:  idleTimeout,

@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"groupie-tracker/internal/app"
+	"groupie-tracker/internal/repository"
 )
 
-func createTestStore() *app.Repository {
+func createTestStore() *repository.Repository {
 	// Create test store with mock data
-	store := app.NewRepository("http://test-api", time.Second*5)
+	store := repository.NewRepository("http://test-api", time.Second*5)
 	return store
 }
 

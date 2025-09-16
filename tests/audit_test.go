@@ -5,11 +5,11 @@ import (
 	"testing"
 	"time"
 
-	"groupie-tracker/internal/app"
+	"groupie-tracker/internal/repository"
 )
 
 func TestAuditCompliance(t *testing.T) {
-	store := app.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
+	store := repository.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

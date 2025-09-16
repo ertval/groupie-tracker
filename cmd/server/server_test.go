@@ -4,11 +4,11 @@ import (
 	"testing"
 	"time"
 
-	"groupie-tracker/internal/app"
+	"groupie-tracker/internal/repository"
 )
 
 func TestStore(t *testing.T) {
-	store := app.NewRepository("http://test", time.Second)
+	store := repository.NewRepository("http://test", time.Second)
 	if store == nil {
 		t.Error("Store should not be nil")
 	}
