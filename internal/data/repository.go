@@ -251,19 +251,18 @@ func (r *Repository) GetStats() map[string]int {
 // --- Private Helper Methods ---
 
 func (r *Repository) cacheImage(artist *Artist) error {
+	originalImageURL := artist.Image
 	cacheDir := "static/img/artists"
 	fileName := fmt.Sprintf("%s.jpg", artist.Slug)
 	filePath := filepath.Join(cacheDir, fileName)
-
-	// Update the artist's image field to the local path regardless
-	// The backslash needs to be converted to a forward slash for the URL
-	artist.Image = "/" + filepath.ToSlash(filePath)
+	localImagePath := "/" + filepath.ToSlash(filePath)
 
 	// Check if the file already exists
 	if _, err := os.Stat(filePath); err == nil {
-		return nil // File exists, no need to download
+		artist.Image = localImagePath // File exists, just update path
+		return nil
 	} else if !os.IsNotExist(err) {
-		return err // A different error occurred (e.g., permissions)
+		return err // A different error occurred
 	}
 
 	// File does not exist, so download it
@@ -271,7 +270,7 @@ func (r *Repository) cacheImage(artist *Artist) error {
 		return err
 	}
 
-	resp, err := http.Get(artist.Image)
+	resp, err := http.Get(originalImageURL)
 	if err != nil {
 		return err
 	}
@@ -292,6 +291,7 @@ func (r *Repository) cacheImage(artist *Artist) error {
 		return err
 	}
 
+	artist.Image = localImagePath // Update to local path after successful download
 	return nil
 }
 
