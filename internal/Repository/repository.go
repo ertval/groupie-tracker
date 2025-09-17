@@ -42,12 +42,11 @@ type LocationStats struct {
 	Artists []Artist `json:"artists"`
 	// Computed fields for templates and stats
 	ArtistCount   int `json:"artist_count"`
-	ConcertCount  int `json:"concert_count"`
 	TotalConcerts int `json:"total_concerts"`
 	// ConcertDates maps artist ID to the dates they played at this location
 	ConcertDates map[int][]string `json:"concert_dates,omitempty"`
 	// ConcertYears maps artist ID to the unique years they played at this location
-	ConcertYears map[int][]string `json:"concert_years,omitempty"`
+
 }
 
 // ComputedData holds the core application data.
@@ -285,6 +284,7 @@ func (r *Repository) processRelations(apiRelations []struct {
 }
 
 func (r *Repository) computeLocationStats() {
+	// computeLocationStats computes per-location aggregates (artists, dates, totals)
 	// Process all artists to build location stats
 	for _, artist := range r.data.artists {
 		for location := range artist.Concerts {
@@ -313,7 +313,6 @@ func (r *Repository) computeLocationStats() {
 		loc.ArtistCount = len(loc.Artists)
 		loc.ConcertDates = make(map[int][]string)
 
-		concertCount := 0
 		totalConcerts := 0
 
 		// For each artist in this location, collect dates and counts
@@ -323,35 +322,13 @@ func (r *Repository) computeLocationStats() {
 				if normalizeLocation(rawLocation) == loc.Name {
 					// map artist ID to dates for template consumption
 					loc.ConcertDates[artist.ID] = append(loc.ConcertDates[artist.ID], dates...)
-					concertCount += 1
 					totalConcerts += len(dates)
 				}
 			}
 		}
 
-		loc.ConcertCount = concertCount
+		// TotalConcerts is the sum of all concert dates at this location
 		loc.TotalConcerts = totalConcerts
-
-		// Compute unique years per artist for this location
-		loc.ConcertYears = make(map[int][]string)
-		for artistID, dates := range loc.ConcertDates {
-			yearSet := make(map[string]struct{})
-			for _, d := range dates {
-				parts := strings.Split(d, "-")
-				if len(parts) >= 3 {
-					year := strings.TrimSpace(parts[len(parts)-1])
-					if year != "" {
-						yearSet[year] = struct{}{}
-					}
-				}
-			}
-			years := make([]string, 0, len(yearSet))
-			for y := range yearSet {
-				years = append(years, y)
-			}
-			sort.Strings(years)
-			loc.ConcertYears[artistID] = years
-		}
 	}
 }
 

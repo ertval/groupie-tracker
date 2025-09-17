@@ -71,12 +71,12 @@
                             <span class="stat-label">Artists</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-number">{{.Location.ConcertCount}}</span>
-                            <span class="stat-label">Total Concerts</span>
+                            <span class="stat-number">{{len .Location.ConcertDates}}</span>
+                            <span class="stat-label">Artists with dates</span>
                         </div>
                         <div class="stat-item">
                             <span class="stat-number">{{.Location.TotalConcerts}}</span>
-                            <span class="stat-label">Total Concerts (All Dates)</span>
+                            <span class="stat-label">Total Concerts</span>
                         </div>
                     </div>
                 </section>
