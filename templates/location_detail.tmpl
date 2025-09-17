@@ -52,7 +52,11 @@
                                     <span class="creation-year">{{.CreationYear}}</span>
                                     <span class="member-count">{{len .Members}} members</span>
                                 </div>
-                                {{/* Per-artist concert date lists are not passed to this template by the handler. */}}
+                                {{/* Concert dates this artist played at this location (from Location.ConcertDates) */}}
+                                {{$dates := index $.Location.ConcertDates .ID}}
+                                {{if $dates}}
+                                <p class="dates-list"><strong>Dates performed here:</strong> {{join $dates ", "}}</p>
+                                {{end}}
                             </div>
                         </div>
                         {{end}}
@@ -71,8 +75,8 @@
                             <span class="stat-label">Total Concerts</span>
                         </div>
                         <div class="stat-item">
-                            <span class="stat-number">{{.Location.TotalShows}}</span>
-                            <span class="stat-label">Total Shows</span>
+                            <span class="stat-number">{{.Location.TotalConcerts}}</span>
+                            <span class="stat-label">Total Concerts (All Dates)</span>
                         </div>
                     </div>
                 </section>

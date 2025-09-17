@@ -57,7 +57,7 @@
                             <div class="top-location-item">
                                 <span class="rank">{{add $index 1}}</span>
                                 <span class="location-name"><a href="/locations/{{generateLocationSlug $location.Name}}">{{normalizeLocationName $location.Name}}</a></span>
-                                <span class="stats">{{len $location.Artists}} artists</span>
+                                <span class="stats">{{len $location.Artists}} artists • {{$location.TotalConcerts}} concerts</span>
                             </div>
                             {{end}}
                             {{end}}
@@ -72,7 +72,7 @@
                             <h3 class="location-name"><a href="/locations/{{generateLocationSlug .Name}}">{{normalizeLocationName .Name}}</a></h3>
                             <div class="location-meta">
                                 <p class="artist-count">{{len .Artists}} artists</p>
-                                <p class="concert-count">{{/* Concert count per location not precomputed; showing artist count only */}}</p>
+                                <p class="concert-count">{{.TotalConcerts}} concerts</p>
                             </div>
                         </div>
                         <div class="location-artists">

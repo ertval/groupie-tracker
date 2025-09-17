@@ -46,7 +46,7 @@ The repository package now follows clean Go patterns with clear separation:
 
 #### Location Detail Page
 - Added concert dates display under artist member count
-- Shows specific dates when each artist performed at that location
+- Concerts specific dates when each artist performed at that location
 - Maintains clean template structure
 
 ### Testing Updates

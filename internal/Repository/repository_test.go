@@ -129,10 +129,10 @@ func TestArtistConcerts(t *testing.T) {
 		return
 	}
 
-	// Test show counting
-	totalShows := repo.CountShows(queen)
-	if totalShows != 5 { // 2+2+1 from test data
-		t.Errorf("Expected 5 total shows for Queen, got %d", totalShows)
+	// Test concert counting
+	totalConcerts := repo.CountConcerts(queen)
+	if totalConcerts != 5 { // 2+2+1 from test data
+		t.Errorf("Expected 5 total concerts for Queen, got %d", totalConcerts)
 	}
 
 	// Test country extraction
@@ -184,8 +184,8 @@ func TestStatistics(t *testing.T) {
 		t.Errorf("Expected 10 total members, got %d", stats["total_members"])
 	}
 
-	if stats["total_shows"] != 13 { // 5+2+6 shows from test data (Queen: 5, Gorillaz: 2, Travis: 6)
-		t.Errorf("Expected 13 total shows, got %d", stats["total_shows"])
+	if stats["total_concerts"] != 13 { // 5+2+6 concerts from test data (Queen: 5, Gorillaz: 2, Travis: 6)
+		t.Errorf("Expected 13 total concerts, got %d", stats["total_concerts"])
 	}
 }
 

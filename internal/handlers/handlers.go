@@ -123,23 +123,23 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	prev, next := h.repo.GetNextPrevArtist(artist)
 
 	data := struct {
-		Title      string
-		ExtraCSS   string
-		ExtraJS    string
-		Artist     repository.Artist
-		TotalShows int
-		Countries  []string
-		PrevArtist *repository.Artist
-		NextArtist *repository.Artist
+		Title         string
+		ExtraCSS      string
+		ExtraJS       string
+		Artist        repository.Artist
+		TotalConcerts int
+		Countries     []string
+		PrevArtist    *repository.Artist
+		NextArtist    *repository.Artist
 	}{
-		Title:      artist.Name,
-		ExtraCSS:   "artist_detail.css",
-		ExtraJS:    "",
-		Artist:     artist,
-		TotalShows: h.repo.CountShows(artist),
-		Countries:  h.repo.GetCountries(artist),
-		PrevArtist: prev,
-		NextArtist: next,
+		Title:         artist.Name,
+		ExtraCSS:      "artist_detail.css",
+		ExtraJS:       "",
+		Artist:        artist,
+		TotalConcerts: h.repo.CountConcerts(artist),
+		Countries:     h.repo.GetCountries(artist),
+		PrevArtist:    prev,
+		NextArtist:    next,
 	}
 
 	h.render(w, "artist_detail.tmpl", data)
@@ -178,7 +178,7 @@ func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) {
 		LocationStats:  locationStats,
 		TopLocations:   locationStats, // Same data for template compatibility
 		TotalCountries: globalStats["total_countries"],
-		TotalConcerts:  globalStats["total_shows"],
+		TotalConcerts:  globalStats["total_concerts"],
 	}
 
 	h.render(w, "locations.tmpl", data)
@@ -390,3 +390,5 @@ func createSlug(input string) string {
 	slug := reg.ReplaceAllString(strings.ToLower(input), "-")
 	return strings.Trim(slug, "-")
 }
+
+// (years extraction moved to repository — templates now read precomputed ConcertYears)

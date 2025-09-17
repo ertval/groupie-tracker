@@ -40,6 +40,14 @@ type LocationStats struct {
 	Name    string   `json:"name"`
 	Slug    string   `json:"slug"`
 	Artists []Artist `json:"artists"`
+	// Computed fields for templates and stats
+	ArtistCount   int `json:"artist_count"`
+	ConcertCount  int `json:"concert_count"`
+	TotalConcerts int `json:"total_concerts"`
+	// ConcertDates maps artist ID to the dates they played at this location
+	ConcertDates map[int][]string `json:"concert_dates,omitempty"`
+	// ConcertYears maps artist ID to the unique years they played at this location
+	ConcertYears map[int][]string `json:"concert_years,omitempty"`
 }
 
 // ComputedData holds the core application data.
@@ -129,8 +137,9 @@ func (r *Repository) GetLocationStats() []LocationStats {
 	for _, stat := range r.data.locationStats {
 		stats = append(stats, *stat)
 	}
+	// Sort locations by total concerts (descending)
 	sort.Slice(stats, func(i, j int) bool {
-		return len(stats[i].Artists) > len(stats[j].Artists)
+		return stats[i].TotalConcerts > stats[j].TotalConcerts
 	})
 	return stats
 }
@@ -172,8 +181,8 @@ func (r *Repository) GetNextPrevArtist(current Artist) (prev, next *Artist) {
 	return prev, next
 }
 
-// CountShows returns the total number of shows for an artist.
-func (r *Repository) CountShows(artist Artist) int {
+// CountConcerts returns the total number of concerts for an artist.
+func (r *Repository) CountConcerts(artist Artist) int {
 	total := 0
 	for _, dates := range artist.Concerts {
 		total += len(dates)
@@ -203,13 +212,13 @@ func (r *Repository) GetCountries(artist Artist) []string {
 // GetStats returns computed global statistics on demand.
 func (r *Repository) GetStats() map[string]int {
 	totalMembers := 0
-	totalShows := 0
+	totalConcerts := 0
 	countrySet := make(map[string]bool)
 
 	for _, artist := range r.data.artists {
 		totalMembers += len(artist.Members)
 		for location, dates := range artist.Concerts {
-			totalShows += len(dates)
+			totalConcerts += len(dates)
 			// Extract country
 			parts := strings.Split(location, "-")
 			if len(parts) > 1 {
@@ -223,7 +232,7 @@ func (r *Repository) GetStats() map[string]int {
 		"total_artists":   len(r.data.artists),
 		"total_members":   totalMembers,
 		"total_locations": len(r.data.locationStats),
-		"total_shows":     totalShows,
+		"total_concerts":  totalConcerts,
 		"total_countries": len(countrySet),
 	}
 }
@@ -296,6 +305,52 @@ func (r *Repository) computeLocationStats() {
 			if !containsArtistPtr(locationStat.Artists, artist) {
 				locationStat.Artists = append(locationStat.Artists, *artist)
 			}
+		}
+	}
+
+	// After collecting artists per location, compute the derived stats
+	for _, loc := range r.data.locationStats {
+		loc.ArtistCount = len(loc.Artists)
+		loc.ConcertDates = make(map[int][]string)
+
+		concertCount := 0
+		totalConcerts := 0
+
+		// For each artist in this location, collect dates and counts
+		for _, artist := range loc.Artists {
+			// Artist.Concerts keys are the raw location names; find matching entries
+			for rawLocation, dates := range artist.Concerts {
+				if normalizeLocation(rawLocation) == loc.Name {
+					// map artist ID to dates for template consumption
+					loc.ConcertDates[artist.ID] = append(loc.ConcertDates[artist.ID], dates...)
+					concertCount += 1
+					totalConcerts += len(dates)
+				}
+			}
+		}
+
+		loc.ConcertCount = concertCount
+		loc.TotalConcerts = totalConcerts
+
+		// Compute unique years per artist for this location
+		loc.ConcertYears = make(map[int][]string)
+		for artistID, dates := range loc.ConcertDates {
+			yearSet := make(map[string]struct{})
+			for _, d := range dates {
+				parts := strings.Split(d, "-")
+				if len(parts) >= 3 {
+					year := strings.TrimSpace(parts[len(parts)-1])
+					if year != "" {
+						yearSet[year] = struct{}{}
+					}
+				}
+			}
+			years := make([]string, 0, len(yearSet))
+			for y := range yearSet {
+				years = append(years, y)
+			}
+			sort.Strings(years)
+			loc.ConcertYears[artistID] = years
 		}
 	}
 }

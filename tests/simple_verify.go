@@ -29,7 +29,7 @@ func main() {
 	queen, found := repo.GetArtistBySlug("queen")
 	if found {
 		fmt.Printf("✓ Found Queen with %d members\n", len(queen.Members))
-		fmt.Printf("✓ Queen has %d shows total\n", repo.CountShows(queen))
+		fmt.Printf("✓ Queen has %d concerts total\n", repo.CountConcerts(queen))
 		fmt.Printf("✓ Queen tours in %d countries\n", len(repo.GetCountries(queen)))
 	}
 
@@ -39,8 +39,8 @@ func main() {
 
 	// Test global stats
 	stats := repo.GetStats()
-	fmt.Printf("✓ Global stats: %d artists, %d shows, %d countries\n",
-		stats["total_artists"], stats["total_shows"], stats["total_countries"])
+	fmt.Printf("✓ Global stats: %d artists, %d concerts, %d countries\n",
+		stats["total_artists"], stats["total_concerts"], stats["total_countries"])
 
 	fmt.Println("✓ All tests passed - refactoring successful!")
 }
