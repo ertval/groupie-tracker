@@ -8,26 +8,23 @@
     </header>
 
     <main class="page-body">
-        <section class="locations-stats">
-            <h2>Global Statistics</h2>
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>{{len .Locations}}</h3>
-                    <p>Total Locations</p>
+        <section class="top-locations">
+            <h2>Top 10 Locations by Concerts</h2>
+            <div class="top-locations-list">
+                {{range $index, $location := .Locations}}
+                {{if lt $index 10}}
+                <div class="top-location-item">
+                    <span class="rank">{{add $index 1}}</span>
+                    <span class="location-name"><a href="/locations/{{$location.Slug}}">{{$location.Name | title}}</a></span>
+                    <span class="stats">{{$location.TotalConcerts}} concerts</span>
                 </div>
-                <div class="stat-card">
-                    <h3>{{.TotalCountries}}</h3>
-                    <p>Countries</p>
-                </div>
-                <div class="stat-card">
-                    <h3>{{.TotalConcerts}}</h3>
-                    <p>Total Concerts</p>
-                </div>
+                {{end}}
+                {{end}}
             </div>
         </section>
 
         <section class="locations-grid">
-            <h2>All Locations</h2>
+            <h2>All Locations (Sorted by Popularity)</h2>
             <div class="locations-list">
                 {{range .Locations}}
                 <div class="location-card" data-location="{{.Name}}">

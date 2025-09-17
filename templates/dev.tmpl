@@ -1,24 +1,18 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>{{.Title}}</title>
-    <link rel="stylesheet" href="/static/css/base.css">
-    {{if .ExtraCSS}}<link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">{{end}}
-</head>
-<body>
-    <main class="container">
-        <h1>{{.Title}}</h1>
-        <p>Quick links to development handlers for manual testing and verification.</p>
-        <ul>
+{{define "title"}}{{.Title}}{{end}}
+
+{{define "body"}}
+<div class="page dev-index">
+    <header class="page-header">
+        <h1>Developer Tools</h1>
+        <p class="muted">Use these links to test error handling and other features.</p>
+    </header>
+
+    <main class="page-body">
+        <ul class="dev-links">
             {{range .Links}}
-            <li><a href="{{.Href}}">{{.Text}}</a></li>
+            <li><a href="{{.Href}}" class="btn btn-outline">{{.Text}}</a></li>
             {{end}}
         </ul>
-        <p>
-            <a href="/">Back to home</a>
-        </p>
     </main>
-</body>
-</html>
+</div>
+{{end}}

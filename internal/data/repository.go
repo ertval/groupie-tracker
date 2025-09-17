@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -120,6 +123,11 @@ func (r *Repository) LoadData(ctx context.Context) error {
 		finalArtists = append(finalArtists, *artist)
 	}
 
+	// Cache images locally
+	for i := range finalArtists {
+		r.cacheImage(&finalArtists[i])
+	}
+
 	// Sort artists by name for consistent ordering
 	sort.Slice(finalArtists, func(i, j int) bool {
 		return finalArtists[i].Name < finalArtists[j].Name
@@ -172,7 +180,7 @@ func (r *Repository) LoadData(ctx context.Context) error {
 	}
 
 	sort.Slice(finalLocations, func(i, j int) bool {
-		return finalLocations[i].Name < finalLocations[j].Name
+		return finalLocations[i].TotalConcerts > finalLocations[j].TotalConcerts
 	})
 
 	// 3. LOAD: Populate repository with final, computed data
@@ -241,6 +249,51 @@ func (r *Repository) GetStats() map[string]int {
 }
 
 // --- Private Helper Methods ---
+
+func (r *Repository) cacheImage(artist *Artist) error {
+	cacheDir := "static/img/artists"
+	fileName := fmt.Sprintf("%s.jpg", artist.Slug)
+	filePath := filepath.Join(cacheDir, fileName)
+
+	// Update the artist's image field to the local path regardless
+	// The backslash needs to be converted to a forward slash for the URL
+	artist.Image = "/" + filepath.ToSlash(filePath)
+
+	// Check if the file already exists
+	if _, err := os.Stat(filePath); err == nil {
+		return nil // File exists, no need to download
+	} else if !os.IsNotExist(err) {
+		return err // A different error occurred (e.g., permissions)
+	}
+
+	// File does not exist, so download it
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return err
+	}
+
+	resp, err := http.Get(artist.Image)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("failed to download image for %s: status %d", artist.Name, resp.StatusCode)
+	}
+
+	file, err := os.Create(filePath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
 
 func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", r.baseURL+path, nil)

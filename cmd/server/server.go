@@ -75,6 +75,14 @@ func createRouter(h *handlers.Handler) *http.ServeMux {
 	// Health check
 	mux.HandleFunc("/health", h.Health)
 
+	// Dev routes
+	mux.HandleFunc("/dev", h.DevIndex)
+	mux.HandleFunc("/dev/", h.DevIndex)
+	mux.HandleFunc("/dev/panic", h.DevPanic)
+	mux.HandleFunc("/dev/404", h.Dev404)
+	mux.HandleFunc("/dev/500", h.Dev500)
+	mux.HandleFunc("/dev/template-error", h.DevTemplateError)
+
 	// Web routes
 	mux.HandleFunc("/artists", h.Artists)
 	mux.HandleFunc("/artists/", h.ArtistDetail)

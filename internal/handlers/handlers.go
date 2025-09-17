@@ -238,6 +238,57 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// DevIndex renders a small developer page with quick links to the dev handlers.
+func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	links := []struct{ Href, Text string }{
+		{Href: "/dev/panic", Text: "Trigger Panic (/dev/panic)"},
+		{Href: "/dev/404", Text: "Simulate 404 (/dev/404)"},
+		{Href: "/dev/500", Text: "Simulate 500 (/dev/500)"},
+		{Href: "/dev/template-error", Text: "Simulate Template Error (/dev/template-error)"},
+		{Href: "/health", Text: "Health Check (/health)"},
+	}
+
+	data := struct {
+		Title    string
+		ExtraCSS string
+		ExtraJS  string
+		Links    []struct{ Href, Text string }
+	}{
+		Title:    "Developer Tools",
+		ExtraCSS: "home.css",
+		ExtraJS:  "",
+		Links:    links,
+	}
+
+	h.render(w, r, "dev.tmpl", data)
+}
+
+// DevPanic is a development endpoint to test panic recovery.
+func (h *Handler) DevPanic(w http.ResponseWriter, r *http.Request) {
+	panic("Development panic triggered")
+}
+
+// Dev404 is a development endpoint to test 404 error template.
+func (h *Handler) Dev404(w http.ResponseWriter, r *http.Request) {
+	h.Error(w, r, http.StatusNotFound, "This is a simulated 404 error.")
+}
+
+// Dev500 is a development endpoint to test 500 error template.
+func (h *Handler) Dev500(w http.ResponseWriter, r *http.Request) {
+	h.Error(w, r, http.StatusInternalServerError, "This is a simulated 500 error.")
+}
+
+// DevTemplateError is a development endpoint to test template failure.
+func (h *Handler) DevTemplateError(w http.ResponseWriter, r *http.Request) {
+	// To simulate a template error, we can try to render a template that doesn't exist.
+	h.render(w, r, "nonexistent.tmpl", nil)
+}
+
 // StaticFiles handles static file requests.
 func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
 	fs := http.FileServer(http.Dir("./static"))
