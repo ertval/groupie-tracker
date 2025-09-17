@@ -66,10 +66,11 @@ func TestHandler_Routes(t *testing.T) {
 		{"Artists", "/artists", "GET", http.StatusOK, "AC/DC"},
 		{"Artist Detail", "/artists/queen", "GET", http.StatusOK, "Band Members"},
 		{"Artist Detail Not Found", "/artists/not-found", "GET", http.StatusNotFound, "Page Not Found"},
-		{"Artist Detail Not Found by ID", "/artists/999", "GET", http.StatusNotFound, "Artist not found"},
+				{"Artist Detail Not Found by ID", "/artists/999", "GET", http.StatusNotFound, "Artist not found"},
 		{"Locations", "/locations", "GET", http.StatusOK, "london-uk"},
 		{"Location Detail", "/locations/london-uk", "GET", http.StatusOK, "Artists Who Performed Here"},
 		{"Health", "/health", "GET", http.StatusOK, "healthy"},
+		{"Static Image", "/static/img/artists/queen.jpg", "GET", http.StatusOK, ""},
 		{"Static Not Found", "/static/not-found.css", "GET", http.StatusNotFound, ""},
 	}
 

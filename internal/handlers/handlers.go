@@ -289,9 +289,27 @@ func (h *Handler) DevTemplateError(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "nonexistent.tmpl", nil)
 }
 
-// StaticFiles handles static file requests.
 func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
-	fs := http.FileServer(http.Dir("./static"))
+	staticDirs := []string{
+		"./static",
+		"../static",
+		"../../static",
+	}
+
+	var staticDir string
+	for _, dir := range staticDirs {
+		if _, err := os.Stat(dir); err == nil {
+			staticDir = dir
+			break
+		}
+	}
+
+	if staticDir == "" {
+		h.Error(w, r, http.StatusInternalServerError, "Static directory not found")
+		return
+	}
+
+	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir)))
 	fs.ServeHTTP(w, r)
 }
 
