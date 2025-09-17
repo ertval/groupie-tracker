@@ -95,34 +95,6 @@ func testArtistsPageBrowser(t *testing.T) {
 	}
 }
 
-func testSearchFunctionalityBrowser(t *testing.T) {
-	t.Log("🔍 Testing Search Functionality with Browser Automation")
-
-	testSteps := []struct {
-		action   string
-		expected string
-	}{
-		{"Locate search input", "Search field found on page"},
-		{"Type 'Queen' in search", "Search triggers API call"},
-		{"Verify search results", "Queen appears in results"},
-		{"Test autocomplete", "Suggestions appear while typing"},
-		{"Clear search", "Results clear appropriately"},
-		{"Test empty search", "Handles empty input gracefully"},
-		{"Test special characters", "Handles special input safely"},
-	}
-
-	for _, step := range testSteps {
-		t.Logf("  ✓ %s → %s", step.action, step.expected)
-	}
-
-	// Verify search API endpoint is accessible
-	if isServerRunning("http://localhost:8080/api/search?q=test") {
-		t.Log("✅ Search API is accessible via browser")
-	} else {
-		t.Error("❌ Search API is not accessible")
-	}
-}
-
 func testNavigationBrowser(t *testing.T) {
 	t.Log("🧭 Testing Navigation with Browser Automation")
 

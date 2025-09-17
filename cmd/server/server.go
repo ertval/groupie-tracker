@@ -74,7 +74,7 @@ func createRouter(h *handlers.Handler) *http.ServeMux {
 
 	// Static file serving - unified handler for all static assets
 	mux.HandleFunc("/static/", h.StaticFiles)
-	mux.HandleFunc("/favicon.ico", h.StaticFiles)
+	//mux.HandleFunc("/favicon.ico", h.StaticFiles)
 
 	// Health check (register before "/" to avoid catch-all)
 	mux.HandleFunc("/health", h.Health)

@@ -1,4 +1,4 @@
-package main
+package tests
 
 import (
 	"context"
@@ -7,7 +7,9 @@ import (
 	"time"
 )
 
-func main() {
+// Run is a helper function (previously main) kept for manual verification.
+// It is not executed by `go test` but can be called from other tests if needed.
+func Run() {
 	fmt.Println("Testing refactored repository...")
 
 	// Test the refactored repository
