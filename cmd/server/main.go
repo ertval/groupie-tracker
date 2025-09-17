@@ -14,9 +14,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
-
-	// Log server startup information
-	bakingInfo(server)
+	// clickable link already logged during server initialization
 
 	// Start server (blocking)
 	err = server.ListenAndServe()

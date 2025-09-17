@@ -53,14 +53,9 @@ func newServer() (*http.Server, error) {
 		IdleTimeout:  idleTimeout,
 	}
 
-	return httpServer, nil
-}
-
-// bakingInfo logs server startup information.
-// It creates a clickable link to open the server in the browser.
-func bakingInfo(server *http.Server) {
-	// Build a clickable URL for convenience
-	addr := server.Addr
+	// Build a clickable URL for convenience and log it here so the server
+	// startup information is available immediately after initialization.
+	addr := httpServer.Addr
 	url := addr
 	if strings.HasPrefix(addr, ":") {
 		url = "http://localhost" + addr
@@ -69,6 +64,8 @@ func bakingInfo(server *http.Server) {
 	}
 
 	log.Printf("🚀 Server ready — open %s in your browser", url)
+
+	return httpServer, nil
 }
 
 // createRouter sets up all routes.

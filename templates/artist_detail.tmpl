@@ -53,16 +53,16 @@
                     </div>
                 </section>
 
-                {{if .Relation}}
+                {{if .Artist.Concerts}}
                 <section class="concert-info">
                     <h2>Concert Locations & Dates</h2>
                     <div class="concerts-container">
-                        {{range $location, $dates := .Relation.Locations}}
+                        {{range $location, $dates := .Artist.Concerts}}
                         <div class="location-section">
                             <h3 class="location-name">
                                 <a href="/locations/{{$location | generateLocationSlug}}" class="location-link">{{$location | normalizeLocationName}}</a>
                             </h3>
-                            <div class="dates-list"}>
+                            <div class="dates-list">
                                 {{range $dates}}
                                 <span class="concert-date">{{.}}</span>
                                 {{end}}
@@ -85,9 +85,10 @@
                             <span class="stat-number">{{len .Artist.Members}}</span>
                             <span class="stat-label">Members</span>
                         </div>
-                        {{if .Relation}}
+                        {{/* Locations count comes from number of keys in Artist.Concerts */}}
+                        {{if .Artist.Concerts}}
                         <div class="stat-item">
-                            <span class="stat-number">{{len .Relation.Locations}}</span>
+                            <span class="stat-number">{{len .Artist.Concerts}}</span>
                             <span class="stat-label">Locations</span>
                         </div>
                         <div class="stat-item">

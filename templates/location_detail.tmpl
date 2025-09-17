@@ -26,10 +26,10 @@
     <main class="container">
         <div class="page location-detail">
             <header class="page-header">
-                <h1>{{.DisplayName}}</h1>
+                <h1>{{.LocationName}}</h1>
                 <div class="location-meta">
-                    <p><strong>{{.Location.ArtistCount}}</strong> artists performed here</p>
-                    <p><strong>{{.Location.ConcertCount}}</strong> concerts total</p>
+                    <p><strong>{{len .Artists}}</strong> artists performed here</p>
+                    <p><strong>{{/* Concert count per-location not provided */}}</strong></p>
                 </div>
             </header>
 
@@ -52,19 +52,7 @@
                                     <span class="creation-year">{{.CreationYear}}</span>
                                     <span class="member-count">{{len .Members}} members</span>
                                 </div>
-                                {{if $.Location.ConcertDates}}
-                                <div class="concert-dates">
-                                    <h4>Concert Dates</h4>
-                                    {{$dates := index $.Location.ConcertDates .ID}}
-                                    {{if $dates}}
-                                    <ul class="dates-list">
-                                        {{range $dates}}
-                                        <li class="date-item">{{.}}</li>
-                                        {{end}}
-                                    </ul>
-                                    {{end}}
-                                </div>
-                                {{end}}
+                                {{/* Per-artist concert date lists are not passed to this template by the handler. */}}
                             </div>
                         </div>
                         {{end}}
