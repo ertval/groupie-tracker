@@ -369,6 +369,37 @@ func (h *Handler) DevTemplateError(w http.ResponseWriter, r *http.Request) {
 	h.Artists(w, req)
 }
 
+// DevIndex renders a small developer page with quick links to the dev
+// handlers so developers can click to exercise panic/500/404/template errors.
+func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	links := []struct{ Href, Text string }{
+		{Href: "/dev/panic", Text: "Trigger Panic (/dev/panic)"},
+		{Href: "/dev/404", Text: "Simulate 404 (/dev/404)"},
+		{Href: "/dev/500", Text: "Simulate 500 (/dev/500)"},
+		{Href: "/dev/template-error", Text: "Simulate Template Error (/dev/template-error)"},
+		{Href: "/health", Text: "Health Check (/health)"},
+	}
+
+	data := struct {
+		Title    string
+		ExtraCSS string
+		ExtraJS  string
+		Links    []struct{ Href, Text string }
+	}{
+		Title:    "Developer Tools",
+		ExtraCSS: "home.css",
+		ExtraJS:  "",
+		Links:    links,
+	}
+
+	h.render(w, "dev.tmpl", data)
+}
+
 // Private helper methods
 
 func (h *Handler) loadTemplates() {
@@ -380,6 +411,7 @@ func (h *Handler) loadTemplates() {
 		"templates/locations.tmpl",
 		"templates/location_detail.tmpl",
 		"templates/error.tmpl",
+		"templates/dev.tmpl",
 	}
 
 	funcMap := template.FuncMap{

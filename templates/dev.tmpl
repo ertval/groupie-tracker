@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="/static/css/base.css">
+    {{if .ExtraCSS}}<link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">{{end}}
+</head>
+<body>
+    <main class="container">
+        <h1>{{.Title}}</h1>
+        <p>Quick links to development handlers for manual testing and verification.</p>
+        <ul>
+            {{range .Links}}
+            <li><a href="{{.Href}}">{{.Text}}</a></li>
+            {{end}}
+        </ul>
+        <p>
+            <a href="/">Back to home</a>
+        </p>
+    </main>
+</body>
+</html>
