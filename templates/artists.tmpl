@@ -1,79 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
+{{define "title"}}{{.Title}}{{end}}
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>{{.Title}} - Groupie Tracker</title>
-    <link rel="stylesheet" href="/static/css/base.css">
-    {{if .ExtraCSS}}
-    <link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">
-    {{end}}
-</head>
-
-<body>
-    <header class="site-header">
-        <div class="container">
-            <h1><a href="/">Groupie Tracker</a></h1>
-            <nav>
-                <a href="/">Home</a> •
-                <a href="/artists">Artists</a> •
-                <a href="/locations">Locations</a>
-            </nav>
-        </div>
+{{define "body"}}
+<div class="page artists">
+    <header class="page-header">
+        <h1>All Artists</h1>
+        <p class="muted">Browse through our collection of {{len .Artists}} artists</p>
     </header>
 
-    <main class="container">
-        <div class="page artists">
-            <header class="page-header">
-                <h1>All Artists</h1>
-                <p class="muted">Browse through our collection of {{len .Artists}} artists</p>
-            </header>
-
-            <main class="page-body">
-                <section class="artists-grid">
-                    {{range .Artists}}
-                    <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}">
-                        <a href="/artists/{{.Slug}}">
-                            <div class="artist-image-container">
-                                <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
-                            </div>
-                            <div class="artist-info">
-                                <h3>{{.Name}}</h3>
-                                <p class="creation-year">{{.CreationYear}}</p>
-                                <p class="first-album">First Album: {{.FirstAlbum}}</p>
-                                <p class="members-count">{{len .Members}} members</p>
-                                <div class="members-preview">
-                                    {{range $index, $member := .Members}}
-                                    {{if lt $index 3}}
-                                    <span class="member">{{$member}}</span>
-                                    {{end}}
-                                    {{end}}
-                                    {{if gt (len .Members) 3}}
-                                    <span class="more-members">+{{sub (len .Members) 3}} more</span>
-                                    {{end}}
-                                </div>
-                            </div>
-                        </a>
+    <main class="page-body">
+        <section class="artists-grid">
+            {{range .Artists}}
+            <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}">
+                <a href="/artists/{{.Slug}}">
+                    <div class="artist-image-container">
+                        <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
                     </div>
-                    {{end}}
-                </section>
+                    <div class="artist-info">
+                        <h3>{{.Name}}</h3>
+                        <p class="creation-year">{{.CreationYear}}</p>
+                        <p class="first-album">First Album: {{.FirstAlbum}}</p>
+                        <p class="members-count">{{len .Members}} members</p>
+                        <div class="members-preview">
+                            {{range $index, $member := .Members}}
+                            {{if lt $index 3}}
+                            <span class="member">{{$member}}</span>
+                            {{end}}
+                            {{end}}
+                            {{if gt (len .Members) 3}}
+                            <span class="more-members">+{{sub (len .Members) 3}} more</span>
+                            {{end}}
+                        </div>
+                    </div>
+                </a>
+            </div>
+            {{end}}
+        </section>
 
-                <div id="no-results" class="no-results" style="display: none;">
-                    <h3>No artists found</h3>
-                    <p>Try adjusting your search criteria or filters.</p>
-                </div>
-            </main>
+        <div id="no-results" class="no-results" style="display: none;">
+            <h3>No artists found</h3>
+            <p>Try adjusting your search criteria or filters.</p>
         </div>
     </main>
-
-    <footer class="site-footer">
-        <div class="container">© 2025 Groupie Tracker</div>
-    </footer>
-
-    {{if .ExtraJS}}
-    <script src="/static/js/{{.ExtraJS}}"></script>
-    {{end}}
-</body>
-
-</html>
+</div>
+{{end}}

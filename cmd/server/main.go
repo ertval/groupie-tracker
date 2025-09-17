@@ -10,12 +10,11 @@ import (
 func main() {
 	log.Println("Starting Groupie Tracker server...")
 
-	server, err := newServer()
+	server, err := newServer(defaultAPIURL)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
-	// clickable link already logged during server initialization
-
+	
 	// Start server (blocking)
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {

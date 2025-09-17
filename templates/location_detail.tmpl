@@ -1,99 +1,45 @@
-<!DOCTYPE html>
-<html lang="en">
+{{define "title"}}{{.Location.Name | title}}{{end}}
 
-<head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>{{.Title}} - Groupie Tracker</title>
-    <link rel="stylesheet" href="/static/css/base.css">
-    {{if .ExtraCSS}}
-    <link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">
-    {{end}}
-</head>
-
-<body>
-    <header class="site-header">
-        <div class="container">
-            <h1><a href="/">Groupie Tracker</a></h1>
-            <nav>
-                <a href="/">Home</a> •
-                <a href="/artists">Artists</a> •
-                <a href="/locations">Locations</a>
-            </nav>
+{{define "body"}}
+<div class="page location-detail">
+    <header class="page-header">
+        <h1>{{.Location.Name | title}}</h1>
+        <div class="location-meta">
+            <p><strong>{{.Location.ArtistCount}}</strong> artists performed here across <strong>{{.Location.TotalConcerts}}</strong> concerts.</p>
         </div>
     </header>
 
-    <main class="container">
-        <div class="page location-detail">
-            <header class="page-header">
-                <h1>{{.LocationName}}</h1>
-                <div class="location-meta">
-                    <p><strong>{{len .Artists}}</strong> artists performed here</p>
-                    <p><strong>{{/* Concert count per-location not provided */}}</strong></p>
-                </div>
-            </header>
-
-            <main class="page-body">
-                <section class="artists-section">
-                    <h2>Artists who performed here</h2>
-                    <div class="artists-grid">
-                        {{range .Artists}}
-                        <div class="artist-card">
-                            <div class="artist-image">
-                                <a href="/artists/{{.Slug}}">
-                                    <img src="{{.Image}}" alt="{{.Name}}" class="artist-img">
-                                </a>
-                            </div>
-                            <div class="artist-info">
-                                <h3 class="artist-heading">
-                                    <a href="/artists/{{.Slug}}" class="artist-link">{{.Name}}</a>
-                                </h3>
-                                <div class="artist-meta muted-small">
-                                    <strong>Creation Year:</strong> {{.CreationYear}} &nbsp; <strong>Members:</strong> {{len .Members}}
-                                </div>
-                                {{/* Concert dates this artist played at this location (from Location.ConcertDates) */}}
-                                {{$dates := index $.Location.ConcertDates .ID}}
-                                {{if $dates}}
-                                <p class="dates-list"><strong>Dates performed here:</strong> {{join $dates ", "}}</p>
-                                {{end}}
-                            </div>
+    <main class="page-body">
+        <section class="artists-section">
+            <h2>Artists Who Performed Here</h2>
+            <div class="artists-grid">
+                {{range .Artists}}
+                <div class="artist-card">
+                    <div class="artist-image">
+                        <a href="/artists/{{.Slug}}">
+                            <img src="{{.Image}}" alt="{{.Name}}" class="artist-img">
+                        </a>
+                    </div>
+                    <div class="artist-info">
+                        <h3 class="artist-heading">
+                            <a href="/artists/{{.Slug}}" class="artist-link">{{.Name}}</a>
+                        </h3>
+                        <div class="artist-meta muted-small">
+                            <strong>Creation Year:</strong> {{.CreationYear}} &nbsp; <strong>Members:</strong> {{len .Members}}
                         </div>
+                        {{$dates := index .DatesAtLocation $.Location.Slug}}
+                        {{if $dates}}
+                        <p class="dates-list"><strong>Dates performed here:</strong> {{join $dates ", "}}</p>
                         {{end}}
                     </div>
-                </section>
-
-                <section class="location-stats">
-                    <h2>Statistics</h2>
-                    <div class="stats-grid">
-                        <div class="stat-item">
-                            <span class="stat-number">{{.Location.ArtistCount}}</span>
-                            <span class="stat-label">Artists</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number">{{len .Location.ConcertDates}}</span>
-                            <span class="stat-label">Artists with dates</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-number">{{.Location.TotalConcerts}}</span>
-                            <span class="stat-label">Total Concerts</span>
-                        </div>
-                    </div>
-                </section>
-
-                <div class="navigation-links">
-                    <a href="/locations" class="btn btn-secondary">← Back to Locations</a>
                 </div>
-            </main>
+                {{end}}
+            </div>
+        </section>
+
+        <div class="navigation-links">
+            <a href="/locations" class="btn btn-secondary">← Back to Locations</a>
         </div>
     </main>
-
-    <footer class="site-footer">
-        <div class="container">© 2025 Groupie Tracker</div>
-    </footer>
-
-    {{if .ExtraJS}}
-    <script src="/static/js/{{.ExtraJS}}"></script>
-    {{end}}
-</body>
-
-</html>
+</div>
+{{end}}

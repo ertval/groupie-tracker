@@ -1,10 +1,11 @@
+{{define "base"}}
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width,initial-scale=1">
-    <title>{{.Title}} - Groupie Tracker</title>
+    <title>{{template "title" .}} - Groupie Tracker</title>
     <link rel="stylesheet" href="/static/css/base.css">
     {{if .ExtraCSS}}
     <link rel="stylesheet" href="/static/css/{{.ExtraCSS}}">
@@ -24,7 +25,7 @@
     </header>
 
     <main class="container">
-        {{template "content" .}}
+        {{template "body" .}}
     </main>
 
     <footer class="site-footer">
@@ -37,3 +38,4 @@
 </body>
 
 </html>
+{{end}}

@@ -1,4 +1,3 @@
-// Package main provides server configuration and setup functionality.
 package main
 
 import (
@@ -24,9 +23,9 @@ const (
 )
 
 // newServer creates and initializes a new HTTP server.
-func newServer() (*http.Server, error) {
+func newServer(apiURL string) (*http.Server, error) {
 	// Initialize data repository
-	repo := data.NewRepository(defaultAPIURL, requestTimeout)
+	repo := data.NewRepository(apiURL, requestTimeout)
 
 	// Load data from API
 	log.Println("Loading initial data...")
@@ -37,7 +36,7 @@ func newServer() (*http.Server, error) {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
-	log.Printf("Data loaded successfully - %d artists", repo.GetStats()["total_artists"])
+	log.Printf("Data loaded successfully - %d artists", len(repo.GetArtists()))
 
 	// Initialize handlers
 	handler := handlers.NewHandler(repo)
@@ -53,8 +52,6 @@ func newServer() (*http.Server, error) {
 		IdleTimeout:  idleTimeout,
 	}
 
-	// Build a clickable URL for convenience and log it here so the server
-	// startup information is available immediately after initialization.
 	addr := httpServer.Addr
 	url := addr
 	if strings.HasPrefix(addr, ":") {
@@ -72,30 +69,19 @@ func newServer() (*http.Server, error) {
 func createRouter(h *handlers.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// Static file serving - unified handler for all static assets
+	// Static file serving
 	mux.HandleFunc("/static/", h.StaticFiles)
-	//mux.HandleFunc("/favicon.ico", h.StaticFiles)
 
-	// Health check (register before "/" to avoid catch-all)
+	// Health check
 	mux.HandleFunc("/health", h.Health)
 
-	// Developer index for quick links to dev handlers
-	mux.HandleFunc("/dev", h.DevIndex)
-	mux.HandleFunc("/dev/", h.DevIndex)
-
-	// Development endpoints (DEV ONLY)
-	mux.HandleFunc("/dev/panic", h.DevPanic)
-	mux.HandleFunc("/dev/404", h.Dev404)
-	mux.HandleFunc("/dev/500", h.Dev500)
-	mux.HandleFunc("/dev/template-error", h.DevTemplateError)
-
-	// Web routes - specific routes first, then more general ones
+	// Web routes
 	mux.HandleFunc("/artists", h.Artists)
 	mux.HandleFunc("/artists/", h.ArtistDetail)
 	mux.HandleFunc("/locations", h.Locations)
 	mux.HandleFunc("/locations/", h.LocationDetail)
 
-	// Home route - this catches everything else, so it must be last
+	// Home route
 	mux.HandleFunc("/", h.Home)
 
 	return mux
@@ -137,7 +123,6 @@ func getPort() string {
 		return defaultPort
 	}
 
-	// Add colon if not present
 	if !strings.HasPrefix(port, ":") {
 		port = ":" + port
 	}

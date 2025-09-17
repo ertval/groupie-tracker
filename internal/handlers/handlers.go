@@ -1,4 +1,3 @@
-// Package handlers provides HTTP handlers for the Groupie Tracker web application.
 package handlers
 
 import (
@@ -10,7 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"regexp"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -19,7 +18,7 @@ import (
 // Handler holds the application state and handlers.
 type Handler struct {
 	repo      *data.Repository
-	templates *template.Template
+	templates map[string]*template.Template
 }
 
 // NewHandler creates a new handler with the given repository.
@@ -32,18 +31,17 @@ func NewHandler(repo *data.Repository) *Handler {
 // Home handles the home page.
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	if r.URL.Path != "/" {
-		h.NotFound(w, r)
+		h.Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
 	artists := h.repo.GetArtists()
 	stats := h.repo.GetStats()
-	locations := h.repo.GetLocations()
 
 	data := struct {
 		Title          string
@@ -58,21 +56,21 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		ExtraJS:        "",
 		Artists:        artists,
 		TotalMembers:   stats["total_members"],
-		TotalLocations: len(locations),
+		TotalLocations: stats["total_locations"],
 	}
 
-	h.render(w, "home.tmpl", data)
+	h.render(w, r, "home.tmpl", data)
 }
 
 // Artists handles the artists listing page.
 func (h *Handler) Artists(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	if r.URL.Path != "/artists" {
-		h.NotFound(w, r)
+		h.Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
@@ -90,86 +88,88 @@ func (h *Handler) Artists(w http.ResponseWriter, r *http.Request) {
 		Artists:  artists,
 	}
 
-	h.render(w, "artists.tmpl", data)
+	h.render(w, r, "artists.tmpl", data)
 }
 
 // ArtistDetail handles individual artist pages.
 func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	// Extract artist identifier from URL
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
-		h.NotFound(w, r)
+		h.Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
 	var artist data.Artist
 	var found bool
 
-	// Try slug first, then ID
 	if artist, found = h.repo.GetArtistBySlug(path); !found {
-		if id, err := strconv.Atoi(path); err == nil {
-			artist, found = h.repo.GetArtist(id)
+		id, err := strconv.Atoi(path)
+		if err != nil {
+			h.Error(w, r, http.StatusNotFound, "Artist not found")
+			return
+		}
+		if artist, found = h.repo.GetArtistByID(id); !found {
+			h.Error(w, r, http.StatusNotFound, "Artist not found")
+			return
 		}
 	}
 
-	if !found {
-		h.NotFound(w, r)
-		return
+	var prevArtist, nextArtist *data.Artist
+	if artist.PrevArtistID != 0 {
+		if p, ok := h.repo.GetArtistByID(artist.PrevArtistID); ok {
+			prevArtist = &p
+		}
 	}
-
-	prev, next := h.repo.GetNextPrevArtist(artist)
+	if artist.NextArtistID != 0 {
+		if n, ok := h.repo.GetArtistByID(artist.NextArtistID); ok {
+			nextArtist = &n
+		}
+	}
 
 	data := struct {
-		Title         string
-		ExtraCSS      string
-		ExtraJS       string
-		Artist        data.Artist
-		TotalConcerts int
-		Countries     []string
-		PrevArtist    *data.Artist
-		NextArtist    *data.Artist
+		Title      string
+		ExtraCSS   string
+		ExtraJS    string
+		Artist     data.Artist
+		PrevArtist *data.Artist
+		NextArtist *data.Artist
 	}{
-		Title:         artist.Name,
-		ExtraCSS:      "artist_detail.css",
-		ExtraJS:       "",
-		Artist:        artist,
-		TotalConcerts: h.repo.CountConcerts(artist),
-		Countries:     h.repo.GetCountries(artist),
-		PrevArtist:    prev,
-		NextArtist:    next,
+		Title:      artist.Name,
+		ExtraCSS:   "artist_detail.css",
+		ExtraJS:    "",
+		Artist:     artist,
+		PrevArtist: prevArtist,
+		NextArtist: nextArtist,
 	}
 
-	h.render(w, "artist_detail.tmpl", data)
+	h.render(w, r, "artist_detail.tmpl", data)
 }
 
 // Locations handles the locations listing page.
 func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	if r.URL.Path != "/locations" {
-		h.NotFound(w, r)
+		h.Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
 	locations := h.repo.GetLocations()
-	locationStats := h.repo.GetLocationStats()
 	globalStats := h.repo.GetStats()
 
 	data := struct {
 		Title          string
 		ExtraCSS       string
 		ExtraJS        string
-		Locations      []string
-		LocationStats  []data.LocationStats
-		TopLocations   []data.LocationStats
+		Locations      []data.Location
 		TotalCountries int
 		TotalConcerts  int
 	}{
@@ -177,64 +177,60 @@ func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:       "locations.css",
 		ExtraJS:        "",
 		Locations:      locations,
-		LocationStats:  locationStats,
-		TopLocations:   locationStats, // Same data for template compatibility
 		TotalCountries: globalStats["total_countries"],
 		TotalConcerts:  globalStats["total_concerts"],
 	}
 
-	h.render(w, "locations.tmpl", data)
+	h.render(w, r, "locations.tmpl", data)
 }
 
 // LocationDetail handles individual location pages.
 func (h *Handler) LocationDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	// Extract location slug from URL
 	slug := strings.TrimPrefix(r.URL.Path, "/locations/")
 	if slug == "" {
-		h.NotFound(w, r)
+		h.Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
 	location, found := h.repo.GetLocationBySlug(slug)
 	if !found {
-		h.NotFound(w, r)
+		h.Error(w, r, http.StatusNotFound, "Location not found")
 		return
 	}
 
 	data := struct {
-		Title        string
-		ExtraCSS     string
-		ExtraJS      string
-		LocationName string
-		Location     data.LocationStats
-		Artists      []data.Artist
+		Title    string
+		ExtraCSS string
+		ExtraJS  string
+		Location data.Location
+		Artists  []data.Artist
 	}{
-		Title:        fmt.Sprintf("%s - Location", location.Name),
-		ExtraCSS:     "locations.css",
-		ExtraJS:      "",
-		LocationName: location.Name,
-		Location:     location,
-		Artists:      location.Artists,
+		Title:    fmt.Sprintf("%s - Location", location.Name),
+		ExtraCSS: "locations.css",
+		ExtraJS:  "",
+		Location: location,
+		Artists:  location.Artists,
 	}
 
-	h.render(w, "location_detail.tmpl", data)
+	h.render(w, r, "location_detail.tmpl", data)
 }
 
 // Health provides a health check endpoint.
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		w.Header().Set("Allow", http.MethodGet)
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	response := map[string]any{
 		"status":    "healthy",
-		"timestamp": r.Header.Get("X-Request-Time"),
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
 		"stats":     h.repo.GetStats(),
 	}
 
@@ -242,42 +238,14 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
-// StaticFiles handles all static file requests with 404 fallback for missing assets.
+// StaticFiles handles static file requests.
 func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	var path string
-
-	// Handle different static file request patterns
-	switch {
-	case r.URL.Path == "/favicon.ico":
-		// Special handling for favicon requests
-		path = "static/favicon.ico"
-	case strings.HasPrefix(r.URL.Path, "/static/"):
-		// Handle /static/ prefixed requests
-		path = "static/" + strings.TrimPrefix(r.URL.Path, "/static/")
-	default:
-		// For any other static file patterns, treat as 404
-		http.Error(w, "Not Found", http.StatusNotFound)
-		return
-	}
-
-	// Check if the file exists
-	if _, err := os.Stat(path); err != nil {
-		// File doesn't exist - return 404 for all missing assets
-		http.Error(w, "Not Found", http.StatusNotFound)
-		return
-	}
-
-	// Serve the file
-	http.ServeFile(w, r, path)
+	fs := http.FileServer(http.Dir("./static"))
+	fs.ServeHTTP(w, r)
 }
 
-// NotFound handles 404 errors.
-func (h *Handler) NotFound(w http.ResponseWriter, r *http.Request) {
+// Error handles all errors (4xx and 5xx) in a centralized way.
+func (h *Handler) Error(w http.ResponseWriter, r *http.Request, status int, message string) {
 	data := struct {
 		Title        string
 		ExtraCSS     string
@@ -287,145 +255,48 @@ func (h *Handler) NotFound(w http.ResponseWriter, r *http.Request) {
 		Message      string
 		Timestamp    string
 	}{
-		Title:        "Page Not Found",
+		Title:        fmt.Sprintf("%d %s", status, http.StatusText(status)),
 		ExtraCSS:     "errors.css",
 		ExtraJS:      "",
-		ErrorCode:    404,
-		RequestedURL: r.URL.Path,
-		Message:      "The page you're looking for doesn't exist.",
-		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
-	}
-
-	h.render(w, "error.tmpl", data, http.StatusNotFound)
-}
-
-// InternalError handles 500 errors.
-func (h *Handler) InternalError(w http.ResponseWriter, r *http.Request, message string) {
-	data := struct {
-		Title        string
-		ExtraCSS     string
-		ExtraJS      string
-		ErrorCode    int
-		RequestedURL string
-		Message      string
-		Timestamp    string
-	}{
-		Title:        "Internal Server Error",
-		ExtraCSS:     "errors.css",
-		ExtraJS:      "",
-		ErrorCode:    500,
+		ErrorCode:    status,
 		RequestedURL: r.URL.Path,
 		Message:      message,
 		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
 	}
 
-	h.render(w, "error.tmpl", data, http.StatusInternalServerError)
-}
-
-// DevPanic is a development endpoint to test panic recovery.
-func (h *Handler) DevPanic(w http.ResponseWriter, r *http.Request) {
-	panic("Development panic triggered")
-}
-
-// Dev404 is a development endpoint to test 404 error template.
-func (h *Handler) Dev404(w http.ResponseWriter, r *http.Request) {
-	// Simulate a client requesting a non-existent path so that the
-	// normal handler flow produces a 404 via NotFound.
-	req := r.Clone(r.Context())
-	req.URL.Path = "/__does_not_exist__"
-	h.Home(w, req)
-}
-
-// Dev500 is a development endpoint to test 500 error template.
-func (h *Handler) Dev500(w http.ResponseWriter, r *http.Request) {
-	// Simulate a normal handler encountering an internal error and
-	// calling InternalError as part of its flow. We create a small
-	// local mux and handler to represent that handler and then
-	// dispatch a synthetic request through it.
-	mux := http.NewServeMux()
-	mux.HandleFunc("/cause-500", func(w http.ResponseWriter, r *http.Request) {
-		// This represents an application handler that detected an error
-		// and uses the standard InternalError path to render a response.
-		h.InternalError(w, r, "Development 500 error triggered")
-	})
-
-	req := r.Clone(r.Context())
-	req.URL.Path = "/cause-500"
-	mux.ServeHTTP(w, req)
-}
-
-// DevTemplateError is a development endpoint to test template failure.
-func (h *Handler) DevTemplateError(w http.ResponseWriter, r *http.Request) {
-	// Simulate a template execution error by providing a templates set
-	// that does not contain the template name. We create an empty
-	// template set (non-nil) so ExecuteTemplate returns an undefined
-	// template error when handlers call it.
-	old := h.templates
-	h.templates = template.New("")
-	defer func() { h.templates = old }()
-
-	req := r.Clone(r.Context())
-	req.URL.Path = "/artists"
-	h.Artists(w, req)
-}
-
-// DevIndex renders a small developer page with quick links to the dev
-// handlers so developers can click to exercise panic/500/404/template errors.
-func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	// Special case for rendering errors to avoid recursion.
+	ts, ok := h.templates["error.tmpl"]
+	if !ok {
+		// Fallback if the error template itself is not found
+		http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
 		return
 	}
 
-	links := []struct{ Href, Text string }{
-		{Href: "/dev/panic", Text: "Trigger Panic (/dev/panic)"},
-		{Href: "/dev/404", Text: "Simulate 404 (/dev/404)"},
-		{Href: "/dev/500", Text: "Simulate 500 (/dev/500)"},
-		{Href: "/dev/template-error", Text: "Simulate Template Error (/dev/template-error)"},
-		{Href: "/health", Text: "Health Check (/health)"},
+	buf := new(bytes.Buffer)
+	err := ts.ExecuteTemplate(buf, "base", data)
+	if err != nil {
+		// Fallback if executing the error template fails
+		log.Printf("Error executing error template: %v", err)
+		http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
+		return
 	}
 
-	data := struct {
-		Title    string
-		ExtraCSS string
-		ExtraJS  string
-		Links    []struct{ Href, Text string }
-	}{
-		Title:    "Developer Tools",
-		ExtraCSS: "home.css",
-		ExtraJS:  "",
-		Links:    links,
-	}
-
-	h.render(w, "dev.tmpl", data)
+	w.WriteHeader(status)
+	buf.WriteTo(w)
 }
 
-// Private helper methods
+// --- Private Helper Methods ---
 
 func (h *Handler) loadTemplates() {
-	templateFiles := []string{
-		"templates/base.tmpl",
-		"templates/home.tmpl",
-		"templates/artists.tmpl",
-		"templates/artist_detail.tmpl",
-		"templates/locations.tmpl",
-		"templates/location_detail.tmpl",
-		"templates/error.tmpl",
-		"templates/dev.tmpl",
-	}
+	h.templates = make(map[string]*template.Template)
 
 	funcMap := template.FuncMap{
-		"add": func(a, b int) int { return a + b },
-		"sub": func(a, b int) int { return a - b },
-		"join": func(items []string, sep string) string {
-			return strings.Join(items, sep)
-		},
-		"generateLocationSlug": func(location string) string {
-			return createSlug(location)
-		},
-		"normalizeLocationName": func(location string) string {
-			// Manual title case implementation to replace deprecated strings.Title
-			words := strings.Fields(strings.ReplaceAll(location, "_", " "))
+		"add":   func(a, b int) int { return a + b },
+		"sub":   func(a, b int) int { return a - b },
+		"join":  func(items []string, sep string) string { return strings.Join(items, sep) },
+		"upper": func(s string) string { return strings.ToUpper(s) },
+		"title": func(s string) string {
+			words := strings.Fields(strings.ReplaceAll(s, "-", " "))
 			for i, word := range words {
 				if len(word) > 0 {
 					words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
@@ -435,49 +306,65 @@ func (h *Handler) loadTemplates() {
 		},
 	}
 
-	var err error
-	h.templates, err = template.New("").Funcs(funcMap).ParseFiles(templateFiles...)
+	// Try to find the templates directory in common locations.
+	templateDirs := []string{
+		"templates",
+		"../templates",
+		"../../templates",
+	}
+
+	var pages []string
+	var baseTmplPath string
+	var found bool
+
+	for _, dir := range templateDirs {
+		base := filepath.Join(dir, "base.tmpl")
+		if _, err := os.Stat(base); err == nil {
+			pages, _ = filepath.Glob(filepath.Join(dir, "*.tmpl"))
+			baseTmplPath = base
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		log.Fatalf("Failed to find templates directory")
+	}
+
+	for _, page := range pages {
+		name := filepath.Base(page)
+		if name == "base.tmpl" {
+			continue
+		}
+
+		ts, err := template.New(name).Funcs(funcMap).ParseFiles(baseTmplPath, page)
+		if err != nil {
+			log.Fatalf("Failed to parse template %s: %v", name, err)
+		}
+
+		h.templates[name] = ts
+	}
+}
+
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
+	code := http.StatusOK
+	if len(status) > 0 {
+		code = status[0]
+	}
+
+	ts, ok := h.templates[name]
+	if !ok {
+		h.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
+		return
+	}
+
+	buf := new(bytes.Buffer)
+	err := ts.ExecuteTemplate(buf, "base", data)
 	if err != nil {
-		log.Fatalf("Failed to parse templates: %v", err)
-	}
-}
-
-func (h *Handler) render(w http.ResponseWriter, templateName string, data any, statusCode ...int) {
-	// Default to 200 OK if no status code provided
-	status := http.StatusOK
-	if len(statusCode) > 0 {
-		status = statusCode[0]
-	}
-
-	// Use a buffer to run template execution before writing headers/body.
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-
-	if h.templates == nil {
-		// Templates are required for rendering; return 500 to signal a
-		// server-side configuration/template issue.
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 Internal Server Error - Template Issue"))
+		h.Error(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	var buf bytes.Buffer
-	if err := h.templates.ExecuteTemplate(&buf, templateName, data); err != nil {
-		log.Printf("Template execution error for %s: %v", templateName, err)
-		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte("500 Internal Server Error - Template Issue"))
-		return
-	}
-
-	w.WriteHeader(status)
-	w.Write(buf.Bytes())
+	w.WriteHeader(code)
+	buf.WriteTo(w)
 }
-
-// createSlug creates a URL-friendly slug from a string.
-func createSlug(input string) string {
-	// Convert to lowercase and replace non-alphanumeric with hyphens
-	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)
-	slug := reg.ReplaceAllString(strings.ToLower(input), "-")
-	return strings.Trim(slug, "-")
-}
-
-// (years extraction moved to repository — templates now read precomputed ConcertYears)

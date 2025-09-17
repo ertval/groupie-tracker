@@ -1,16 +1,16 @@
 # Groupie Tracker
 
-A robust, modern web application that displays information about bands and artists by consuming data from the Groupie Trackers API. Built with idiomatic Go, following the KISS (Keep It Simple, Stupid) principle and clean architecture. The codebase has been reviewed and confirmed to be fully idiomatic and minimal—no further simplification was needed.
+A robust, modern web application that displays information about bands and artists by consuming data from the Groupie Trackers API. Built with idiomatic Go, following the KISS (Keep It Simple, Stupid) principle and clean architecture.
 
 ## 🎯 Project Overview
 
 Groupie Tracker is a Go-based web application that:
 - Fetches data from the [Groupie Trackers API](https://groupietrackers.herokuapp.com/api)
 - Displays artist information, concert locations, and dates with SEO-friendly URLs
-- Implements responsive web design with self-contained HTML templates
+- Implements responsive web design with a modular, base-template structure
 - Provides robust error handling with proper HTTP status codes
 - Features panic recovery middleware for server stability
-- Achieves **75.8%** test coverage with comprehensive unit and integration tests
+- Achieves high test coverage with comprehensive unit and integration tests
 
 ## 🚀 Quick Start
 
@@ -40,227 +40,66 @@ go test -cover ./...
 
 The server starts on **localhost:8080** by default. Set the `PORT` environment variable to use a different port.
 
-## 🏗️ Current Architecture (September 2025)
+## 🏗️ Architecture
 
-### Clean Repository Pattern
-The application follows idiomatic Go patterns with clean architecture:
+The application follows a clean architecture that separates concerns into distinct packages.
 
 ```
-cmd/server/main.go           # Entry point with graceful shutdown
-cmd/server/server.go         # Server configuration and middleware
+cmd/server/                 # Main application entry point and server setup
 internal/
-    ├── data/            # Core data management
-    ├── data.go      # Complete data package with all functionality
-    └── data_test.go # Comprehensive test coverage (80.4%)
-  └── handlers/              # HTTP request handlers  
-      ├── handlers.go        # All HTTP endpoints and template rendering
-      └── handlers_test.go   # Handler tests (71.2% coverage)
-templates/                   # Self-contained HTML templates
-static/css/                  # Page-specific stylesheets
-tests/                      # End-to-end and audit tests
+    ├── data/               # Core data management
+    │   ├── api.go          # Structs for raw API responses
+    │   ├── domain.go       # Internal, pre-computed data models
+    │   └── repository.go   # The repository, responsible for data loading and access
+    └── handlers/           # HTTP request handlers
+        └── handlers.go     # All HTTP endpoints and template rendering logic
+templates/                  # Go templates for rendering HTML
+static/                     # Static assets (CSS, JS, images)
 ```
 
-### Repository Design
+### Repository Pattern
 
-The `repository` package provides all data management functionality:
+The `data` package implements a repository pattern. The `Repository` is the single source of truth for all application data. It fetches raw data from the external API, processes it into clean internal models, and pre-computes all necessary values at startup. This ensures that the HTTP handlers are fast and simple, as they only need to read from the repository without performing any calculations.
 
-```go
-// Create repository with API connection
-repo := data.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
-
-// Load data once from API endpoints
-err := repo.LoadData(ctx)
-
-// Access data through repository methods
-artists := repo.GetArtists()                    // All artists sorted by name
-artist, found := repo.GetArtistBySlug("queen")  // Artist by SEO slug
-locationStats := repo.GetLocationStats()        // All locations with statistics
-stats := repo.GetStats()                        // Global statistics
-```
-
-### Key Data Structures
-
-#### Core Models
-- **`Artist`**: Musical artist with concerts, SEO slug, and complete info
-- **`LocationStats`**: Location with artists that performed there
-- **`ComputedData`**: Internal processed data with indexes for efficiency
-
-#### Repository Features
-- **Single data load**: Efficient startup with one API call per endpoint
-- **Precomputed indexes**: SEO slugs, location stats calculated at startup
-- **Thread-safe access**: Repository methods support concurrent requests
-- **Memory efficient**: No data duplication, single source of truth
-
-## 📊 API Integration
-
-Uses all 4 Groupie Trackers API endpoints efficiently:
-
-1. **`/api/artists`** - Basic artist information (name, members, creation year, etc.)
-2. **`/api/locations`** - Available concert locations  
-3. **`/api/dates`** - Concert dates information
-4. **`/api/relation`** - Artist-location-date relationships (primary data source)
-
-### Data Processing Flow
-1. Fetch from API endpoints in parallel
-2. Process into domain models with SEO slugs
-3. Compute location statistics with concert dates per artist
-4. Generate global statistics for dashboard
-5. Create efficient lookup indexes for fast access
-
-## 🌐 Available Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| GET | `/` | Home page with featured artists |
-| GET | `/artists` | All artists listing page |
-| GET | `/artists/{slug}` | Artist detail page (SEO-friendly URLs) |
-| GET | `/locations` | All locations with statistics |
-| GET | `/locations/{slug}` | Location detail with concert dates |
-| GET | `/health` | JSON health check endpoint |
-| GET | `/static/*` | Static assets (CSS, images) |
-
-### SEO-Friendly URLs
-- `/artists/queen` instead of `/artists/28`
-- `/locations/new-york-usa` instead of `/locations/1`
-- Automatic slug generation from artist/location names
+### Data Flow
+1.  **Startup:** The `main` function creates a `data.Repository` instance.
+2.  **Data Loading:** `repo.LoadData()` is called once.
+    - It fetches data from all API endpoints.
+    - It transforms the raw API data into the application's internal domain models (`Artist`, `Location`).
+    - It performs all necessary computations (slug generation, sorting, calculating stats, building relationships for navigation).
+    - It stores the final, query-ready data in slices and maps within the repository.
+3.  **Request Handling:**
+    - An HTTP request comes in.
+    - The corresponding handler function is called.
+    - The handler calls a getter method on the repository (e.g., `repo.GetArtistBySlug(...)`).
+    - The getter method performs a fast, simple lookup in a pre-computed map or returns a pre-sorted slice.
+    - The handler passes the retrieved data to a template for rendering.
 
 ## 🧪 Testing & Quality
 
-### Test Coverage: **75.8%**
-- **Repository package**: 80.4% coverage (data management, business logic)
-- **Handlers package**: 71.2% coverage (HTTP handlers, error cases)  
-- **Overall internal packages**: 75.8% coverage
-- **Audit tests**: Zone01 compliance verification
+The project aims for high test coverage to ensure reliability and maintainability.
 
-**Note:** There is a known mixed package issue in the `tests` folder (`tests` and `main` packages in the same directory). This does not affect the main application or its test coverage; all core functionality and audit requirements are fully tested and passing.
+- **`internal/data`**: Unit tests for the repository's data loading and processing logic, using a mock HTTP server to provide consistent test data.
+- **`internal/handlers`**: Integration tests for the HTTP handlers, ensuring they respond correctly to different requests and render the appropriate templates.
+- **`cmd/server`**: Integration tests for the server setup, routing, and middleware.
 
-### Testing Strategy
 ```bash
-# Run all tests
-go test ./...
+# Run all tests with coverage
+go test ./... -cover
 
-# Run with coverage
-go test -cover ./...
-
-# Run specific test suites
-go test ./internal/repository  # Repository tests
-go test ./internal/handlers    # Handler tests
-go test ./tests               # Audit compliance tests
-go test ./cmd/server          # Server integration tests
-
-# Generate detailed coverage report
-go test -coverprofile=coverage.out ./internal/... && go tool cover -html=coverage.out
+# Generate an HTML coverage report
+go test -coverprofile=coverage.out ./... && go tool cover -html=coverage.out
 ```
-
-### Audit Compliance
-The application includes comprehensive audit tests that verify:
-- **Queen**: Exactly 7 members
-- **Gorillaz**: First album date "26-03-2001"
-- **Travis Scott**: Multiple concert locations
-- **All API endpoints**: Proper consumption of all 4 endpoints
-
-## 🔧 Development
-
-### Project Commands
-```bash
-# Development
-go run ./cmd/server/          # Start development server
-go test ./...                 # Run all tests
-go test -cover ./...         # Coverage report
-
-# Production
-go build -o groupie-tracker ./cmd/server  # Build binary
-./groupie-tracker                         # Run production server
-
-# Testing
-go test -v ./tests           # Verbose audit tests
-go test -race ./...          # Race condition detection
-```
-
-## 🔧 Development
-
-### Environment Variables
-- `PORT`: Server port (default: 8080)
-- API URL configured for official Groupie Trackers API
-
-### Project Structure Best Practices
-1. **Data first**: All data logic in `internal/data/data.go`
-2. **Handler simplicity**: Minimal business logic in handlers 
-3. **Self-contained templates**: Each template is complete HTML
-4. **Comprehensive testing**: Test-driven development approach
-5. **Clean architecture**: Clear separation of concerns
-
-## 📈 Performance & Reliability
-
-- **Single data load**: Efficient startup with one API call per endpoint
-- **Precomputed data**: Statistics and indexes calculated once
-- **Thread-safe access**: Repository methods support concurrent requests  
-- **Memory efficient**: No data duplication across structures
-- **Panic recovery**: Server stability with graceful error handling
-- **Graceful shutdown**: Clean resource management on termination
-
-## 🛡️ Error Handling
-
-### HTTP Status Codes
-- **200 OK**: Successful requests with valid data
-- **404 Not Found**: Artist/location not found, invalid paths  
-- **405 Method Not Allowed**: Invalid HTTP methods
-- **500 Internal Server Error**: Server errors with panic recovery
-
-### Error Pages
-- Custom error templates maintaining site design consistency
-- User-friendly error messages with navigation options
-- Proper HTTP status codes and headers
 
 ## 📝 Recent Updates (September 2025)
 
-### Current Status (September 17, 2025)
-- ✅ **All tests passing**: Fixed repository tests to match current API
-- ✅ **75.8% test coverage**: Exceeded 70% coverage target
-- ✅ **500 error template fix**: Proper error template rendering when templates fail
-- ✅ **Clean repository pattern**: Single repository with all data management
-- ✅ **Idiomatic Go**: Following Go best practices and patterns
-- ✅ **Documentation updated**: Accurate reflection of current architecture
-- ✅ **Template system**: Self-contained templates with proper error handling
+### Major Refactoring
 
-### Code Review & Refactoring (September 2025)
-The codebase was carefully reviewed for idiomatic Go and KISS compliance. No redundant data structures or duplicate code were found. All logic is minimal, clear, and follows Go best practices. No further refactoring was necessary.
+The application underwent a significant refactoring to improve performance, simplicity, and maintainability.
 
-### Architecture Improvements
-- **Single data package**: All data logic consolidated in `internal/data/data.go`
-- **API integration**: Proper consumption of all 4 Groupie Trackers endpoints
-- **Error handling**: Improved 500 error handling with fallback to templates
-- **Thread safety**: Repository designed for concurrent access
-- **Template rendering**: Enhanced error handling in template execution
-
-## 🎯 Zone01 Audit Compliance
-
-- **Queen**: ✅ Exactly 7 members displayed
-- **Gorillaz**: ✅ First album "26-03-2001" correctly shown  
-- **Travis Scott**: ✅ 10+ concert locations verified
-- **Foo Fighters**: ✅ Exactly 6 members confirmed
-- **API endpoints**: ✅ All 4 endpoints properly consumed
-- **SEO URLs**: ✅ Artist and location slugs implemented
-- **Error handling**: ✅ Custom 404/500 pages with proper status codes
-
-## 🏆 Zone01 Compliance
-
-This project meets all Zone01 educational requirements:
-- **Standard library only**: No third-party dependencies
-- **Test-driven development**: Tests written before implementation
-- **Server stability**: Comprehensive panic recovery
-- **Clean architecture**: Repository pattern with clear separation
-- **Audit compliance**: All required test cases pass
-- **Error handling**: Proper HTTP status codes and error pages
-
-## 📝 Development Workflow
-
-1. Tests are always written first (TDD).
-2. The repository pattern is strictly followed (`internal/repository/repository.go`).
-3. Templates are self-contained and not modified by code refactoring.
-4. All code is reviewed for idiomatic Go and KISS compliance before merging.
-5. Known test folder issue does not affect main application functionality.
-
-## 📄 License
-
-This project is part of the Zone01 educational curriculum.
+- **Decoupled Data Structures:** Created a clear separation between raw API data models (`internal/data/api.go`) and the application's internal domain models (`internal/data/domain.go`).
+- **Pre-computed Repository:** The `Repository` now holds fully pre-computed and query-ready data. All sorting, slug generation, and statistical calculations are performed once at startup in the `LoadData` function.
+- **Simplified Handlers:** HTTP handlers are now much simpler. They are only responsible for fetching pre-computed data from the repository and passing it to templates. All business logic has been moved out of the handlers and into the data layer.
+- **Zero Runtime Computation:** Getter methods on the repository (`GetArtists`, `GetArtistBySlug`, etc.) now perform simple map lookups or return pre-sorted slices, resulting in much faster response times.
+- **Modular Templates:** The template system was refactored to use a base template (`base.tmpl`), making the individual page templates cleaner and easier to maintain.
+- **Improved Testing:** The test suite was rewritten to use a mock HTTP server, providing faster and more reliable tests for the data and handler packages.

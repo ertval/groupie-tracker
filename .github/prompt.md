@@ -68,3 +68,10 @@ Remove the start server function. Create a bakingInfo function that logs all the
 
 ---
 
+│ > Give me a plan hwo would you refactor the data package such that: 1. You only use idiomatic        │
+│   GO and KISS Principle. Store your Plan in a md file. 2. Simplify as much as possible the           │
+│   package. 3. Have clear seperate data structs for the api calls, that is artist and relation,       │
+│   and for my own internal data store. 4. Have a Repository struct that will hold all                 │
+│   precomputed data that are need for the templates and handlers to run correctly. These values       │
+│   are computed and loaded with LoadData function. 5. Then there are getter methods for this repo     │
+│   instance to get the values out and use them directly without any computation at runtime.  
