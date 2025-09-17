@@ -71,8 +71,7 @@
                         <div class="location-info">
                             <h3 class="location-name"><a href="/locations/{{generateLocationSlug .Name}}">{{normalizeLocationName .Name}}</a></h3>
                             <div class="location-meta">
-                                <p class="artist-count">{{len .Artists}} artists</p>
-                                <p class="concert-count">{{.TotalConcerts}} concerts</p>
+                                <p class="location-stats-inline"><span class="artist-count">{{len .Artists}} artists</span> • <span class="concert-count">{{.TotalConcerts}} concerts</span></p>
                             </div>
                         </div>
                         <div class="location-artists">

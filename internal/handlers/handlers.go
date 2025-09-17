@@ -2,12 +2,14 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"groupie-tracker/internal/repository"
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"regexp"
 	"strconv"
 	"strings"
@@ -240,6 +242,40 @@ func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(response)
 }
 
+// StaticFiles handles all static file requests with 404 fallback for missing assets.
+func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var path string
+
+	// Handle different static file request patterns
+	switch {
+	case r.URL.Path == "/favicon.ico":
+		// Special handling for favicon requests
+		path = "static/favicon.ico"
+	case strings.HasPrefix(r.URL.Path, "/static/"):
+		// Handle /static/ prefixed requests
+		path = "static/" + strings.TrimPrefix(r.URL.Path, "/static/")
+	default:
+		// For any other static file patterns, treat as 404
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	// Check if the file exists
+	if _, err := os.Stat(path); err != nil {
+		// File doesn't exist - return 404 for all missing assets
+		http.Error(w, "Not Found", http.StatusNotFound)
+		return
+	}
+
+	// Serve the file
+	http.ServeFile(w, r, path)
+}
+
 // NotFound handles 404 errors.
 func (h *Handler) NotFound(w http.ResponseWriter, r *http.Request) {
 	data := struct {
@@ -291,6 +327,48 @@ func (h *Handler) DevPanic(w http.ResponseWriter, r *http.Request) {
 	panic("Development panic triggered")
 }
 
+// Dev404 is a development endpoint to test 404 error template.
+func (h *Handler) Dev404(w http.ResponseWriter, r *http.Request) {
+	// Simulate a client requesting a non-existent path so that the
+	// normal handler flow produces a 404 via NotFound.
+	req := r.Clone(r.Context())
+	req.URL.Path = "/__does_not_exist__"
+	h.Home(w, req)
+}
+
+// Dev500 is a development endpoint to test 500 error template.
+func (h *Handler) Dev500(w http.ResponseWriter, r *http.Request) {
+	// Simulate a normal handler encountering an internal error and
+	// calling InternalError as part of its flow. We create a small
+	// local mux and handler to represent that handler and then
+	// dispatch a synthetic request through it.
+	mux := http.NewServeMux()
+	mux.HandleFunc("/cause-500", func(w http.ResponseWriter, r *http.Request) {
+		// This represents an application handler that detected an error
+		// and uses the standard InternalError path to render a response.
+		h.InternalError(w, r, "Development 500 error triggered")
+	})
+
+	req := r.Clone(r.Context())
+	req.URL.Path = "/cause-500"
+	mux.ServeHTTP(w, req)
+}
+
+// DevTemplateError is a development endpoint to test template failure.
+func (h *Handler) DevTemplateError(w http.ResponseWriter, r *http.Request) {
+	// Simulate a template execution error by providing a templates set
+	// that does not contain the template name. We create an empty
+	// template set (non-nil) so ExecuteTemplate returns an undefined
+	// template error when handlers call it.
+	old := h.templates
+	h.templates = template.New("")
+	defer func() { h.templates = old }()
+
+	req := r.Clone(r.Context())
+	req.URL.Path = "/artists"
+	h.Artists(w, req)
+}
+
 // Private helper methods
 
 func (h *Handler) loadTemplates() {
@@ -339,51 +417,30 @@ func (h *Handler) render(w http.ResponseWriter, templateName string, data any, s
 		status = statusCode[0]
 	}
 
+	// Use a buffer to run template execution before writing headers/body.
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
 
-	// Handle nil templates (e.g., in tests)
 	if h.templates == nil {
-		log.Printf("Templates not loaded, rendering minimal error for %s", templateName)
-		w.Write([]byte("Internal server error - templates not loaded"))
+		// Templates are required for rendering; return 500 to signal a
+		// server-side configuration/template issue.
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 Internal Server Error - Template Issue"))
 		return
 	}
 
-	if err := h.templates.ExecuteTemplate(w, templateName, data); err != nil {
+	var buf bytes.Buffer
+	if err := h.templates.ExecuteTemplate(&buf, templateName, data); err != nil {
 		log.Printf("Template execution error for %s: %v", templateName, err)
-
-		// If this isn't already an error template, try to render error template
-		if templateName != "error.tmpl" {
-			// Create error data for template failure
-			errorData := struct {
-				Title        string
-				ExtraCSS     string
-				ExtraJS      string
-				ErrorCode    int
-				RequestedURL string
-				Message      string
-				Timestamp    string
-			}{
-				Title:        "Internal Server Error",
-				ExtraCSS:     "errors.css",
-				ExtraJS:      "",
-				ErrorCode:    500,
-				RequestedURL: "/",
-				Message:      "Template rendering failed",
-				Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
-			}
-
-			// Try to render error template
-			if renderErr := h.templates.ExecuteTemplate(w, "error.tmpl", errorData); renderErr != nil {
-				log.Printf("Error template also failed: %v", renderErr)
-				w.Write([]byte("Internal server error occurred"))
-			}
-		} else {
-			// If error.tmpl itself fails, write plain text as last resort
-			w.Write([]byte("Internal server error occurred"))
-		}
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte("500 Internal Server Error - Template Issue"))
+		return
 	}
-} // createSlug creates a URL-friendly slug from a string.
+
+	w.WriteHeader(status)
+	w.Write(buf.Bytes())
+}
+
+// createSlug creates a URL-friendly slug from a string.
 func createSlug(input string) string {
 	// Convert to lowercase and replace non-alphanumeric with hyphens
 	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)

@@ -72,26 +72,18 @@ func newServer() (*http.Server, error) {
 func createRouter(h *handlers.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
 
-	// Static file serving
-	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
-
-	// Favicon: serve static/favicon.ico if present, otherwise return 204 No Content.
-	// This must be registered before the "/" catch-all route
-	mux.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
-		// Prefer a physical file under static/favicon.ico so browsers get a real icon.
-		faviconPath := "static/favicon.ico"
-		if _, err := os.Stat(faviconPath); err == nil {
-			http.ServeFile(w, r, faviconPath)
-			return
-		}
-		// No favicon available; return 204 to indicate "no content" and avoid extra logs.
-		w.WriteHeader(http.StatusNoContent)
-	})
+	// Static file serving - unified handler for all static assets
+	mux.HandleFunc("/static/", h.StaticFiles)
+	mux.HandleFunc("/favicon.ico", h.StaticFiles)
 
 	// Health check (register before "/" to avoid catch-all)
 	mux.HandleFunc("/health", h.Health)
-	// Development: panic trigger endpoint (DEV ONLY)
+
+	// Development endpoints (DEV ONLY)
 	mux.HandleFunc("/dev/panic", h.DevPanic)
+	mux.HandleFunc("/dev/404", h.Dev404)
+	mux.HandleFunc("/dev/500", h.Dev500)
+	mux.HandleFunc("/dev/template-error", h.DevTemplateError)
 
 	// Web routes - specific routes first, then more general ones
 	mux.HandleFunc("/artists", h.Artists)
@@ -116,7 +108,9 @@ func withRecovery(next http.Handler) http.Handler {
 		defer func() {
 			if err := recover(); err != nil {
 				log.Printf("Panic recovered: %v", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+				w.WriteHeader(http.StatusInternalServerError)
+				w.Write([]byte("500 Internal Server Error"))
 			}
 		}()
 		next.ServeHTTP(w, r)

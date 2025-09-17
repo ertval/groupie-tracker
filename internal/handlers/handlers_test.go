@@ -210,3 +210,59 @@ func TestHandlersWithoutTemplates(t *testing.T) {
 		})
 	}
 }
+
+func TestStaticFilesHandler(t *testing.T) {
+	repo := createTestRepository()
+	handler := &Handler{repo: repo}
+
+	tests := []struct {
+		name     string
+		path     string
+		method   string
+		wantCode int
+	}{
+		{
+			name:     "Static file not found returns 404",
+			path:     "/static/nonexistent.css",
+			method:   "GET",
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:     "Favicon not found returns 404",
+			path:     "/favicon.ico",
+			method:   "GET",
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:     "Non-static path returns 404",
+			path:     "/some/random/path",
+			method:   "GET",
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:     "Invalid method returns 405",
+			path:     "/static/test.css",
+			method:   "POST",
+			wantCode: http.StatusMethodNotAllowed,
+		},
+		{
+			name:     "Invalid method for favicon returns 405",
+			path:     "/favicon.ico",
+			method:   "POST",
+			wantCode: http.StatusMethodNotAllowed,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(tt.method, tt.path, nil)
+			w := httptest.NewRecorder()
+
+			handler.StaticFiles(w, req)
+
+			if w.Code != tt.wantCode {
+				t.Errorf("Expected status %d, got %d", tt.wantCode, w.Code)
+			}
+		})
+	}
+}

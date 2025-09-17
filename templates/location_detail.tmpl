@@ -45,12 +45,11 @@
                                 </a>
                             </div>
                             <div class="artist-info">
-                                <h3>
+                                <h3 class="artist-heading">
                                     <a href="/artists/{{.Slug}}" class="artist-link">{{.Name}}</a>
                                 </h3>
-                                <div class="artist-details">
-                                    <span class="creation-year">{{.CreationYear}}</span>
-                                    <span class="member-count">{{len .Members}} members</span>
+                                <div class="artist-meta muted-small">
+                                    <strong>Creation Year:</strong> {{.CreationYear}} &nbsp; <strong>Members:</strong> {{len .Members}}
                                 </div>
                                 {{/* Concert dates this artist played at this location (from Location.ConcertDates) */}}
                                 {{$dates := index $.Location.ConcertDates .ID}}
