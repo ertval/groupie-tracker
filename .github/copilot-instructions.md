@@ -27,7 +27,7 @@ cmd/server/main.go           # Entry point with graceful shutdown
 cmd/server/server.go         # Server configuration and middleware
 internal/
   ├── repository/            # Core data management
-  │   ├── repository.go      # Complete repository (379 lines, 84.2% coverage)
+    │   ├── data.go      # Complete data package (379 lines, 84.2% coverage)
   │   └── repository_test.go # Comprehensive tests
   └── handlers/              # HTTP handlers
       ├── handlers.go        # All endpoints (395 lines, 71.2% coverage)
@@ -41,7 +41,7 @@ tests/                      # End-to-end and audit tests
 ```
 
 **🏗️ Current Architecture:**
-- Repository pattern: `repository.Repository` manages all data operations
+-- Data package: `data.Repository` manages all data operations
 - Single initialization: Load data once at startup via `repo.LoadData(ctx)`
 - Precomputed indexes: SEO slugs, location stats calculated at load time
 - Thread-safe operations through repository methods
@@ -49,7 +49,7 @@ tests/                      # End-to-end and audit tests
 ### Repository Pattern (September 2025)
 ```go
 // Repository initialization in server startup
-repo := repository.NewRepository(apiURL, timeout)
+repo := data.NewRepository(apiURL, timeout)
 if err := repo.LoadData(ctx); err != nil {
     log.Fatalf("Failed to load data: %v", err)
 }
@@ -63,7 +63,7 @@ stats := repo.GetStats()
 
 ## Critical Data Flow Patterns
 
-### API Data Normalization (in `internal/repository/repository.go`)
+### API Data Normalization (in `internal/data/data.go`)
 - `/api/artists` → direct array of Artist structs
 - `/api/locations`, `/api/dates`, `/api/relation` → `{"index": [...]}` format
 - Must extract `.Index` field for locations/dates/relations
@@ -151,7 +151,7 @@ func (h *Handler) render(w http.ResponseWriter, templateName string, data any, s
 5. **Check error template compatibility** (ErrorCode, ExtraCSS fields)
 
 **File Reading Priority:**
-1. `internal/repository/repository.go` (repository with all business logic)
+1. `internal/data/data.go` (data package with all business logic)
 2. `internal/handlers/handlers.go` (error handling patterns)
 3. `templates/*.tmpl` (self-contained template examples)
 4. Test files for current API usage patterns

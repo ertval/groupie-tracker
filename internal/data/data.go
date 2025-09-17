@@ -1,7 +1,7 @@
-// Package repository provides the core data management functionality for the Groupie Tracker application.
+// Package data provides the core data management functionality for the Groupie Tracker application.
 // This package follows idiomatic Go patterns with clear separation between API responses,
 // domain models, and the repository that manages all data operations.
-package repository
+package data
 
 import (
 	"context"

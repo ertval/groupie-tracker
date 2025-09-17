@@ -11,12 +11,12 @@ import (
 	"testing"
 	"time"
 
-	"groupie-tracker/internal/repository"
+	"groupie-tracker/internal/data"
 )
 
-func createTestRepository() *repository.Repository {
+func createTestRepository() *data.Repository {
 	// Create repository without loading data for basic handler testing
-	repo := repository.NewRepository("http://test-api", time.Second*5)
+	repo := data.NewRepository("http://test-api", time.Second*5)
 	return repo
 }
 
@@ -270,7 +270,7 @@ func TestStaticFilesHandler(t *testing.T) {
 // --- Begin merged dev tests from handlers_dev_test.go ---
 
 func setupHandler(t *testing.T) *Handler {
-	repo := repository.NewRepository("https://groupietrackers.herokuapp.com", 10*time.Second)
+	repo := data.NewRepository("https://groupietrackers.herokuapp.com", 10*time.Second)
 	if err := repo.LoadData(context.Background()); err != nil {
 		t.Fatalf("failed to load data for tests: %v", err)
 	}

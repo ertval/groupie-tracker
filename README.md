@@ -49,9 +49,9 @@ The application follows idiomatic Go patterns with clean architecture:
 cmd/server/main.go           # Entry point with graceful shutdown
 cmd/server/server.go         # Server configuration and middleware
 internal/
-  └── repository/            # Core data management
-      ├── repository.go      # Complete repository with all functionality
-      └── repository_test.go # Comprehensive test coverage (80.4%)
+    ├── data/            # Core data management
+    ├── data.go      # Complete data package with all functionality
+    └── data_test.go # Comprehensive test coverage (80.4%)
   └── handlers/              # HTTP request handlers  
       ├── handlers.go        # All HTTP endpoints and template rendering
       └── handlers_test.go   # Handler tests (71.2% coverage)
@@ -66,7 +66,7 @@ The `repository` package provides all data management functionality:
 
 ```go
 // Create repository with API connection
-repo := repository.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
+repo := data.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
 
 // Load data once from API endpoints
 err := repo.LoadData(ctx)
@@ -184,7 +184,7 @@ go test -race ./...          # Race condition detection
 - API URL configured for official Groupie Trackers API
 
 ### Project Structure Best Practices
-1. **Repository first**: All data logic in `internal/repository/repository.go`
+1. **Data first**: All data logic in `internal/data/data.go`
 2. **Handler simplicity**: Minimal business logic in handlers 
 3. **Self-contained templates**: Each template is complete HTML
 4. **Comprehensive testing**: Test-driven development approach
@@ -227,7 +227,7 @@ go test -race ./...          # Race condition detection
 The codebase was carefully reviewed for idiomatic Go and KISS compliance. No redundant data structures or duplicate code were found. All logic is minimal, clear, and follows Go best practices. No further refactoring was necessary.
 
 ### Architecture Improvements
-- **Single repository**: All data logic consolidated in `internal/repository/repository.go`
+- **Single data package**: All data logic consolidated in `internal/data/data.go`
 - **API integration**: Proper consumption of all 4 Groupie Trackers endpoints
 - **Error handling**: Improved 500 error handling with fallback to templates
 - **Thread safety**: Repository designed for concurrent access

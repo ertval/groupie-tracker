@@ -1,5 +1,5 @@
-// Package repository provides tests for the core application functionality.
-package repository
+// Package data provides tests for the core application functionality.
+package data
 
 import (
 	"testing"

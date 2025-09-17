@@ -3,7 +3,7 @@ package tests
 import (
 	"context"
 	"fmt"
-	"groupie-tracker/internal/repository"
+	"groupie-tracker/internal/data"
 	"time"
 )
 
@@ -13,7 +13,7 @@ func Run() {
 	fmt.Println("Testing refactored repository...")
 
 	// Test the refactored repository
-	repo := repository.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
+	repo := data.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

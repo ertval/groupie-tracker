@@ -6,8 +6,8 @@ The Groupie Tracker application was carefully reviewed for idiomatic Go and KISS
 ## Key Changes
 templates/
 
-### Repository Architecture
-The repository package is clean, minimal, and idiomatic. All API endpoints are consumed as required, and all data structures are single-source-of-truth. No duplicate logic or unnecessary complexity exists.
+### Data Package Architecture
+The data package is clean, minimal, and idiomatic. All API endpoints are consumed as required, and all data structures are single-source-of-truth. No duplicate logic or unnecessary complexity exists.
 
 ### Template System
 Templates are self-contained and compatible with the repository. No changes were needed to adapt code to templates.

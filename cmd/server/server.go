@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"groupie-tracker/internal/data"
 	"groupie-tracker/internal/handlers"
-	"groupie-tracker/internal/repository"
 )
 
 const (
@@ -26,7 +26,7 @@ const (
 // newServer creates and initializes a new HTTP server.
 func newServer() (*http.Server, error) {
 	// Initialize data repository
-	repo := repository.NewRepository(defaultAPIURL, requestTimeout)
+	repo := data.NewRepository(defaultAPIURL, requestTimeout)
 
 	// Load data from API
 	log.Println("Loading initial data...")

@@ -5,7 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"groupie-tracker/internal/repository"
+	"groupie-tracker/internal/data"
 	"html/template"
 	"log"
 	"net/http"
@@ -18,12 +18,12 @@ import (
 
 // Handler holds the application state and handlers.
 type Handler struct {
-	repo      *repository.Repository
+	repo      *data.Repository
 	templates *template.Template
 }
 
 // NewHandler creates a new handler with the given repository.
-func NewHandler(repo *repository.Repository) *Handler {
+func NewHandler(repo *data.Repository) *Handler {
 	h := &Handler{repo: repo}
 	h.loadTemplates()
 	return h
@@ -49,7 +49,7 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		Title          string
 		ExtraCSS       string
 		ExtraJS        string
-		Artists        []repository.Artist
+		Artists        []data.Artist
 		TotalMembers   int
 		TotalLocations int
 	}{
@@ -82,7 +82,7 @@ func (h *Handler) Artists(w http.ResponseWriter, r *http.Request) {
 		Title    string
 		ExtraCSS string
 		ExtraJS  string
-		Artists  []repository.Artist
+		Artists  []data.Artist
 	}{
 		Title:    "Artists",
 		ExtraCSS: "artists.css",
@@ -107,7 +107,7 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var artist repository.Artist
+	var artist data.Artist
 	var found bool
 
 	// Try slug first, then ID
@@ -128,11 +128,11 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		Title         string
 		ExtraCSS      string
 		ExtraJS       string
-		Artist        repository.Artist
+		Artist        data.Artist
 		TotalConcerts int
 		Countries     []string
-		PrevArtist    *repository.Artist
-		NextArtist    *repository.Artist
+		PrevArtist    *data.Artist
+		NextArtist    *data.Artist
 	}{
 		Title:         artist.Name,
 		ExtraCSS:      "artist_detail.css",
@@ -168,8 +168,8 @@ func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS       string
 		ExtraJS        string
 		Locations      []string
-		LocationStats  []repository.LocationStats
-		TopLocations   []repository.LocationStats
+		LocationStats  []data.LocationStats
+		TopLocations   []data.LocationStats
 		TotalCountries int
 		TotalConcerts  int
 	}{
@@ -211,8 +211,8 @@ func (h *Handler) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS     string
 		ExtraJS      string
 		LocationName string
-		Location     repository.LocationStats
-		Artists      []repository.Artist
+		Location     data.LocationStats
+		Artists      []data.Artist
 	}{
 		Title:        fmt.Sprintf("%s - Location", location.Name),
 		ExtraCSS:     "locations.css",
