@@ -27,8 +27,8 @@ type Artist struct {
 	Concerts     map[string][]string `json:"datesLocations,omitempty"` // location -> dates
 }
 
-// RelationData represents the API response from /api/relation endpoint.
-type RelationData struct {
+// Relation represents the API response from /api/relation endpoint.
+type Relation struct {
 	Index []struct {
 		ID             int                 `json:"id"`
 		DatesLocations map[string][]string `json:"datesLocations"`
@@ -88,7 +88,7 @@ func (r *Repository) LoadData(ctx context.Context) error {
 	}
 
 	// Fetch relations from API
-	var relationsResp RelationData
+	var relationsResp Relation
 	if err := r.fetchJSON(ctx, "/api/relation", &relationsResp); err != nil {
 		return fmt.Errorf("failed to fetch relations: %w", err)
 	}
@@ -239,7 +239,7 @@ func (r *Repository) GetStats() map[string]int {
 
 // Private helper methods
 
-func (r *Repository) fetchJSON(ctx context.Context, path string, dest interface{}) error {
+func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", r.baseURL+path, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
