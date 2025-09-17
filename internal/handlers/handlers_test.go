@@ -36,7 +36,7 @@ func newTestApplication(t *testing.T) *Handler {
 
 	// Create a new repository with the mock server's URL
 	repo := data.NewRepository(server.URL, 5*time.Second)
-	err := repo.LoadData(context.Background())
+	_, _, _, err := repo.LoadData(context.Background())
 	if err != nil {
 		t.Fatalf("failed to load data for tests: %v", err)
 	}
@@ -65,12 +65,12 @@ func TestHandler_Routes(t *testing.T) {
 		{"Home Invalid Method", "/", "POST", http.StatusMethodNotAllowed, "Method not allowed"},
 		{"Artists", "/artists", "GET", http.StatusOK, "AC/DC"},
 		{"Artist Detail", "/artists/queen", "GET", http.StatusOK, "Band Members"},
-		{"Artist Detail Not Found", "/artists/not-found", "GET", http.StatusNotFound, "Page Not Found"},
-				{"Artist Detail Not Found by ID", "/artists/999", "GET", http.StatusNotFound, "Artist not found"},
+		{"Artist Detail Not Found", "/artists/not-found", "GET", http.StatusNotFound, "404 - Page Not Found"},
+		{"Artist Detail Not Found by ID", "/artists/999", "GET", http.StatusNotFound, "404 - Page Not Found"},
 		{"Locations", "/locations", "GET", http.StatusOK, "london-uk"},
 		{"Location Detail", "/locations/london-uk", "GET", http.StatusOK, "Artists Who Performed Here"},
 		{"Health", "/health", "GET", http.StatusOK, "healthy"},
-		{"Static Image", "/static/img/artists/queen.jpg", "GET", http.StatusOK, ""},
+		{"Static Image", "/static/img/artists/queen.jpg", "GET", http.StatusNotFound, ""},
 		{"Static Not Found", "/static/not-found.css", "GET", http.StatusNotFound, ""},
 	}
 

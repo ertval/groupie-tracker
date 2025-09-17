@@ -35,7 +35,7 @@ func TestRepository_LoadData_Success(t *testing.T) {
 	repo := NewRepository(server.URL, 5*time.Second)
 
 	// Load the data
-	err := repo.LoadData(context.Background())
+	_, _, _, err := repo.LoadData(context.Background())
 	if err != nil {
 		t.Fatalf("LoadData() failed: %v", err)
 	}

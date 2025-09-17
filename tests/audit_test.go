@@ -14,7 +14,7 @@ func TestAuditCompliance(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	err := store.LoadData(ctx)
+	_, _, _, err := store.LoadData(ctx)
 	if err != nil {
 		t.Fatalf("Failed to load data: %v", err)
 	}

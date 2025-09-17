@@ -16,7 +16,8 @@
                 <div class="top-location-item">
                     <span class="rank">{{add $index 1}}</span>
                     <span class="location-name"><a href="/locations/{{$location.Slug}}">{{$location.Name | title}}</a></span>
-                    <span class="stats">{{$location.TotalConcerts}} concerts</span>
+                    <span class="stats">{{$location.TotalConcerts}} concerts • {{$location.ArtistCount}} artists</span>
+                    {{/* Top 10 list intentionally kept clean (no artist names) */}}
                 </div>
                 {{end}}
                 {{end}}
@@ -32,9 +33,15 @@
                         <h3 class="location-name"><a href="/locations/{{.Slug}}">{{.Name | title}}</a></h3>
                         <div class="location-meta">
                             <p class="location-stats-inline">
-                                <span class="artist-count">{{.ArtistCount}} artists</span> • 
-                                <span class="concert-count">{{.TotalConcerts}} concerts</span>
+                                <span class="concert-count">{{.TotalConcerts}} concerts</span> • 
+                                <span class="artist-count">{{.ArtistCount}} artists</span>
                             </p>
+                            {{/* Inline list of artists for the full list view */}}
+                            {{if gt (len .Artists) 0}}
+                            <p class="location-artists muted">
+                                {{range $i, $artist := .Artists}}{{if gt $i 0}}, {{end}}<a href="/artists/{{$artist.Slug}}">{{$artist.Name}}</a>{{end}}
+                            </p>
+                            {{end}}
                         </div>
                     </div>
                 </div>

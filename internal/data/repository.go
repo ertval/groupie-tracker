@@ -1,4 +1,3 @@
-
 package data
 
 import (
@@ -6,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -41,16 +41,16 @@ func NewRepository(baseURL string, timeout time.Duration) *Repository {
 }
 
 // LoadData fetches, processes, and pre-computes all data from the API endpoints.
-func (r *Repository) LoadData(ctx context.Context) error {
+func (r *Repository) LoadData(ctx context.Context) (int, int, int, error) {
 	// 1. EXTRACT: Fetch raw data from API endpoints
 	var apiArtists []APIArtist
 	if err := r.fetchJSON(ctx, "/api/artists", &apiArtists); err != nil {
-		return fmt.Errorf("failed to fetch artists: %w", err)
+		return 0, 0, 0, fmt.Errorf("failed to fetch artists: %w", err)
 	}
 
 	var apiRelations APIRelation
 	if err := r.fetchJSON(ctx, "/api/relation", &apiRelations); err != nil {
-		return fmt.Errorf("failed to fetch relations: %w", err)
+		return 0, 0, 0, fmt.Errorf("failed to fetch relations: %w", err)
 	}
 
 	// 2. TRANSFORM: Process raw data into rich domain models
@@ -123,9 +123,35 @@ func (r *Repository) LoadData(ctx context.Context) error {
 		finalArtists = append(finalArtists, *artist)
 	}
 
-	// Cache images locally
+	// Cache images locally. Collect summary counts to avoid noisy per-image logs.
+	cachedCount := 0
+	downloadedCount := 0
+	failedCount := 0
 	for i := range finalArtists {
-		r.cacheImage(&finalArtists[i])
+		cached, err := r.cacheImage(&finalArtists[i])
+		if err != nil {
+			// Count failures but don't log per-artist to avoid noisy output
+			failedCount++
+			continue
+		}
+		if cached {
+			cachedCount++
+		} else {
+			downloadedCount++
+		}
+	}
+
+	// Single summary log about image loading
+	if failedCount == 0 {
+		if downloadedCount == 0 {
+			log.Printf("Images loaded from cache: %d images", cachedCount)
+		} else if cachedCount == 0 {
+			log.Printf("Images downloaded from API: %d images", downloadedCount)
+		} else {
+			log.Printf("Images: %d cached, %d downloaded", cachedCount, downloadedCount)
+		}
+	} else {
+		log.Printf("Images: %d cached, %d downloaded, %d failed", cachedCount, downloadedCount, failedCount)
 	}
 
 	// Sort artists by name for consistent ordering
@@ -210,7 +236,7 @@ func (r *Repository) LoadData(ctx context.Context) error {
 		"total_countries": len(countrySet),
 	}
 
-	return nil
+	return cachedCount, downloadedCount, failedCount, nil
 }
 
 // --- Getters ---
@@ -250,7 +276,7 @@ func (r *Repository) GetStats() map[string]int {
 
 // --- Private Helper Methods ---
 
-func (r *Repository) cacheImage(artist *Artist) error {
+func (r *Repository) cacheImage(artist *Artist) (bool, error) {
 	originalImageURL := artist.Image
 	cacheDir := "static/img/artists"
 	fileName := fmt.Sprintf("%s.jpg", artist.Slug)
@@ -260,39 +286,44 @@ func (r *Repository) cacheImage(artist *Artist) error {
 	// Check if the file already exists
 	if _, err := os.Stat(filePath); err == nil {
 		artist.Image = localImagePath // File exists, just update path
-		return nil
+		return true, nil
 	} else if !os.IsNotExist(err) {
-		return err // A different error occurred
+		return false, err // A different error occurred
 	}
 
 	// File does not exist, so download it
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return err
+		return false, err
+	}
+
+	// If originalImageURL is empty, nothing to download
+	if strings.TrimSpace(originalImageURL) == "" {
+		return false, fmt.Errorf("empty image URL for artist %s", artist.Name)
 	}
 
 	resp, err := http.Get(originalImageURL)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("failed to download image for %s: status %d", artist.Name, resp.StatusCode)
+		return false, fmt.Errorf("failed to download image for %s: status %d", artist.Name, resp.StatusCode)
 	}
 
 	file, err := os.Create(filePath)
 	if err != nil {
-		return err
+		return false, err
 	}
 	defer file.Close()
 
 	_, err = io.Copy(file, resp.Body)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	artist.Image = localImagePath // Update to local path after successful download
-	return nil
+	return false, nil
 }
 
 func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error {

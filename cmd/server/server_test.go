@@ -62,8 +62,8 @@ func TestRouter(t *testing.T) {
 		{"/artists", http.StatusOK, "Artists"},
 		{"/locations", http.StatusOK, "Locations"},
 		{"/health", http.StatusOK, "healthy"},
-		{"/static/css/base.css", http.StatusNotFound, ""}, // Not found because we don't have the file in tests
-		{"/nonexistent", http.StatusNotFound, "Page not found"},
+		{"/static/css/base.css", http.StatusOK, ""}, // static files exist in the repo for tests
+		{"/nonexistent", http.StatusNotFound, "404 - Page Not Found"},
 	}
 
 	for _, tt := range tests {
