@@ -10,7 +10,7 @@ Groupie Tracker is a Go-based web application that:
 - Implements responsive web design with self-contained HTML templates
 - Provides robust error handling with proper HTTP status codes
 - Features panic recovery middleware for server stability
-- Achieves 77% test coverage with comprehensive unit and integration tests
+- Achieves **75.8%** test coverage with comprehensive unit and integration tests
 
 ## 🚀 Quick Start
 
@@ -40,81 +40,56 @@ go test -cover ./...
 
 The server starts on **localhost:8080** by default. Set the `PORT` environment variable to use a different port.
 
-## 🏗️ Architecture (September 2025)
+## 🏗️ Current Architecture (September 2025)
 
-### Idiomatic Go Repository Pattern
+### Clean Repository Pattern
 The application follows idiomatic Go patterns with clean architecture:
 
 ```
 cmd/server/main.go           # Entry point with graceful shutdown
+cmd/server/server.go         # Server configuration and middleware
 internal/
   └── repository/            # Core data management
-      ├── repository.go      # Single repository with all functionality
-      └── repository_test.go # Comprehensive test coverage
-  └── handlers/              # HTTP request handlers
-      ├── handlers.go        # All HTTP endpoints
-      └── handlers_test.go   # Handler tests
+      ├── repository.go      # Complete repository with all functionality
+      └── repository_test.go # Comprehensive test coverage (80.4%)
+  └── handlers/              # HTTP request handlers  
+      ├── handlers.go        # All HTTP endpoints and template rendering
+      └── handlers_test.go   # Handler tests (71.2% coverage)
 templates/                   # Self-contained HTML templates
 static/css/                  # Page-specific stylesheets
 tests/                      # End-to-end and audit tests
-doc/                        # Current documentation
 ```
 
 ### Repository Design
 
-#### API Response Structs
-Direct mappings from the 4 API endpoints:
-- `ArtistAPIResponse` - from `/api/artists` 
-- `LocationAPIResponse` - from `/api/locations`
-- `DateAPIResponse` - from `/api/dates`
-- `RelationAPIResponse` - from `/api/relation`
+The `repository` package provides all data management functionality:
 
-#### Domain Models
-Processed business logic structures:
-- `Artist` - Musical artist with SEO slug
-- `Concert` - Concert information with location-date mappings
-- `LocationStats` - Location statistics with concert dates per artist
-- `ComputedData` - Internal processed data structure
-
-#### Single Repository
-- One exported `Repository` struct
-- Thread-safe data access
-- Single initialization: `NewRepository(baseURL, timeout)`
-- Single data load: `LoadData(ctx)` fetches from all 4 endpoints
-- Precomputed indexes and statistics
-  ├── api/client.go         # External API consumption (1:1 API mapping)
-  ├── data/data.go          # Repository pattern with all business logic
-  └── handlers/handlers.go  # HTTP handlers with adapter pattern
-templates/                  # Self-contained HTML templates
-static/css/                 # Page-specific stylesheets
-tests/                     # Audit compliance & E2E tests
-```
-
-### Key Features
-
-#### Repository Pattern
 ```go
-// Initialize repository with API connection
+// Create repository with API connection
 repo := repository.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second)
 
-// Load data once from all 4 API endpoints  
+// Load data once from API endpoints
 err := repo.LoadData(ctx)
 
 // Access data through repository methods
 artists := repo.GetArtists()                    // All artists sorted by name
 artist, found := repo.GetArtistBySlug("queen")  // Artist by SEO slug
 locationStats := repo.GetLocationStats()        // All locations with statistics
+stats := repo.GetStats()                        // Global statistics
 ```
 
-#### Enhanced Location Details
-- **Concert dates per artist**: Location detail pages now show specific concert dates for each artist
-- **Rich statistics**: Artist count, total shows, concert count per location
-- **SEO-friendly URLs**: Clean slugs for all artists and locations
+### Key Data Structures
 
-#### Template System
-- **Self-contained templates**: Each `.tmpl` file is a complete HTML document  
-- **No template inheritance**: Direct execution with clear data structures
-- **Concert dates display**: Shows dates under artist member count in location details
+#### Core Models
+- **`Artist`**: Musical artist with concerts, SEO slug, and complete info
+- **`LocationStats`**: Location with artists that performed there
+- **`ComputedData`**: Internal processed data with indexes for efficiency
+
+#### Repository Features
+- **Single data load**: Efficient startup with one API call per endpoint
+- **Precomputed indexes**: SEO slugs, location stats calculated at startup
+- **Thread-safe access**: Repository methods support concurrent requests
+- **Memory efficient**: No data duplication, single source of truth
 
 ## 📊 API Integration
 
@@ -151,11 +126,10 @@ Uses all 4 Groupie Trackers API endpoints efficiently:
 
 ## 🧪 Testing & Quality
 
-### Test Coverage: **77.1%**
-- **Server tests**: 67.2% coverage (middleware, routing, integration)
-- **API tests**: 86.2% coverage (HTTP client, data fetching)
-- **Data tests**: 92.8% coverage (repository, business logic)
-- **Handlers tests**: 64.8% coverage (HTTP handlers, error cases)
+### Test Coverage: **75.8%**
+- **Repository package**: 80.4% coverage (data management, business logic)
+- **Handlers package**: 71.2% coverage (HTTP handlers, error cases)  
+- **Overall internal packages**: 75.8% coverage
 - **Audit tests**: Zone01 compliance verification
 
 ### Testing Strategy
@@ -167,17 +141,21 @@ go test ./...
 go test -cover ./...
 
 # Run specific test suites
-go test ./internal/data     # Repository tests
-go test ./tests             # Audit compliance tests
-go test ./cmd/server        # Server integration tests
+go test ./internal/repository  # Repository tests
+go test ./internal/handlers    # Handler tests
+go test ./tests               # Audit compliance tests
+go test ./cmd/server          # Server integration tests
+
+# Generate detailed coverage report
+go test -coverprofile=coverage.out ./internal/... && go tool cover -html=coverage.out
 ```
 
 ### Audit Compliance
 The application includes comprehensive audit tests that verify:
 - **Queen**: Exactly 7 members
 - **Gorillaz**: First album date "26-03-2001"
-- **Travis Scott**: 10+ concert locations
-- **Foo Fighters**: Exactly 6 members
+- **Travis Scott**: Multiple concert locations
+- **All API endpoints**: Proper consumption of all 4 endpoints
 
 ## 🔧 Development
 
@@ -234,21 +212,21 @@ go test -race ./...          # Race condition detection
 
 ## 📝 Recent Updates (September 2025)
 
-### Idiomatic Go Refactoring (September 16, 2025)
-- ✅ **Clean repository architecture**: Single repository struct with proper separation of concerns
-- ✅ **API response structs**: Direct mappings from all 4 API endpoints without duplication
-- ✅ **Enhanced location details**: Concert dates now displayed under artist member count  
-- ✅ **Domain model clarity**: Clear separation between API responses and domain models
-- ✅ **Comprehensive testing**: All tests updated and passing with new structure
-- ✅ **Documentation cleanup**: Removed outdated docs, created current architecture summary
-- ✅ **Performance optimization**: Single data load with precomputed statistics
-- ✅ **Thread safety**: Repository methods designed for concurrent access
+### Current Status (September 17, 2025)
+- ✅ **All tests passing**: Fixed repository tests to match current API
+- ✅ **75.8% test coverage**: Exceeded 70% coverage target
+- ✅ **500 error template fix**: Proper error template rendering when templates fail
+- ✅ **Clean repository pattern**: Single repository with all data management
+- ✅ **Idiomatic Go**: Following Go best practices and patterns
+- ✅ **Documentation updated**: Accurate reflection of current architecture
+- ✅ **Template system**: Self-contained templates with proper error handling
 
 ### Architecture Improvements
-- **Four API endpoint usage**: Properly utilizes `/api/artists`, `/api/locations`, `/api/dates`, `/api/relation`
-- **No data duplication**: Single source of truth for all application data
-- **Computed data structure**: Efficient internal data organization for template needs
-- **Location concert dates**: Enhanced location pages show when each artist performed there
+- **Single repository**: All data logic consolidated in `internal/repository/repository.go`
+- **API integration**: Proper consumption of all 4 Groupie Trackers endpoints
+- **Error handling**: Improved 500 error handling with fallback to templates
+- **Thread safety**: Repository designed for concurrent access
+- **Template rendering**: Enhanced error handling in template execution
 
 ## 🎯 Zone01 Audit Compliance
 

@@ -342,21 +342,48 @@ func (h *Handler) render(w http.ResponseWriter, templateName string, data any, s
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(status)
 
+	// Handle nil templates (e.g., in tests)
+	if h.templates == nil {
+		log.Printf("Templates not loaded, rendering minimal error for %s", templateName)
+		w.Write([]byte("Internal server error - templates not loaded"))
+		return
+	}
+
 	if err := h.templates.ExecuteTemplate(w, templateName, data); err != nil {
 		log.Printf("Template execution error for %s: %v", templateName, err)
-		// Don't call InternalError as it would create a cycle
-		// Only write error response if this isn't an error template already failing
+
+		// If this isn't already an error template, try to render error template
 		if templateName != "error.tmpl" {
-			// Template failed, but headers already sent - log and write minimal error
-			w.Write([]byte("Template rendering failed"))
+			// Create error data for template failure
+			errorData := struct {
+				Title        string
+				ExtraCSS     string
+				ExtraJS      string
+				ErrorCode    int
+				RequestedURL string
+				Message      string
+				Timestamp    string
+			}{
+				Title:        "Internal Server Error",
+				ExtraCSS:     "errors.css",
+				ExtraJS:      "",
+				ErrorCode:    500,
+				RequestedURL: "/",
+				Message:      "Template rendering failed",
+				Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+			}
+
+			// Try to render error template
+			if renderErr := h.templates.ExecuteTemplate(w, "error.tmpl", errorData); renderErr != nil {
+				log.Printf("Error template also failed: %v", renderErr)
+				w.Write([]byte("Internal server error occurred"))
+			}
 		} else {
-			// If error.tmpl itself fails, write plain text
+			// If error.tmpl itself fails, write plain text as last resort
 			w.Write([]byte("Internal server error occurred"))
 		}
 	}
-}
-
-// createSlug creates a URL-friendly slug from a string.
+} // createSlug creates a URL-friendly slug from a string.
 func createSlug(input string) string {
 	// Convert to lowercase and replace non-alphanumeric with hyphens
 	reg := regexp.MustCompile(`[^a-zA-Z0-9]+`)

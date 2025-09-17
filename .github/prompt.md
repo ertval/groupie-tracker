@@ -180,3 +180,7 @@ Simplify the data package to have a single store struct and a single service str
 - Be consistent with naming conventions, and file structures to make it easy to navigate and understand the codebase.
 - Update the coverage html to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
 - Update the readme file to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
+
+---
+
+Remove the start server function. Create a bakingInfo function that logs all the important information about the server and the data when the server starts creates the clickable link to open the server in the browser. Call this function from main after everything is initialized and before starting the server. Then start the server directly in main. Always use Idiomatic Go patterns with clean architecture in your implementation.

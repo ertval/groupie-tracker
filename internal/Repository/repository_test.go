@@ -2,29 +2,9 @@
 package repository
 
 import (
-	"context"
-	"errors"
 	"testing"
 	"time"
 )
-
-// MockAPIResponse simulates the API response for testing
-type MockAPIResponse struct {
-	artists   []Artist
-	concerts  []Concert
-	shouldErr bool
-}
-
-func (m *MockAPIResponse) FetchAll(ctx context.Context) (*Response, error) {
-	if m.shouldErr {
-		return nil, errors.New("mock API error")
-	}
-
-	return &Response{
-		Artists:   m.artists,
-		Relations: m.concerts,
-	}, nil
-}
 
 // Test data that matches Zone01 audit requirements
 var testArtists = []Artist{
@@ -35,6 +15,11 @@ var testArtists = []Artist{
 		CreationYear: 1970,
 		FirstAlbum:   "14-12-1973",
 		Image:        "https://groupietrackers.herokuapp.com/api/images/queen.jpeg",
+		Concerts: map[string][]string{
+			"london-uk":    {"14-02-1977", "15-02-1977"},
+			"paris-france": {"10-03-1979", "11-03-1979"},
+			"tokyo-japan":  {"01-05-1985"},
+		},
 	},
 	{
 		ID:           14,
@@ -43,6 +28,10 @@ var testArtists = []Artist{
 		CreationYear: 1998,
 		FirstAlbum:   "26-03-2001",
 		Image:        "https://groupietrackers.herokuapp.com/api/images/gorillaz.jpeg",
+		Concerts: map[string][]string{
+			"new_york-usa":  {"12-04-2002", "13-04-2002"},
+			"manchester-uk": {"20-06-2010"},
+		},
 	},
 	{
 		ID:           52,
@@ -51,12 +40,20 @@ var testArtists = []Artist{
 		CreationYear: 2008,
 		FirstAlbum:   "15-05-2013",
 		Image:        "https://groupietrackers.herokuapp.com/api/images/travisscott.jpeg",
+		Concerts: map[string][]string{
+			"houston-usa": {"01-01-2014", "02-01-2014", "03-01-2014"},
+			"chicago-usa": {"15-05-2017"},
+			"miami-usa":   {"22-09-2018"},
+		},
 	},
 }
 
-var testConcerts = []Concert{
+var testRelations = []struct {
+	ID             int                 `json:"id"`
+	DatesLocations map[string][]string `json:"datesLocations"`
+}{
 	{
-		ID: 28, // Queen
+		ID: 28,
 		DatesLocations: map[string][]string{
 			"london-uk":    {"14-02-1977", "15-02-1977"},
 			"paris-france": {"10-03-1979", "11-03-1979"},
@@ -64,14 +61,14 @@ var testConcerts = []Concert{
 		},
 	},
 	{
-		ID: 14, // Gorillaz
+		ID: 14,
 		DatesLocations: map[string][]string{
 			"new_york-usa":  {"12-04-2002", "13-04-2002"},
 			"manchester-uk": {"20-06-2010"},
 		},
 	},
 	{
-		ID: 52, // Travis Scott
+		ID: 52,
 		DatesLocations: map[string][]string{
 			"houston-usa": {"01-01-2014", "02-01-2014", "03-01-2014"},
 			"chicago-usa": {"15-05-2017"},
@@ -80,55 +77,28 @@ var testConcerts = []Concert{
 	},
 }
 
-func createTestStore() *Repository {
-	store := NewRepository("http://test-api", time.Second*5)
+func createTestRepository() *Repository {
+	repo := NewRepository("http://test-api", time.Second*5)
 
-	// Manually populate with test data for faster tests
-	apiArtists := make([]ArtistAPIResponse, len(testArtists))
-	for i, artist := range testArtists {
-		apiArtists[i] = ArtistAPIResponse{
-			ID:           artist.ID,
-			Name:         artist.Name,
-			Members:      artist.Members,
-			CreationYear: artist.CreationYear,
-			FirstAlbum:   artist.FirstAlbum,
-			Image:        artist.Image,
-		}
-	}
+	// Manually populate with test data
+	repo.processArtists(testArtists)
+	repo.processRelations(testRelations)
+	repo.computeLocationStats()
 
-	apiRelations := make([]struct {
-		ID             int                 `json:"id"`
-		DatesLocations map[string][]string `json:"datesLocations"`
-	}, len(testConcerts))
-	for i, concert := range testConcerts {
-		apiRelations[i] = struct {
-			ID             int                 `json:"id"`
-			DatesLocations map[string][]string `json:"datesLocations"`
-		}{
-			ID:             concert.ID,
-			DatesLocations: concert.DatesLocations,
-		}
-	}
-
-	store.processArtists(apiArtists)
-	store.processRelations(apiRelations)
-	store.computeLocationStats()
-	store.computeGlobalStats()
-
-	return store
+	return repo
 }
 
-func TestStoreBasicFunctionality(t *testing.T) {
-	store := createTestStore()
+func TestRepositoryBasicFunctionality(t *testing.T) {
+	repo := createTestRepository()
 
 	// Test artist retrieval
-	artists := store.GetArtists()
+	artists := repo.GetArtists()
 	if len(artists) != 3 {
 		t.Errorf("Expected 3 artists, got %d", len(artists))
 	}
 
 	// Test specific artist lookup by ID
-	queen, found := store.GetArtist(28)
+	queen, found := repo.GetArtist(28)
 	if !found {
 		t.Error("Expected to find Queen")
 	}
@@ -140,7 +110,7 @@ func TestStoreBasicFunctionality(t *testing.T) {
 	}
 
 	// Test artist lookup by slug
-	gorillaz, found := store.GetArtistBySlug("gorillaz")
+	gorillaz, found := repo.GetArtistBySlug("gorillaz")
 	if !found {
 		t.Error("Expected to find Gorillaz by slug")
 	}
@@ -149,37 +119,38 @@ func TestStoreBasicFunctionality(t *testing.T) {
 	}
 }
 
-func TestConcertFunctionality(t *testing.T) {
-	store := createTestStore()
+func TestArtistConcerts(t *testing.T) {
+	repo := createTestRepository()
 
-	// Test concert retrieval
-	concert, found := store.GetConcert(28)
+	// Test concert data
+	queen, found := repo.GetArtist(28)
 	if !found {
-		t.Error("Expected to find Queen's concerts")
+		t.Error("Expected to find Queen")
+		return
 	}
 
 	// Test show counting
-	totalShows := store.CountShows(concert)
+	totalShows := repo.CountShows(queen)
 	if totalShows != 5 { // 2+2+1 from test data
 		t.Errorf("Expected 5 total shows for Queen, got %d", totalShows)
 	}
 
 	// Test country extraction
-	countries := store.GetCountries(concert)
+	countries := repo.GetCountries(queen)
 	if len(countries) != 3 { // uk, france, japan
 		t.Errorf("Expected 3 countries for Queen, got %d", len(countries))
 	}
 }
 
 func TestLocationStats(t *testing.T) {
-	store := createTestStore()
+	repo := createTestRepository()
 
-	locations := store.GetLocations()
+	locations := repo.GetLocations()
 	if len(locations) < 3 {
 		t.Errorf("Expected at least 3 unique locations, got %d", len(locations))
 	}
 
-	locationStats := store.GetLocationStats()
+	locationStats := repo.GetLocationStats()
 	if len(locationStats) == 0 {
 		t.Error("Expected location stats to be generated")
 	}
@@ -189,7 +160,7 @@ func TestLocationStats(t *testing.T) {
 	for _, stat := range locationStats {
 		if stat.Name == "london-uk" {
 			londonFound = true
-			if stat.ArtistCount < 1 {
+			if len(stat.Artists) < 1 {
 				t.Error("London should have at least 1 artist")
 			}
 		}
@@ -200,9 +171,9 @@ func TestLocationStats(t *testing.T) {
 }
 
 func TestStatistics(t *testing.T) {
-	store := createTestStore()
+	repo := createTestRepository()
 
-	stats := store.GetStats()
+	stats := repo.GetStats()
 
 	// Test basic statistics
 	if stats["total_artists"] != 3 {
@@ -213,16 +184,16 @@ func TestStatistics(t *testing.T) {
 		t.Errorf("Expected 10 total members, got %d", stats["total_members"])
 	}
 
-	if stats["total_shows"] != 13 { // 5+2+3 shows from test data
+	if stats["total_shows"] != 13 { // 5+2+6 shows from test data (Queen: 5, Gorillaz: 2, Travis: 6)
 		t.Errorf("Expected 13 total shows, got %d", stats["total_shows"])
 	}
 }
 
 func TestNavigationFunctionality(t *testing.T) {
-	store := createTestStore()
+	repo := createTestRepository()
 
 	// Get sorted artists (alphabetical)
-	artists := store.GetArtists()
+	artists := repo.GetArtists()
 	if len(artists) < 3 {
 		t.Error("Need at least 3 artists for navigation test")
 		return
@@ -230,7 +201,7 @@ func TestNavigationFunctionality(t *testing.T) {
 
 	// Test navigation from middle artist
 	middle := artists[1] // Should be middle in sorted order
-	prev, next := store.GetNextPrevArtist(middle)
+	prev, next := repo.GetNextPrevArtist(middle)
 
 	if prev == nil {
 		t.Error("Expected previous artist for middle item")
@@ -241,10 +212,10 @@ func TestNavigationFunctionality(t *testing.T) {
 }
 
 func TestAuditComplianceData(t *testing.T) {
-	store := createTestStore()
+	repo := createTestRepository()
 
 	// Zone01 audit requirements
-	queen, found := store.GetArtist(28)
+	queen, found := repo.GetArtist(28)
 	if !found {
 		t.Error("Queen not found")
 		return
@@ -254,7 +225,7 @@ func TestAuditComplianceData(t *testing.T) {
 		t.Errorf("Queen should have exactly 7 members, got %d", len(queen.Members))
 	}
 
-	gorillaz, found := store.GetArtistBySlug("gorillaz")
+	gorillaz, found := repo.GetArtistBySlug("gorillaz")
 	if !found {
 		t.Error("Gorillaz not found by slug")
 		return
@@ -264,19 +235,136 @@ func TestAuditComplianceData(t *testing.T) {
 		t.Errorf("Gorillaz first album should be '26-03-2001', got '%s'", gorillaz.FirstAlbum)
 	}
 
-	_, found = store.GetArtist(52)
+	travisScott, found := repo.GetArtist(52)
 	if !found {
 		t.Error("Travis Scott not found")
 		return
 	}
 
-	concert, found := store.GetConcert(52)
+	if len(travisScott.Concerts) < 3 {
+		t.Errorf("Travis Scott should have at least 3 locations, got %d", len(travisScott.Concerts))
+	}
+}
+
+func TestLocationBySlug(t *testing.T) {
+	repo := createTestRepository()
+
+	// Test location retrieval by slug
+	location, found := repo.GetLocationBySlug("london-uk")
 	if !found {
-		t.Error("Travis Scott concerts not found")
-		return
+		t.Error("Expected to find London by slug")
 	}
 
-	if len(concert.DatesLocations) < 3 {
-		t.Errorf("Travis Scott should have at least 3 locations, got %d", len(concert.DatesLocations))
+	if location.Name != "london-uk" {
+		t.Errorf("Expected location name 'london-uk', got '%s'", location.Name)
+	}
+
+	if len(location.Artists) == 0 {
+		t.Error("Expected London to have at least one artist")
+	}
+}
+
+func TestSlugGeneration(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Queen", "queen"},
+		{"Foo Fighters", "foo-fighters"},
+		{"Green Day", "green-day"},
+		{"AC/DC", "ac-dc"},
+		{"Twenty One Pilots", "twenty-one-pilots"},
+	}
+
+	for _, test := range tests {
+		result := createSlug(test.input)
+		if result != test.expected {
+			t.Errorf("createSlug(%s) = %s, expected %s", test.input, result, test.expected)
+		}
+	}
+}
+
+func TestNewRepository(t *testing.T) {
+	repo := NewRepository("http://test-api", time.Second*10)
+	if repo == nil {
+		t.Fatal("NewRepository should not return nil")
+	}
+
+	if repo.baseURL != "http://test-api" {
+		t.Errorf("Expected baseURL 'http://test-api', got '%s'", repo.baseURL)
+	}
+
+	if repo.client == nil {
+		t.Fatal("Repository client should not be nil")
+	}
+
+	if repo.client.Timeout != time.Second*10 {
+		t.Errorf("Expected timeout 10s, got %v", repo.client.Timeout)
+	}
+}
+
+func TestGetArtistNotFound(t *testing.T) {
+	repo := createTestRepository()
+
+	// Test getting non-existent artist
+	_, found := repo.GetArtist(999)
+	if found {
+		t.Error("Should not find non-existent artist")
+	}
+}
+
+func TestGetArtistBySlugNotFound(t *testing.T) {
+	repo := createTestRepository()
+
+	// Test getting non-existent artist by slug
+	_, found := repo.GetArtistBySlug("nonexistent")
+	if found {
+		t.Error("Should not find non-existent artist by slug")
+	}
+}
+
+func TestGetLocationBySlugNotFound(t *testing.T) {
+	repo := createTestRepository()
+
+	// Test getting non-existent location
+	_, found := repo.GetLocationBySlug("nonexistent")
+	if found {
+		t.Error("Should not find non-existent location")
+	}
+}
+
+func TestContainsArtistPtr(t *testing.T) {
+	artist1 := &Artist{ID: 1, Name: "Test1"}
+	artist2 := &Artist{ID: 2, Name: "Test2"}
+
+	artists := []Artist{*artist1}
+
+	// Test finding existing artist
+	if !containsArtistPtr(artists, artist1) {
+		t.Error("Should find existing artist")
+	}
+
+	// Test not finding non-existing artist
+	if containsArtistPtr(artists, artist2) {
+		t.Error("Should not find non-existing artist")
+	}
+}
+
+func TestNormalizeLocation(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"London-UK", "london-uk"},
+		{"NEW YORK-USA", "new york-usa"},
+		{"  Paris-France  ", "paris-france"},
+		{"", ""},
+	}
+
+	for _, test := range tests {
+		result := normalizeLocation(test.input)
+		if result != test.expected {
+			t.Errorf("normalizeLocation(%q) = %q, expected %q", test.input, result, test.expected)
+		}
 	}
 }
