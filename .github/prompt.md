@@ -65,3 +65,6 @@ Remove the start server function. Create a bakingInfo function that logs all the
 - Dont touch the templates but addapt the #file:repository to them.
 - Run all tests after each change and make sure everything is working. 
 - Update the readme file to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
+
+---
+
