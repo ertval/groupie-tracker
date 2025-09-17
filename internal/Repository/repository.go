@@ -23,7 +23,7 @@ type Artist struct {
 	CreationYear int                 `json:"creationDate"`
 	FirstAlbum   string              `json:"firstAlbum"`
 	Image        string              `json:"image"`
-	Slug         string              `json:"-"` // SEO-friendly URL slug, computed at runtime
+	Slug         string              `json:"-"`                        // SEO-friendly URL slug, computed at runtime
 	Concerts     map[string][]string `json:"datesLocations,omitempty"` // location -> dates
 }
 
@@ -37,9 +37,9 @@ type RelationData struct {
 
 // LocationStats holds minimal statistics for a location.
 type LocationStats struct {
-	Name        string   `json:"name"`
-	Slug        string   `json:"slug"`
-	Artists     []Artist `json:"artists"`
+	Name    string   `json:"name"`
+	Slug    string   `json:"slug"`
+	Artists []Artist `json:"artists"`
 }
 
 // ComputedData holds the core application data.
@@ -257,7 +257,7 @@ func (r *Repository) processArtists(artists []Artist) {
 	for _, artist := range artists {
 		// Generate SEO slug
 		artist.Slug = createSlug(artist.Name)
-		
+
 		// Store artist as pointer for efficiency
 		r.data.artists[artist.ID] = &artist
 		r.data.slugToID[artist.Slug] = artist.ID
