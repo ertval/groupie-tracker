@@ -56,8 +56,9 @@ func newServer() (*http.Server, error) {
 	return httpServer, nil
 }
 
-// start starts the HTTP server.
-func start(server *http.Server) error {
+// bakingInfo logs server startup information.
+// It creates a clickable link to open the server in the browser.
+func bakingInfo(server *http.Server) {
 	// Build a clickable URL for convenience
 	addr := server.Addr
 	url := addr
@@ -67,14 +68,7 @@ func start(server *http.Server) error {
 		url = "http://" + addr
 	}
 
-	log.Printf("Server starting — open %s in your browser", url)
-
-	// Start server (blocking)
-	err := server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		return fmt.Errorf("server failed to start: %w", err)
-	}
-	return nil
+	log.Printf("🚀 Server ready — open %s in your browser", url)
 }
 
 // createRouter sets up all routes.

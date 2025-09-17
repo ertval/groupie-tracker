@@ -1,7 +1,11 @@
 // Package main is the entry point for the Groupie Tracker server application.
 package main
 
-import "log"
+import (
+	"fmt"
+	"log"
+	"net/http"
+)
 
 func main() {
 	log.Println("Starting Groupie Tracker server...")
@@ -11,7 +15,12 @@ func main() {
 		log.Fatalf("Failed to create server: %v", err)
 	}
 
-	if err := start(server); err != nil {
-		log.Fatalf("Server error: %v", err)
+	// Log server startup information
+	bakingInfo(server)
+
+	// Start server (blocking)
+	err = server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		log.Fatalf("Server failed to start: %v", fmt.Errorf("server failed to start: %w", err))
 	}
 }
