@@ -14,91 +14,39 @@ import (
 	"time"
 )
 
-// API Response Structs - Direct mappings from the 4 API endpoints
-
-// ArtistAPIResponse represents the response from /api/artists
-type ArtistAPIResponse struct {
-	ID           int      `json:"id"`
-	Name         string   `json:"name"`
-	Members      []string `json:"members"`
-	CreationYear int      `json:"creationDate"`
-	FirstAlbum   string   `json:"firstAlbum"`
-	Image        string   `json:"image"`
-	LocationsURL string   `json:"locations"`
-	DatesURL     string   `json:"concertDates"`
-	RelationsURL string   `json:"relations"`
+// Artist represents a musical artist with all their concert information.
+// This unifies both artist data and concert relations in a single struct.
+type Artist struct {
+	ID           int                 `json:"id"`
+	Name         string              `json:"name"`
+	Members      []string            `json:"members"`
+	CreationYear int                 `json:"creationDate"`
+	FirstAlbum   string              `json:"firstAlbum"`
+	Image        string              `json:"image"`
+	Slug         string              `json:"-"` // SEO-friendly URL slug, computed at runtime
+	Concerts     map[string][]string `json:"datesLocations,omitempty"` // location -> dates
 }
 
-// LocationAPIResponse represents the response from /api/locations
-type LocationAPIResponse struct {
-	Index []struct {
-		ID        int      `json:"id"`
-		Locations []string `json:"locations"`
-		DatesURL  string   `json:"dates"`
-	} `json:"index"`
-}
-
-// DateAPIResponse represents the response from /api/dates
-type DateAPIResponse struct {
-	Index []struct {
-		ID    int      `json:"id"`
-		Dates []string `json:"dates"`
-	} `json:"index"`
-}
-
-// RelationAPIResponse represents the response from /api/relation
-type RelationAPIResponse struct {
+// RelationData represents the API response from /api/relation endpoint.
+type RelationData struct {
 	Index []struct {
 		ID             int                 `json:"id"`
 		DatesLocations map[string][]string `json:"datesLocations"`
 	} `json:"index"`
 }
 
-// Domain Models - Processed data structures for business logic
-
-// Artist represents a musical artist with computed SEO slug.
-type Artist struct {
-	ID           int      `json:"id"`
-	Name         string   `json:"name"`
-	Members      []string `json:"members"`
-	CreationYear int      `json:"creationDate"`
-	FirstAlbum   string   `json:"firstAlbum"`
-	Image        string   `json:"image"`
-	Slug         string   `json:"-"` // SEO-friendly URL slug
-}
-
-// Concert represents concert information for an artist.
-type Concert struct {
-	ID             int                 `json:"id"`
-	DatesLocations map[string][]string `json:"datesLocations"`
-}
-
-// Response represents the combined API response (for testing).
-type Response struct {
-	Artists   []Artist  `json:"artists,omitempty"`
-	Relations []Concert `json:"relations,omitempty"`
-}
-
-// LocationStats holds statistics for a location.
+// LocationStats holds minimal statistics for a location.
 type LocationStats struct {
-	Name         string
-	DisplayName  string
-	Slug         string
-	Artists      []Artist
-	ArtistCount  int
-	TotalShows   int
-	ConcertCount int // Total number of concerts at this location
-	// ConcertDates maps artist ID to their concert dates at this location
-	ConcertDates map[int][]string
+	Name        string   `json:"name"`
+	Slug        string   `json:"slug"`
+	Artists     []Artist `json:"artists"`
 }
 
-// ComputedData holds all processed and computed data needed for templates.
+// ComputedData holds the core application data.
 type ComputedData struct {
-	artists       map[int]Artist
-	concerts      map[int]Concert
+	artists       map[int]*Artist
 	slugToID      map[string]int
 	locationStats map[string]*LocationStats
-	globalStats   map[string]int
 }
 
 // Repository manages all application data and provides thread-safe access to it.
@@ -116,33 +64,31 @@ func NewRepository(baseURL string, timeout time.Duration) *Repository {
 			Timeout: timeout,
 		},
 		data: &ComputedData{
-			artists:       make(map[int]Artist),
-			concerts:      make(map[int]Concert),
+			artists:       make(map[int]*Artist),
 			slugToID:      make(map[string]int),
 			locationStats: make(map[string]*LocationStats),
-			globalStats:   make(map[string]int),
 		},
 	}
 }
 
 // LoadData fetches and processes all data from the API endpoints.
 func (r *Repository) LoadData(ctx context.Context) error {
-	// Fetch from all 4 API endpoints
-	var artistsResp []ArtistAPIResponse
-	if err := r.fetchJSON(ctx, "/api/artists", &artistsResp); err != nil {
+	// Fetch artists from API
+	var artists []Artist
+	if err := r.fetchJSON(ctx, "/api/artists", &artists); err != nil {
 		return fmt.Errorf("failed to fetch artists: %w", err)
 	}
 
-	var relationsResp RelationAPIResponse
+	// Fetch relations from API
+	var relationsResp RelationData
 	if err := r.fetchJSON(ctx, "/api/relation", &relationsResp); err != nil {
 		return fmt.Errorf("failed to fetch relations: %w", err)
 	}
 
 	// Process and compute data
-	r.processArtists(artistsResp)
+	r.processArtists(artists)
 	r.processRelations(relationsResp.Index)
 	r.computeLocationStats()
-	r.computeGlobalStats()
 
 	return nil
 }
@@ -151,7 +97,7 @@ func (r *Repository) LoadData(ctx context.Context) error {
 func (r *Repository) GetArtists() []Artist {
 	artists := make([]Artist, 0, len(r.data.artists))
 	for _, artist := range r.data.artists {
-		artists = append(artists, artist)
+		artists = append(artists, *artist)
 	}
 	sort.Slice(artists, func(i, j int) bool {
 		return artists[i].Name < artists[j].Name
@@ -162,7 +108,10 @@ func (r *Repository) GetArtists() []Artist {
 // GetArtist returns an artist by ID.
 func (r *Repository) GetArtist(id int) (Artist, bool) {
 	artist, exists := r.data.artists[id]
-	return artist, exists
+	if !exists {
+		return Artist{}, false
+	}
+	return *artist, true
 }
 
 // GetArtistBySlug returns an artist by SEO slug.
@@ -174,20 +123,14 @@ func (r *Repository) GetArtistBySlug(slug string) (Artist, bool) {
 	return r.GetArtist(id)
 }
 
-// GetConcert returns concert data for an artist.
-func (r *Repository) GetConcert(artistID int) (Concert, bool) {
-	concert, exists := r.data.concerts[artistID]
-	return concert, exists
-}
-
-// GetLocationStats returns statistics for all locations sorted by total shows.
+// GetLocationStats returns statistics for all locations sorted by artist count.
 func (r *Repository) GetLocationStats() []LocationStats {
 	stats := make([]LocationStats, 0, len(r.data.locationStats))
 	for _, stat := range r.data.locationStats {
 		stats = append(stats, *stat)
 	}
 	sort.Slice(stats, func(i, j int) bool {
-		return stats[i].TotalShows > stats[j].TotalShows
+		return len(stats[i].Artists) > len(stats[j].Artists)
 	})
 	return stats
 }
@@ -200,11 +143,6 @@ func (r *Repository) GetLocationBySlug(slug string) (LocationStats, bool) {
 		}
 	}
 	return LocationStats{}, false
-}
-
-// GetStats returns computed global statistics.
-func (r *Repository) GetStats() map[string]int {
-	return r.data.globalStats
 }
 
 // GetLocations returns all unique location names.
@@ -234,19 +172,19 @@ func (r *Repository) GetNextPrevArtist(current Artist) (prev, next *Artist) {
 	return prev, next
 }
 
-// CountShows returns the total number of shows for a concert.
-func (r *Repository) CountShows(concert Concert) int {
+// CountShows returns the total number of shows for an artist.
+func (r *Repository) CountShows(artist Artist) int {
 	total := 0
-	for _, dates := range concert.DatesLocations {
+	for _, dates := range artist.Concerts {
 		total += len(dates)
 	}
 	return total
 }
 
-// GetCountries extracts unique countries from concert locations.
-func (r *Repository) GetCountries(concert Concert) []string {
+// GetCountries extracts unique countries from an artist's concert locations.
+func (r *Repository) GetCountries(artist Artist) []string {
 	countryMap := make(map[string]bool)
-	for location := range concert.DatesLocations {
+	for location := range artist.Concerts {
 		parts := strings.Split(location, "-")
 		if len(parts) > 1 {
 			country := strings.TrimSpace(parts[len(parts)-1])
@@ -260,6 +198,34 @@ func (r *Repository) GetCountries(concert Concert) []string {
 	}
 	sort.Strings(countries)
 	return countries
+}
+
+// GetStats returns computed global statistics on demand.
+func (r *Repository) GetStats() map[string]int {
+	totalMembers := 0
+	totalShows := 0
+	countrySet := make(map[string]bool)
+
+	for _, artist := range r.data.artists {
+		totalMembers += len(artist.Members)
+		for location, dates := range artist.Concerts {
+			totalShows += len(dates)
+			// Extract country
+			parts := strings.Split(location, "-")
+			if len(parts) > 1 {
+				country := strings.TrimSpace(parts[len(parts)-1])
+				countrySet[country] = true
+			}
+		}
+	}
+
+	return map[string]int{
+		"total_artists":   len(r.data.artists),
+		"total_members":   totalMembers,
+		"total_locations": len(r.data.locationStats),
+		"total_shows":     totalShows,
+		"total_countries": len(countrySet),
+	}
 }
 
 // Private helper methods
@@ -287,18 +253,13 @@ func (r *Repository) fetchJSON(ctx context.Context, path string, dest interface{
 	return nil
 }
 
-func (r *Repository) processArtists(apiArtists []ArtistAPIResponse) {
-	for _, apiArtist := range apiArtists {
-		artist := Artist{
-			ID:           apiArtist.ID,
-			Name:         apiArtist.Name,
-			Members:      apiArtist.Members,
-			CreationYear: apiArtist.CreationYear,
-			FirstAlbum:   apiArtist.FirstAlbum,
-			Image:        apiArtist.Image,
-			Slug:         createSlug(apiArtist.Name),
-		}
-		r.data.artists[artist.ID] = artist
+func (r *Repository) processArtists(artists []Artist) {
+	for _, artist := range artists {
+		// Generate SEO slug
+		artist.Slug = createSlug(artist.Name)
+		
+		// Store artist as pointer for efficiency
+		r.data.artists[artist.ID] = &artist
 		r.data.slugToID[artist.Slug] = artist.ID
 	}
 }
@@ -308,81 +269,44 @@ func (r *Repository) processRelations(apiRelations []struct {
 	DatesLocations map[string][]string `json:"datesLocations"`
 }) {
 	for _, apiRelation := range apiRelations {
-		concert := Concert{
-			ID:             apiRelation.ID,
-			DatesLocations: apiRelation.DatesLocations,
+		if artist, exists := r.data.artists[apiRelation.ID]; exists {
+			artist.Concerts = apiRelation.DatesLocations
 		}
-		r.data.concerts[concert.ID] = concert
 	}
 }
 
 func (r *Repository) computeLocationStats() {
-	// Process all concerts to build location stats
-	for _, concert := range r.data.concerts {
-		artist, artistExists := r.data.artists[concert.ID]
-		if !artistExists {
-			continue
-		}
-
-		for location, dates := range concert.DatesLocations {
+	// Process all artists to build location stats
+	for _, artist := range r.data.artists {
+		for location := range artist.Concerts {
 			normalizedLocation := normalizeLocation(location)
 
 			// Get or create location stats
 			locationStat, exists := r.data.locationStats[normalizedLocation]
 			if !exists {
 				locationStat = &LocationStats{
-					Name:         normalizedLocation,
-					DisplayName:  location,
-					Slug:         createSlug(normalizedLocation),
-					Artists:      make([]Artist, 0),
-					ConcertDates: make(map[int][]string),
+					Name:    normalizedLocation,
+					Slug:    createSlug(normalizedLocation),
+					Artists: make([]Artist, 0),
 				}
 				r.data.locationStats[normalizedLocation] = locationStat
 			}
 
 			// Add artist if not already present
-			if !containsArtist(locationStat.Artists, artist) {
-				locationStat.Artists = append(locationStat.Artists, artist)
+			if !containsArtistPtr(locationStat.Artists, artist) {
+				locationStat.Artists = append(locationStat.Artists, *artist)
 			}
-
-			// Store concert dates for this artist at this location
-			locationStat.ConcertDates[artist.ID] = dates
-
-			// Update counters
-			locationStat.ArtistCount = len(locationStat.Artists)
-			locationStat.TotalShows += len(dates)
-			locationStat.ConcertCount = locationStat.TotalShows
 		}
 	}
 }
 
-func (r *Repository) computeGlobalStats() {
-	totalMembers := 0
-	totalShows := 0
-	countrySet := make(map[string]bool)
-
-	for _, artist := range r.data.artists {
-		totalMembers += len(artist.Members)
-	}
-
-	for _, concert := range r.data.concerts {
-		for location, dates := range concert.DatesLocations {
-			totalShows += len(dates)
-
-			// Extract country
-			parts := strings.Split(location, "-")
-			if len(parts) > 1 {
-				country := strings.TrimSpace(parts[len(parts)-1])
-				countrySet[country] = true
-			}
+func containsArtistPtr(artists []Artist, target *Artist) bool {
+	for _, artist := range artists {
+		if artist.ID == target.ID {
+			return true
 		}
 	}
-
-	r.data.globalStats["total_artists"] = len(r.data.artists)
-	r.data.globalStats["total_members"] = totalMembers
-	r.data.globalStats["total_locations"] = len(r.data.locationStats)
-	r.data.globalStats["total_shows"] = totalShows
-	r.data.globalStats["total_countries"] = len(countrySet)
+	return false
 }
 
 // Utility functions
@@ -396,13 +320,4 @@ func createSlug(name string) string {
 
 func normalizeLocation(location string) string {
 	return strings.ToLower(strings.TrimSpace(location))
-}
-
-func containsArtist(artists []Artist, target Artist) bool {
-	for _, artist := range artists {
-		if artist.ID == target.ID {
-			return true
-		}
-	}
-	return false
 }

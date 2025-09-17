@@ -120,7 +120,6 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	concert, _ := h.repo.GetConcert(artist.ID)
 	prev, next := h.repo.GetNextPrevArtist(artist)
 
 	data := struct {
@@ -128,7 +127,6 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS   string
 		ExtraJS    string
 		Artist     repository.Artist
-		Relation   repository.Concert
 		TotalShows int
 		Countries  []string
 		PrevArtist *repository.Artist
@@ -138,9 +136,8 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:   "artist_detail.css",
 		ExtraJS:    "",
 		Artist:     artist,
-		Relation:   concert, // Using "Relation" for template compatibility
-		TotalShows: h.repo.CountShows(concert),
-		Countries:  h.repo.GetCountries(concert),
+		TotalShows: h.repo.CountShows(artist),
+		Countries:  h.repo.GetCountries(artist),
 		PrevArtist: prev,
 		NextArtist: next,
 	}
@@ -212,15 +209,13 @@ func (h *Handler) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS     string
 		ExtraJS      string
 		LocationName string
-		DisplayName  string
 		Location     repository.LocationStats
 		Artists      []repository.Artist
 	}{
-		Title:        fmt.Sprintf("%s - Location", location.DisplayName),
+		Title:        fmt.Sprintf("%s - Location", location.Name),
 		ExtraCSS:     "locations.css",
 		ExtraJS:      "",
 		LocationName: location.Name,
-		DisplayName:  location.DisplayName,
 		Location:     location,
 		Artists:      location.Artists,
 	}
