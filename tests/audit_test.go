@@ -5,11 +5,17 @@ import (
 	"testing"
 	"time"
 
+	"groupie-tracker/internal/config"
 	"groupie-tracker/internal/data"
 )
 
 func TestAuditCompliance(t *testing.T) {
-	store := data.NewRepository("https://groupietrackers.herokuapp.com", 30*time.Second, true)
+	// Disable caching in tests to avoid creating files in CI/workspaces
+	config.WithCache = false
+	// Use configured API base URL and timeout for the repository
+	config.APIBaseURL = "https://groupietrackers.herokuapp.com"
+	config.APIRequestTimeout = 30 * time.Second
+	store := data.NewRepository()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

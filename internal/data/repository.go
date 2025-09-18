@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
 	"groupie-tracker/internal/config"
 )
@@ -33,15 +32,16 @@ type Repository struct {
 	globalStats     map[string]int
 }
 
-// NewRepository creates a new repository instance with the given API URL, timeout,
-// and a flag indicating whether to enable local image caching.
-func NewRepository(baseURL string, timeout time.Duration) *Repository {
+// NewRepository creates a new repository instance using values from the
+// `internal/config` package. This keeps configuration centralized and makes
+// tests simpler by allowing them to override `config` variables.
+func NewRepository() *Repository {
 	return &Repository{
-		baseURL:   baseURL,
-		withCache: config.WithCache,
+		baseURL: config.APIBaseURL,
 		client: &http.Client{
-			Timeout: timeout,
+			Timeout: config.APIRequestTimeout,
 		},
+		withCache: config.WithCache,
 	}
 }
 

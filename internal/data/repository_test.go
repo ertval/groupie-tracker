@@ -2,6 +2,7 @@ package data
 
 import (
 	"context"
+	"groupie-tracker/internal/config"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -31,8 +32,12 @@ func TestRepository_LoadData_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Create a new repository with the mock server's URL (disable caching for tests)
-	repo := NewRepository(server.URL, 5*time.Second, false)
+	// Disable image caching for tests to avoid creating files on disk
+	config.WithCache = false
+	// Point repository to the mock server and set a short timeout for tests
+	config.APIBaseURL = server.URL
+	config.APIRequestTimeout = 5 * time.Second
+	repo := NewRepository()
 
 	// Load the data
 	_, _, _, err := repo.LoadData(context.Background())

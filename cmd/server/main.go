@@ -10,7 +10,7 @@ import (
 func main() {
 	log.Println("Starting Groupie Tracker server...")
 
-	server, err := newServer(defaultAPIURL)
+	server, err := newServer()
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}

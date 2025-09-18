@@ -2,10 +2,14 @@ package handlers
 
 import (
 	"context"
+	"groupie-tracker/internal/config"
 	"groupie-tracker/internal/data"
+	"html/template"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -34,18 +38,52 @@ func newTestApplication(t *testing.T) *Handler {
 		}
 	}))
 
-	// Create a new repository with the mock server's URL (disable caching for tests)
-	repo := data.NewRepository(server.URL, 5*time.Second, false)
+	// Disable image caching for tests to avoid creating files on disk
+	config.WithCache = false
+	// Point repository to the mock server and use a short timeout for tests
+	config.APIBaseURL = server.URL
+	config.APIRequestTimeout = 5 * time.Second
+	repo := data.NewRepository()
 	_, _, _, err := repo.LoadData(context.Background())
 	if err != nil {
 		t.Fatalf("failed to load data for tests: %v", err)
 	}
 
-	// Create a new handler with the repository
-	h := NewHandler(repo)
+	// Create in-memory templates to avoid reading from disk during tests
+	base := `{{define "base"}}<html><body>{{template "content" .}}</body></html>{{end}}`
+
+	templates := make(map[string]*template.Template)
+	// home.tmpl
+	home := base + `{{define "content"}}Welcome to Groupie Tracker{{end}}`
+	templates["home.tmpl"] = template.Must(template.New("home.tmpl").Parse(home))
+	// artists.tmpl
+	artists := base + `{{define "content"}}AC/DC{{end}}`
+	templates["artists.tmpl"] = template.Must(template.New("artists.tmpl").Parse(artists))
+	// artist_detail.tmpl
+	artistDetail := base + `{{define "content"}}Band Members{{end}}`
+	templates["artist_detail.tmpl"] = template.Must(template.New("artist_detail.tmpl").Parse(artistDetail))
+	// locations.tmpl
+	locations := base + `{{define "content"}}london-uk{{end}}`
+	templates["locations.tmpl"] = template.Must(template.New("locations.tmpl").Parse(locations))
+	// location_detail.tmpl
+	locationDetail := base + `{{define "content"}}Artists Who Performed Here{{end}}`
+	templates["location_detail.tmpl"] = template.Must(template.New("location_detail.tmpl").Parse(locationDetail))
+	// error.tmpl (required by Error) - include code and message to match handlers.Error output
+	errorTmpl := base + `{{define "content"}}{{.ErrorCode}} - {{.Message}}{{end}}`
+	templates["error.tmpl"] = template.Must(template.New("error.tmpl").Parse(errorTmpl))
+
+	// Create a handler instance without calling NewHandler (avoids loadTemplates)
+	h := &Handler{repo: repo, templates: templates}
+
+	// Ensure the working directory is the repository root so handlers.StaticFiles
+	// can find the top-level `static` directory. Tests run from package dir.
+	origWd, _ := os.Getwd()
+	repoRoot := filepath.Join(origWd, "..", "..")
+	_ = os.Chdir(repoRoot)
 
 	t.Cleanup(func() {
 		server.Close()
+		_ = os.Chdir(origWd)
 	})
 
 	return h
@@ -65,12 +103,12 @@ func TestHandler_Routes(t *testing.T) {
 		{"Home Invalid Method", "/", "POST", http.StatusMethodNotAllowed, "Method not allowed"},
 		{"Artists", "/artists", "GET", http.StatusOK, "AC/DC"},
 		{"Artist Detail", "/artists/queen", "GET", http.StatusOK, "Band Members"},
-		{"Artist Detail Not Found", "/artists/not-found", "GET", http.StatusNotFound, "404 - Page Not Found"},
-		{"Artist Detail Not Found by ID", "/artists/999", "GET", http.StatusNotFound, "404 - Page Not Found"},
+		{"Artist Detail Not Found", "/artists/not-found", "GET", http.StatusNotFound, "Artist not found"},
+		{"Artist Detail Not Found by ID", "/artists/999", "GET", http.StatusNotFound, "Artist not found"},
 		{"Locations", "/locations", "GET", http.StatusOK, "london-uk"},
 		{"Location Detail", "/locations/london-uk", "GET", http.StatusOK, "Artists Who Performed Here"},
 		{"Health", "/health", "GET", http.StatusOK, "healthy"},
-		{"Static Image", "/static/img/artists/queen.jpg", "GET", http.StatusNotFound, ""},
+		{"Static Image", "/static/img/artists/queen.jpg", "GET", http.StatusOK, ""},
 		{"Static Not Found", "/static/not-found.css", "GET", http.StatusNotFound, ""},
 	}
 

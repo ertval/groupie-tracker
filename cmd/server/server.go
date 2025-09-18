@@ -9,23 +9,17 @@ import (
 	"strings"
 	"time"
 
+	"groupie-tracker/internal/config"
 	"groupie-tracker/internal/data"
 	"groupie-tracker/internal/handlers"
 )
 
-const (
-	defaultPort    = ":8080"
-	defaultAPIURL  = "https://groupietrackers.herokuapp.com"
-	requestTimeout = 30 * time.Second
-	readTimeout    = 15 * time.Second
-	writeTimeout   = 15 * time.Second
-	idleTimeout    = 60 * time.Second
-)
+// server configuration is now provided by the internal/config package
 
 // newServer creates and initializes a new HTTP server.
-func newServer(apiURL string) (*http.Server, error) {
-	// Initialize data repository
-	repo := data.NewRepository(apiURL, requestTimeout)
+func newServer() (*http.Server, error) {
+	// Initialize data repository (reads config internally)
+	repo := data.NewRepository()
 
 	// Load data from API
 	log.Println("Loading initial data...")
@@ -45,18 +39,18 @@ func newServer(apiURL string) (*http.Server, error) {
 		log.Printf("Data loaded successfully - %d artists (Images: %d cached, %d downloaded, %d failed)", totalArtists, cached, downloaded, failed)
 	}
 
-	// Initialize handlers
+	// Initialize handlers, routes, and middleware
 	handler := handlers.NewHandler(repo)
 	mux := withMiddleware(createRouter(handler))
-
-	// Create HTTP server
 	port := getPort()
+
+	// Create HTTP server using values from config
 	httpServer := &http.Server{
 		Addr:         port,
 		Handler:      mux,
-		ReadTimeout:  readTimeout,
-		WriteTimeout: writeTimeout,
-		IdleTimeout:  idleTimeout,
+		ReadTimeout:  config.ReadTimeout,
+		WriteTimeout: config.WriteTimeout,
+		IdleTimeout:  config.IdleTimeout,
 	}
 
 	addr := httpServer.Addr
@@ -134,7 +128,7 @@ func withLogging(next http.Handler) http.Handler {
 func getPort() string {
 	port := os.Getenv("PORT")
 	if port == "" {
-		return defaultPort
+		return config.DefaultPort
 	}
 
 	if !strings.HasPrefix(port, ":") {

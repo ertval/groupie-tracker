@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"groupie-tracker/internal/data"
 	"html/template"
 	"log"
 	"net/http"
@@ -13,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"groupie-tracker/internal/data"
 )
 
 // Handler holds the application state and handlers.
@@ -211,7 +212,7 @@ func (h *Handler) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		Artists  []data.Artist
 	}{
 		Title:    fmt.Sprintf("%s - Location", location.Name),
-		ExtraCSS: "locations.css",
+		ExtraCSS: "location_detail.css",
 		ExtraJS:  "",
 		Location: location,
 		Artists:  location.Artists,
@@ -260,7 +261,7 @@ func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) {
 		Links    []struct{ Href, Text string }
 	}{
 		Title:    "Developer Tools",
-		ExtraCSS: "home.css",
+		ExtraCSS: "dev.css",
 		ExtraJS:  "",
 		Links:    links,
 	}

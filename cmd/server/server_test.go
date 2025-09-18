@@ -5,24 +5,38 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"groupie-tracker/internal/config"
 )
 
 // newTestServer creates a new server for testing, including a mock API.
 func newTestServer(t *testing.T) *httptest.Server {
 	mockAPIServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Path == "/api/artists" {
+		switch r.URL.Path {
+		case "/api/artists":
 			w.Write([]byte(`[]`))
-		} else if r.URL.Path == "/api/relation" {
+		case "/api/relation":
 			w.Write([]byte(`{"index":[]}`))
-		} else {
+		default:
 			http.NotFound(w, r)
 		}
 	}))
 
-	srv, err := newServer(mockAPIServer.URL)
+	// Change working directory to repository root so templates/static files are found
+	origWd, _ := os.Getwd()
+	repoRoot := filepath.Join(origWd, "..", "..")
+	_ = os.Chdir(repoRoot)
+
+	// Configure repository to use mock API server
+	config.APIBaseURL = mockAPIServer.URL
+	config.APIRequestTimeout = 5 * time.Second
+
+	srv, err := newServer()
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -31,6 +45,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	t.Cleanup(func() {
 		mockAPIServer.Close()
 		testServer.Close()
+		_ = os.Chdir(origWd)
 	})
 
 	return testServer
@@ -38,8 +53,8 @@ func newTestServer(t *testing.T) *httptest.Server {
 
 func TestGetPort(t *testing.T) {
 	// Test default port
-	if port := getPort(); port != defaultPort {
-		t.Errorf("expected port %s, got %s", defaultPort, port)
+	if port := getPort(); port != config.DefaultPort {
+		t.Errorf("expected port %s, got %s", config.DefaultPort, port)
 	}
 
 	// Test custom port
