@@ -44,8 +44,7 @@ func newTestApplication(t *testing.T) *Handler {
 	config.APIBaseURL = server.URL
 	config.APIRequestTimeout = 5 * time.Second
 	repo := data.NewRepository()
-	_, _, _, err := repo.LoadData(context.Background())
-	if err != nil {
+	if err := repo.LoadData(context.Background()); err != nil {
 		t.Fatalf("failed to load data for tests: %v", err)
 	}
 

@@ -46,16 +46,16 @@ func NewRepository() *Repository {
 }
 
 // LoadData fetches, processes, and pre-computes all data from the API endpoints.
-func (r *Repository) LoadData(ctx context.Context) (int, int, int, error) {
+func (r *Repository) LoadData(ctx context.Context) error {
 	// 1. EXTRACT: Fetch raw data from API endpoints
 	var apiArtists []APIArtist
 	if err := r.fetchJSON(ctx, "/api/artists", &apiArtists); err != nil {
-		return 0, 0, 0, fmt.Errorf("failed to fetch artists: %w", err)
+		return fmt.Errorf("failed to fetch artists: %w", err)
 	}
 
 	var apiRelations APIRelation
 	if err := r.fetchJSON(ctx, "/api/relation", &apiRelations); err != nil {
-		return 0, 0, 0, fmt.Errorf("failed to fetch relations: %w", err)
+		return fmt.Errorf("failed to fetch relations: %w", err)
 	}
 
 	// 2. TRANSFORM: Process raw data into rich domain models
@@ -221,14 +221,17 @@ func (r *Repository) LoadData(ctx context.Context) (int, int, int, error) {
 		totalMembers += len(artist.Members)
 	}
 	r.globalStats = map[string]int{
-		"total_artists":   len(r.artists),
-		"total_members":   totalMembers,
-		"total_locations": len(r.locations),
-		"total_concerts":  totalConcerts,
-		"total_countries": len(countrySet),
+		"total_artists":     len(r.artists),
+		"total_members":     totalMembers,
+		"total_locations":   len(r.locations),
+		"total_concerts":    totalConcerts,
+		"total_countries":   len(countrySet),
+		"cached_images":     cachedCount,
+		"downloaded_images": downloadedCount,
+		"failed_images":     failedCount,
 	}
 
-	return cachedCount, downloadedCount, failedCount, nil
+	return nil
 }
 
 // --- Getters ---

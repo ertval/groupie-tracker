@@ -20,8 +20,7 @@ func TestAuditCompliance(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	_, _, _, err := store.LoadData(ctx)
-	if err != nil {
+	if err := store.LoadData(ctx); err != nil {
 		t.Fatalf("Failed to load data: %v", err)
 	}
 

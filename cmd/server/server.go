@@ -26,18 +26,14 @@ func newServer() (*http.Server, error) {
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	cached, downloaded, failed, err := repo.LoadData(loadCtx)
-	if err != nil {
+	if err := repo.LoadData(loadCtx); err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
 	// Pretty single-line startup summary
-	totalArtists := len(repo.GetArtists())
-	if failed == 0 {
-		log.Printf("Data loaded successfully - %d artists (Images: %d cached, %d downloaded)", totalArtists, cached, downloaded)
-	} else {
-		log.Printf("Data loaded successfully - %d artists (Images: %d cached, %d downloaded, %d failed)", totalArtists, cached, downloaded, failed)
-	}
+	stats := repo.GetStats()
+	log.Printf("Data loaded successfully - %d artists (Images: %d cached, %d downloaded, %d failed)",
+		stats["total_artists"], stats["cached_images"], stats["downloaded_images"], stats["failed_images"])
 
 	// Initialize handlers, routes, and middleware
 	handler := handlers.NewHandler(repo)
