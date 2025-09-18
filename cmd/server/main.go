@@ -14,7 +14,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
-	
+
 	// Start server (blocking)
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {

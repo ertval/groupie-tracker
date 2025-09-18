@@ -10,6 +10,10 @@
             <p class="error-message">The page you're looking for doesn't exist or has been moved.</p>
             <div class="error-details">
                 <p>Requested URL: <code>{{.RequestedURL}}</code></p>
+                {{if .Message}}
+                <p>Error details: <code>{{.Message}}</code></p>
+                {{end}}
+                <p>Time: {{.Timestamp}}</p>
             </div>
             <div class="error-suggestions">
                 <h3>What you can do:</h3>

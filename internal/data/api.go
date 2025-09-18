@@ -1,4 +1,3 @@
-
 package data
 
 // APIArtist represents a single artist record from the /api/artists endpoint.

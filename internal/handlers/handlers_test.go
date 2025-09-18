@@ -34,8 +34,8 @@ func newTestApplication(t *testing.T) *Handler {
 		}
 	}))
 
-	// Create a new repository with the mock server's URL
-	repo := data.NewRepository(server.URL, 5*time.Second)
+	// Create a new repository with the mock server's URL (disable caching for tests)
+	repo := data.NewRepository(server.URL, 5*time.Second, false)
 	_, _, _, err := repo.LoadData(context.Background())
 	if err != nil {
 		t.Fatalf("failed to load data for tests: %v", err)

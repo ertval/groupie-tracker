@@ -249,7 +249,7 @@ func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) {
 		{Href: "/dev/panic", Text: "Trigger Panic (/dev/panic)"},
 		{Href: "/dev/404", Text: "Simulate 404 (/dev/404)"},
 		{Href: "/dev/500", Text: "Simulate 500 (/dev/500)"},
-		{Href: "/dev/template-error", Text: "Simulate Template Error (/dev/template-error)"},
+		{Href: "/dev/tmpl-error", Text: "Simulate Template Error (/dev/tmpl-error)"},
 		{Href: "/health", Text: "Health Check (/health)"},
 	}
 
@@ -275,6 +275,7 @@ func (h *Handler) DevPanic(w http.ResponseWriter, r *http.Request) {
 
 // Dev404 is a development endpoint to test 404 error template.
 func (h *Handler) Dev404(w http.ResponseWriter, r *http.Request) {
+	// Simulate a proper 404 error - this tests if the error template renders correctly
 	h.Error(w, r, http.StatusNotFound, "This is a simulated 404 error.")
 }
 
@@ -283,28 +284,16 @@ func (h *Handler) Dev500(w http.ResponseWriter, r *http.Request) {
 	h.Error(w, r, http.StatusInternalServerError, "This is a simulated 500 error.")
 }
 
-// DevTemplateError is a development endpoint to test template failure.
-func (h *Handler) DevTemplateError(w http.ResponseWriter, r *http.Request) {
+// Dev500Tmpl is a development endpoint to test template failure.
+func (h *Handler) Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
 	// To simulate a template error, we can try to render a template that doesn't exist.
 	h.render(w, r, "nonexistent.tmpl", nil)
 }
 
 func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
-	staticDirs := []string{
-		"./static",
-		"../static",
-		"../../static",
-	}
+	const staticDir = "static"
 
-	var staticDir string
-	for _, dir := range staticDirs {
-		if _, err := os.Stat(dir); err == nil {
-			staticDir = dir
-			break
-		}
-	}
-
-	if staticDir == "" {
+	if _, err := os.Stat(staticDir); err != nil {
 		h.Error(w, r, http.StatusInternalServerError, "Static directory not found")
 		return
 	}
@@ -375,29 +364,16 @@ func (h *Handler) loadTemplates() {
 		},
 	}
 
-	// Try to find the templates directory in common locations.
-	templateDirs := []string{
-		"templates",
-		"../templates",
-		"../../templates",
+	const templateDir = "templates"
+	baseTmplPath := filepath.Join(templateDir, "base.tmpl")
+
+	if _, err := os.Stat(baseTmplPath); err != nil {
+		log.Fatalf("Failed to find base template at %s: %v", baseTmplPath, err)
 	}
 
-	var pages []string
-	var baseTmplPath string
-	var found bool
-
-	for _, dir := range templateDirs {
-		base := filepath.Join(dir, "base.tmpl")
-		if _, err := os.Stat(base); err == nil {
-			pages, _ = filepath.Glob(filepath.Join(dir, "*.tmpl"))
-			baseTmplPath = base
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		log.Fatalf("Failed to find templates directory")
+	pages, err := filepath.Glob(filepath.Join(templateDir, "*.tmpl"))
+	if err != nil {
+		log.Fatalf("Failed to glob templates: %v", err)
 	}
 
 	for _, page := range pages {

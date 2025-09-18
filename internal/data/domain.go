@@ -1,4 +1,3 @@
-
 package data
 
 // Artist is the rich internal representation of an artist.
@@ -10,7 +9,7 @@ type Artist struct {
 	CreationYear    int
 	FirstAlbum      string
 	Image           string
-	Concerts        []Concert // A slice of structured Concert objects
+	Concerts        []Concert           // A slice of structured Concert objects
 	DatesAtLocation map[string][]string // Pre-computed concert dates per location slug
 	ConcertCount    int
 	Countries       []string // Pre-sorted list of unique countries

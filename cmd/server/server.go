@@ -84,11 +84,10 @@ func createRouter(h *handlers.Handler) *http.ServeMux {
 
 	// Dev routes
 	mux.HandleFunc("/dev", h.DevIndex)
-	mux.HandleFunc("/dev/", h.DevIndex)
 	mux.HandleFunc("/dev/panic", h.DevPanic)
 	mux.HandleFunc("/dev/404", h.Dev404)
 	mux.HandleFunc("/dev/500", h.Dev500)
-	mux.HandleFunc("/dev/template-error", h.DevTemplateError)
+	mux.HandleFunc("/dev/tmpl-error", h.Dev500Tmpl)
 
 	// Web routes
 	mux.HandleFunc("/artists", h.Artists)

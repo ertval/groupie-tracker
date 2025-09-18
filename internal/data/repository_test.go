@@ -31,8 +31,8 @@ func TestRepository_LoadData_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Create a new repository with the mock server's URL
-	repo := NewRepository(server.URL, 5*time.Second)
+	// Create a new repository with the mock server's URL (disable caching for tests)
+	repo := NewRepository(server.URL, 5*time.Second, false)
 
 	// Load the data
 	_, _, _, err := repo.LoadData(context.Background())

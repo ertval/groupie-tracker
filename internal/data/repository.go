@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"groupie-tracker/internal/config"
 )
 
 // Repository manages all application data and provides thread-safe access to it.
@@ -20,6 +21,8 @@ type Repository struct {
 	// Configuration
 	baseURL string
 	client  *http.Client
+	// Controls whether image caching is enabled
+	withCache bool
 
 	// Pre-computed and sorted data collections
 	artists         []Artist
@@ -30,10 +33,12 @@ type Repository struct {
 	globalStats     map[string]int
 }
 
-// NewRepository creates a new repository instance with the given API URL and timeout.
+// NewRepository creates a new repository instance with the given API URL, timeout,
+// and a flag indicating whether to enable local image caching.
 func NewRepository(baseURL string, timeout time.Duration) *Repository {
 	return &Repository{
-		baseURL: baseURL,
+		baseURL:   baseURL,
+		withCache: config.WithCache,
 		client: &http.Client{
 			Timeout: timeout,
 		},
@@ -139,19 +144,6 @@ func (r *Repository) LoadData(ctx context.Context) (int, int, int, error) {
 		} else {
 			downloadedCount++
 		}
-	}
-
-	// Single summary log about image loading
-	if failedCount == 0 {
-		if downloadedCount == 0 {
-			log.Printf("Images loaded from cache: %d images", cachedCount)
-		} else if cachedCount == 0 {
-			log.Printf("Images downloaded from API: %d images", downloadedCount)
-		} else {
-			log.Printf("Images: %d cached, %d downloaded", cachedCount, downloadedCount)
-		}
-	} else {
-		log.Printf("Images: %d cached, %d downloaded, %d failed", cachedCount, downloadedCount, failedCount)
 	}
 
 	// Sort artists by name for consistent ordering
@@ -277,6 +269,11 @@ func (r *Repository) GetStats() map[string]int {
 // --- Private Helper Methods ---
 
 func (r *Repository) cacheImage(artist *Artist) (bool, error) {
+	// If caching is disabled, leave the artist.Image as-is and return false
+	// indicating the image was not cached locally.
+	if !r.withCache {
+		return false, nil
+	}
 	originalImageURL := artist.Image
 	cacheDir := "static/img/artists"
 	fileName := fmt.Sprintf("%s.jpg", artist.Slug)
