@@ -68,6 +68,7 @@ func createRouter(h *handlers.Handler) *http.ServeMux {
 
 	// Static file serving
 	mux.HandleFunc("/static/", h.StaticFiles)
+	mux.HandleFunc("/favicon.ico", h.StaticFiles)
 
 	// Health check
 	mux.HandleFunc("/health", h.Health)

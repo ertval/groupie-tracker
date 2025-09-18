@@ -45,192 +45,29 @@ func NewRepository() *Repository {
 	}
 }
 
-// LoadData fetches, processes, and pre-computes all data from the API endpoints.
+// LoadData fetches, transforms, and loads all data used by the application.
+// It orchestrates the full ETL pipeline:
+//  1. Extract:   fetch artists and relations from the remote API
+//  2. Transform: build rich Artist models, compute stats, cache images, build Locations
+//  3. Load:      populate in-memory collections and indexes for fast lookups
 func (r *Repository) LoadData(ctx context.Context) error {
-	// 1. EXTRACT: Fetch raw data from API endpoints
-	var apiArtists []APIArtist
-	if err := r.fetchJSON(ctx, "/api/artists", &apiArtists); err != nil {
-		return fmt.Errorf("failed to fetch artists: %w", err)
+	// 1) Extract
+	apiArtists, apiRelations, err := r.fetchAPIData(ctx)
+	if err != nil {
+		return err
 	}
 
-	var apiRelations APIRelation
-	if err := r.fetchJSON(ctx, "/api/relation", &apiRelations); err != nil {
-		return fmt.Errorf("failed to fetch relations: %w", err)
-	}
+	// 2) Transform
+	finalArtists, totalConcerts, countrySet := r.buildArtists(apiArtists, apiRelations)
 
-	// 2. TRANSFORM: Process raw data into rich domain models
+	cachedCount, downloadedCount, failedCount := r.cacheArtistImages(finalArtists)
 
-	// Create a temporary map for efficient artist lookup during processing
-	tempArtists := make(map[int]*Artist)
-	for _, apiArtist := range apiArtists {
-		tempArtists[apiArtist.ID] = &Artist{
-			ID:              apiArtist.ID,
-			Name:            apiArtist.Name,
-			Slug:            createSlug(apiArtist.Name),
-			Members:         apiArtist.Members,
-			CreationYear:    apiArtist.CreationYear,
-			FirstAlbum:      apiArtist.FirstAlbum,
-			Image:           apiArtist.Image,
-			Concerts:        []Concert{},
-			DatesAtLocation: make(map[string][]string),
-		}
-	}
+	finalArtists = r.sortAndLinkArtists(finalArtists)
 
-	// Process relations and concert data
-	for _, relation := range apiRelations.Index {
-		if artist, found := tempArtists[relation.ID]; found {
-			for location, dates := range relation.DatesLocations {
-				normalizedLoc := normalizeLocation(location)
-				locationSlug := createSlug(normalizedLoc)
-				artist.DatesAtLocation[locationSlug] = append(artist.DatesAtLocation[locationSlug], dates...)
+	finalLocations := r.buildLocations(finalArtists)
 
-				for _, date := range dates {
-					artist.Concerts = append(artist.Concerts, Concert{
-						Date:     date,
-						Location: normalizedLoc,
-					})
-				}
-			}
-		}
-	}
-
-	// Create final, sorted slice of artists and compute derived fields
-	finalArtists := make([]Artist, 0, len(tempArtists))
-	countrySet := make(map[string]bool)
-	totalConcerts := 0
-
-	for _, artist := range tempArtists {
-		// Sort concerts by date (optional, but good for consistency)
-		sort.Slice(artist.Concerts, func(i, j int) bool {
-			return artist.Concerts[i].Date < artist.Concerts[j].Date
-		})
-
-		// Compute concert count
-		artist.ConcertCount = len(artist.Concerts)
-		totalConcerts += artist.ConcertCount
-
-		// Compute unique, sorted countries
-		artistCountries := make(map[string]bool)
-		for _, concert := range artist.Concerts {
-			parts := strings.Split(concert.Location, "-")
-			if len(parts) > 1 {
-				country := strings.TrimSpace(parts[len(parts)-1])
-				artistCountries[country] = true
-				countrySet[country] = true // Also add to global set
-			}
-		}
-		artist.Countries = make([]string, 0, len(artistCountries))
-		for country := range artistCountries {
-			artist.Countries = append(artist.Countries, country)
-		}
-		sort.Strings(artist.Countries)
-
-		finalArtists = append(finalArtists, *artist)
-	}
-
-	// Cache images locally. Collect summary counts to avoid noisy per-image logs.
-	cachedCount := 0
-	downloadedCount := 0
-	failedCount := 0
-	for i := range finalArtists {
-		cached, err := r.cacheImage(&finalArtists[i])
-		if err != nil {
-			// Count failures but don't log per-artist to avoid noisy output
-			failedCount++
-			continue
-		}
-		if cached {
-			cachedCount++
-		} else {
-			downloadedCount++
-		}
-	}
-
-	// Sort artists by name for consistent ordering
-	sort.Slice(finalArtists, func(i, j int) bool {
-		return finalArtists[i].Name < finalArtists[j].Name
-	})
-
-	// Compute Next/Prev artist IDs for navigation
-	for i := range finalArtists {
-		if i > 0 {
-			finalArtists[i].PrevArtistID = finalArtists[i-1].ID
-		}
-		if i < len(finalArtists)-1 {
-			finalArtists[i].NextArtistID = finalArtists[i+1].ID
-		}
-	}
-
-	// Process locations
-	tempLocations := make(map[string]*Location)
-	for i := range finalArtists {
-		artist := &finalArtists[i]
-		for _, concert := range artist.Concerts {
-			loc, found := tempLocations[concert.Location]
-			if !found {
-				loc = &Location{
-					Name:    concert.Location,
-					Slug:    createSlug(concert.Location),
-					Artists: []Artist{},
-				}
-				tempLocations[concert.Location] = loc
-			}
-
-			// Add artist to location if not already present
-			artistFound := false
-			for _, locArtist := range loc.Artists {
-				if locArtist.ID == artist.ID {
-					artistFound = true
-					break
-				}
-			}
-			if !artistFound {
-				loc.Artists = append(loc.Artists, *artist)
-			}
-			loc.TotalConcerts++
-		}
-	}
-
-	finalLocations := make([]Location, 0, len(tempLocations))
-	for _, loc := range tempLocations {
-		loc.ArtistCount = len(loc.Artists)
-		finalLocations = append(finalLocations, *loc)
-	}
-
-	sort.Slice(finalLocations, func(i, j int) bool {
-		return finalLocations[i].TotalConcerts > finalLocations[j].TotalConcerts
-	})
-
-	// 3. LOAD: Populate repository with final, computed data
-	r.artists = finalArtists
-	r.artistsByID = make(map[int]Artist)
-	r.artistsBySlug = make(map[string]Artist)
-	for _, artist := range finalArtists {
-		r.artistsByID[artist.ID] = artist
-		r.artistsBySlug[artist.Slug] = artist
-	}
-
-	r.locations = finalLocations
-	r.locationsBySlug = make(map[string]Location)
-	for _, location := range finalLocations {
-		r.locationsBySlug[location.Slug] = location
-	}
-
-	totalMembers := 0
-	for _, artist := range r.artists {
-		totalMembers += len(artist.Members)
-	}
-	r.globalStats = map[string]int{
-		"total_artists":     len(r.artists),
-		"total_members":     totalMembers,
-		"total_locations":   len(r.locations),
-		"total_concerts":    totalConcerts,
-		"total_countries":   len(countrySet),
-		"cached_images":     cachedCount,
-		"downloaded_images": downloadedCount,
-		"failed_images":     failedCount,
-	}
-
+	// 3) Load
+	r.populateData(finalArtists, finalLocations, totalConcerts, countrySet, cachedCount, downloadedCount, failedCount)
 	return nil
 }
 
@@ -271,60 +108,264 @@ func (r *Repository) GetStats() map[string]int {
 
 // --- Private Helper Methods ---
 
-func (r *Repository) cacheImage(artist *Artist) (bool, error) {
-	// If caching is disabled, leave the artist.Image as-is and return false
-	// indicating the image was not cached locally.
-	if !r.withCache {
-		return false, nil
-	}
-	originalImageURL := artist.Image
-	cacheDir := "static/img/artists"
-	fileName := fmt.Sprintf("%s.jpg", artist.Slug)
-	filePath := filepath.Join(cacheDir, fileName)
-	localImagePath := "/" + filepath.ToSlash(filePath)
-
-	// Check if the file already exists
-	if _, err := os.Stat(filePath); err == nil {
-		artist.Image = localImagePath // File exists, just update path
-		return true, nil
-	} else if !os.IsNotExist(err) {
-		return false, err // A different error occurred
+// fetchAPIData retrieves raw API payloads needed for repository initialization.
+// Returns the full set of artists and relations straight from the API.
+func (r *Repository) fetchAPIData(ctx context.Context) ([]APIArtist, APIRelation, error) {
+	var apiArtists []APIArtist
+	if err := r.fetchJSON(ctx, "/api/artists", &apiArtists); err != nil {
+		return nil, APIRelation{}, fmt.Errorf("failed to fetch artists: %w", err)
 	}
 
-	// File does not exist, so download it
-	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return false, err
+	var apiRelations APIRelation
+	if err := r.fetchJSON(ctx, "/api/relation", &apiRelations); err != nil {
+		return nil, APIRelation{}, fmt.Errorf("failed to fetch relations: %w", err)
 	}
-
-	// If originalImageURL is empty, nothing to download
-	if strings.TrimSpace(originalImageURL) == "" {
-		return false, fmt.Errorf("empty image URL for artist %s", artist.Name)
-	}
-
-	resp, err := http.Get(originalImageURL)
-	if err != nil {
-		return false, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("failed to download image for %s: status %d", artist.Name, resp.StatusCode)
-	}
-
-	file, err := os.Create(filePath)
-	if err != nil {
-		return false, err
-	}
-	defer file.Close()
-
-	_, err = io.Copy(file, resp.Body)
-	if err != nil {
-		return false, err
-	}
-
-	artist.Image = localImagePath // Update to local path after successful download
-	return false, nil
+	return apiArtists, apiRelations, nil
 }
+
+// buildArtists consolidates API data into enriched Artist models.
+// It also computes artist-level derived fields and returns aggregate counters
+// required to build global statistics (totalConcerts and distinct countries).
+func (r *Repository) buildArtists(apiArtists []APIArtist, apiRelations APIRelation) ([]Artist, int, map[string]bool) {
+	// Create a temporary map for efficient artist lookup during processing
+	tempArtists := make(map[int]*Artist)
+	for _, apiArtist := range apiArtists {
+		tempArtists[apiArtist.ID] = &Artist{
+			ID:              apiArtist.ID,
+			Name:            apiArtist.Name,
+			Slug:            createSlug(apiArtist.Name),
+			Members:         apiArtist.Members,
+			CreationYear:    apiArtist.CreationYear,
+			FirstAlbum:      apiArtist.FirstAlbum,
+			Image:           apiArtist.Image,
+			Concerts:        []Concert{},
+			DatesAtLocation: make(map[string][]string),
+		}
+	}
+
+	// Process relations and concert data
+	for _, relation := range apiRelations.Index {
+		if artist, found := tempArtists[relation.ID]; found {
+			for location, dates := range relation.DatesLocations {
+				normalizedLoc := normalizeLocation(location)
+				locationSlug := createSlug(normalizedLoc)
+				artist.DatesAtLocation[locationSlug] = append(artist.DatesAtLocation[locationSlug], dates...)
+
+				for _, date := range dates {
+					artist.Concerts = append(artist.Concerts, Concert{
+						Date:     date,
+						Location: normalizedLoc,
+					})
+				}
+			}
+		}
+	}
+
+	// Create final, sorted slice of artists and compute derived fields
+	finalArtists := make([]Artist, 0, len(tempArtists))
+	countrySet := make(map[string]bool)
+	totalConcerts := 0
+
+	for _, artist := range tempArtists {
+		sort.Slice(artist.Concerts, func(i, j int) bool {
+			return artist.Concerts[i].Date < artist.Concerts[j].Date
+		})
+
+		artist.ConcertCount = len(artist.Concerts)
+		totalConcerts += artist.ConcertCount
+
+		// Compute unique, sorted countries
+		artistCountries := make(map[string]bool)
+		for _, concert := range artist.Concerts {
+			parts := strings.Split(concert.Location, "-")
+			if len(parts) > 1 {
+				country := strings.TrimSpace(parts[len(parts)-1])
+				artistCountries[country] = true
+				countrySet[country] = true
+			}
+		}
+		artist.Countries = make([]string, 0, len(artistCountries))
+		for country := range artistCountries {
+			artist.Countries = append(artist.Countries, country)
+		}
+		sort.Strings(artist.Countries)
+
+		finalArtists = append(finalArtists, *artist)
+	}
+
+	return finalArtists, totalConcerts, countrySet
+}
+
+// cacheArtistImages caches remote artist images locally when enabled and returns
+// aggregate counters for reporting.
+// Behavior:
+//   - When caching is disabled, this function is a no-op and returns zeros.
+//   - When caching is enabled, for each artist it either:
+//   - reuses an existing cached file (counted as cached), or
+//   - downloads the image (counted as downloaded), or
+//   - records a failure (counted as failed) and leaves the original URL.
+func (r *Repository) cacheArtistImages(artists []Artist) (int, int, int) {
+	// Fast path when caching is disabled: leave images untouched and return zeros.
+	if !r.withCache {
+		return 0, 0, 0
+	}
+
+	cachedCount := 0
+	downloadedCount := 0
+	failedCount := 0
+
+	cacheDir := "static/img/artists"
+	// Ensure cache directory exists before we start.
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		// If we cannot create the cache directory, treat all as failures but keep running.
+		return 0, 0, len(artists)
+	}
+
+	for i := range artists {
+		artist := &artists[i]
+		originalImageURL := artist.Image
+		fileName := fmt.Sprintf("%s.jpg", artist.Slug)
+		filePath := filepath.Join(cacheDir, fileName)
+		localImagePath := "/" + filepath.ToSlash(filePath)
+
+		// If the file is already cached, just point to it.
+		if _, err := os.Stat(filePath); err == nil {
+			artist.Image = localImagePath
+			cachedCount++
+			continue
+		} else if !os.IsNotExist(err) {
+			failedCount++
+			continue
+		}
+
+		// Skip empty URLs (record as failure to keep counters consistent with earlier behavior)
+		if strings.TrimSpace(originalImageURL) == "" {
+			failedCount++
+			continue
+		}
+
+		// Download and save the image.
+		resp, err := http.Get(originalImageURL)
+		if err != nil {
+			failedCount++
+			continue
+		}
+		func() {
+			defer resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				failedCount++
+				return
+			}
+			file, err := os.Create(filePath)
+			if err != nil {
+				failedCount++
+				return
+			}
+			defer file.Close()
+			if _, err := io.Copy(file, resp.Body); err != nil {
+				failedCount++
+				return
+			}
+			// Success: point the artist image to the local path and count as downloaded.
+			artist.Image = localImagePath
+			downloadedCount++
+		}()
+	}
+	return cachedCount, downloadedCount, failedCount
+}
+
+// sortAndLinkArtists sorts artists by name and sets prev/next navigation IDs.
+func (r *Repository) sortAndLinkArtists(artists []Artist) []Artist {
+	sort.Slice(artists, func(i, j int) bool { return artists[i].Name < artists[j].Name })
+	for i := range artists {
+		if i > 0 {
+			artists[i].PrevArtistID = artists[i-1].ID
+		}
+		if i < len(artists)-1 {
+			artists[i].NextArtistID = artists[i+1].ID
+		}
+	}
+	return artists
+}
+
+// buildLocations aggregates concerts per location, including artist lists and counts.
+func (r *Repository) buildLocations(artists []Artist) []Location {
+	tempLocations := make(map[string]*Location)
+	for i := range artists {
+		artist := &artists[i]
+		for _, concert := range artist.Concerts {
+			loc, found := tempLocations[concert.Location]
+			if !found {
+				loc = &Location{
+					Name:    concert.Location,
+					Slug:    createSlug(concert.Location),
+					Artists: []Artist{},
+				}
+				tempLocations[concert.Location] = loc
+			}
+
+			// Add artist to location if not already present
+			artistFound := false
+			for _, locArtist := range loc.Artists {
+				if locArtist.ID == artist.ID {
+					artistFound = true
+					break
+				}
+			}
+			if !artistFound {
+				loc.Artists = append(loc.Artists, *artist)
+			}
+			loc.TotalConcerts++
+		}
+	}
+
+	finalLocations := make([]Location, 0, len(tempLocations))
+	for _, loc := range tempLocations {
+		loc.ArtistCount = len(loc.Artists)
+		finalLocations = append(finalLocations, *loc)
+	}
+	sort.Slice(finalLocations, func(i, j int) bool {
+		return finalLocations[i].TotalConcerts > finalLocations[j].TotalConcerts
+	})
+	return finalLocations
+}
+
+// populateData loads computed collections and indexes into the repository
+// along with global statistics.
+func (r *Repository) populateData(finalArtists []Artist, finalLocations []Location, totalConcerts int, countrySet map[string]bool, cachedCount, downloadedCount, failedCount int) {
+	r.artists = finalArtists
+	r.artistsByID = make(map[int]Artist)
+	r.artistsBySlug = make(map[string]Artist)
+	for _, artist := range finalArtists {
+		r.artistsByID[artist.ID] = artist
+		r.artistsBySlug[artist.Slug] = artist
+	}
+
+	r.locations = finalLocations
+	r.locationsBySlug = make(map[string]Location)
+	for _, location := range finalLocations {
+		r.locationsBySlug[location.Slug] = location
+	}
+
+	totalMembers := 0
+	for _, artist := range r.artists {
+		totalMembers += len(artist.Members)
+	}
+	r.globalStats = map[string]int{
+		"total_artists":     len(r.artists),
+		"total_members":     totalMembers,
+		"total_locations":   len(r.locations),
+		"total_concerts":    totalConcerts,
+		"total_countries":   len(countrySet),
+		"cached_images":     cachedCount,
+		"downloaded_images": downloadedCount,
+		"failed_images":     failedCount,
+	}
+}
+
+// fetchJSON performs a GET request against the repository's baseURL+path and
+// decodes the JSON response into dest. It returns a wrapped error with context
+// if any network or decoding issues occur.
 
 func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error {
 	req, err := http.NewRequestWithContext(ctx, "GET", r.baseURL+path, nil)

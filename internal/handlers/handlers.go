@@ -299,8 +299,60 @@ func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fs := http.StripPrefix("/static/", http.FileServer(http.Dir(staticDir)))
-	fs.ServeHTTP(w, r)
+	// Only allow safe methods
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", "GET, HEAD")
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Normalize and validate the path to avoid path traversal
+	reqPath := r.URL.Path
+	if reqPath == "/favicon.ico" {
+		// Serve favicon explicitly
+		faviconPath := filepath.Join(staticDir, "favicon.ico")
+		if fi, err := os.Stat(faviconPath); err != nil || fi.IsDir() {
+			h.Error(w, r, http.StatusNotFound, "favicon not found")
+			return
+		}
+		http.ServeFile(w, r, faviconPath)
+		return
+	}
+
+	// Only allow requests that start with /static/
+	const prefix = "/static/"
+	if !strings.HasPrefix(reqPath, prefix) {
+		h.Error(w, r, http.StatusNotFound, "Not found")
+		return
+	}
+
+	// Clean the path and prevent directory listing
+	rel := strings.TrimPrefix(reqPath, prefix)
+	rel = filepath.Clean(rel)
+	if rel == "." || rel == "" || strings.HasSuffix(reqPath, "/") {
+		// don't allow directory browsing
+		h.Error(w, r, http.StatusNotFound, "Not found")
+		return
+	}
+
+	// Prevent path traversal: ensure the resulting path is within staticDir
+	target := filepath.Join(staticDir, rel)
+	absStatic, _ := filepath.Abs(staticDir)
+	absTarget, err := filepath.Abs(target)
+	if err != nil || !strings.HasPrefix(absTarget, absStatic+string(os.PathSeparator)) && absTarget != absStatic {
+		h.Error(w, r, http.StatusNotFound, "Not found")
+		return
+	}
+
+	// Ensure the target is a regular file
+	fi, err := os.Stat(target)
+	if err != nil || fi.IsDir() {
+		h.Error(w, r, http.StatusNotFound, "Not found")
+		return
+	}
+
+	// Serve the file
+	http.ServeFile(w, r, target)
 }
 
 // Error handles all errors (4xx and 5xx) in a centralized way.

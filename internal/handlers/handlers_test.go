@@ -109,6 +109,12 @@ func TestHandler_Routes(t *testing.T) {
 		{"Health", "/health", "GET", http.StatusOK, "healthy"},
 		{"Static Image", "/static/img/artists/queen.jpg", "GET", http.StatusOK, ""},
 		{"Static Not Found", "/static/not-found.css", "GET", http.StatusNotFound, ""},
+		// Extra static handler tests
+		{"Favicon", "/favicon.ico", "GET", http.StatusOK, ""},
+		{"Favicon Invalid Method", "/favicon.ico", "POST", http.StatusMethodNotAllowed, "Method not allowed"},
+		{"Static Directory Browse", "/static/img/", "GET", http.StatusNotFound, ""},
+		{"Static Path Traversal", "/static/../go.mod", "GET", http.StatusNotFound, ""},
+		{"Static HEAD", "/static/img/artists/queen.jpg", "HEAD", http.StatusOK, ""},
 	}
 
 	for _, tt := range tests {
@@ -127,6 +133,8 @@ func TestHandler_Routes(t *testing.T) {
 				handler = h.LocationDetail
 			case tt.path == "/health":
 				handler = h.Health
+			case tt.path == "/favicon.ico":
+				handler = h.StaticFiles
 			case strings.HasPrefix(tt.path, "/static/"):
 				handler = h.StaticFiles
 			default:
