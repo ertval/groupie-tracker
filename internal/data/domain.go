@@ -31,3 +31,15 @@ type Concert struct {
 	Date     string
 	Location string // Normalized location name
 }
+
+// CacheStatus represents the state of the image cache.
+type CacheStatus int
+
+const (
+	// CacheDisabled means image caching is turned off.
+	CacheDisabled CacheStatus = iota
+	// CacheCold means caching is on, but the cache was empty and images were downloaded.
+	CacheCold
+	// CacheWarm means caching is on, and images were served from the existing cache.
+	CacheWarm
+)

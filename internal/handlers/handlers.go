@@ -29,13 +29,7 @@ func NewHandler(repo *data.Repository) *Handler {
 
 // Home handles the home page.
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	if r.URL.Path != "/" {
-		h.Error(w, r, http.StatusNotFound, "Page not found")
+	if !h.validateGETRequest(w, r, "/") {
 		return
 	}
 
@@ -63,18 +57,11 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 
 // Artists handles the artists listing page.
 func (h *Handler) Artists(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	if r.URL.Path != "/artists" {
-		h.Error(w, r, http.StatusNotFound, "Page not found")
+	if !h.validateGETRequest(w, r, "/artists") {
 		return
 	}
 
 	artists := h.repo.GetArtists()
-
 	data := struct {
 		Title    string
 		ExtraCSS string
@@ -103,21 +90,19 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var artist data.Artist
-	var found bool
-
-	if artist, found = h.repo.GetArtistBySlug(path); !found {
-		id, err := strconv.Atoi(path)
-		if err != nil {
-			h.Error(w, r, http.StatusNotFound, "Artist not found")
-			return
+	// Try slug first, then ID
+	artist, found := h.repo.GetArtistBySlug(path)
+	if !found {
+		if id, err := strconv.Atoi(path); err == nil {
+			artist, found = h.repo.GetArtistByID(id)
 		}
-		if artist, found = h.repo.GetArtistByID(id); !found {
+		if !found {
 			h.Error(w, r, http.StatusNotFound, "Artist not found")
 			return
 		}
 	}
 
+	// Get navigation artists
 	var prevArtist, nextArtist *data.Artist
 	if artist.PrevArtistID != 0 {
 		if p, ok := h.repo.GetArtistByID(artist.PrevArtistID); ok {
@@ -151,18 +136,12 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 
 // Locations handles the locations listing page.
 func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	if r.URL.Path != "/locations" {
-		h.Error(w, r, http.StatusNotFound, "Page not found")
+	if !h.validateGETRequest(w, r, "/locations") {
 		return
 	}
 
 	locations := h.repo.GetLocations()
-	globalStats := h.repo.GetStats()
+	stats := h.repo.GetStats()
 
 	data := struct {
 		Title          string
@@ -176,8 +155,8 @@ func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:       "locations.css",
 		ExtraJS:        "",
 		Locations:      locations,
-		TotalCountries: globalStats["total_countries"],
-		TotalConcerts:  globalStats["total_concerts"],
+		TotalCountries: stats["total_countries"],
+		TotalConcerts:  stats["total_concerts"],
 	}
 
 	h.render(w, r, "locations.tmpl", data)
@@ -219,25 +198,7 @@ func (h *Handler) LocationDetail(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "location_detail.tmpl", data)
 }
 
-// Health provides a health check endpoint.
-func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	response := map[string]any{
-		"status":    "healthy",
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     h.repo.GetStats(),
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
-}
-
-// DevIndex renders a small developer page with quick links to the dev handlers.
+// DevIndex renders a small developer page with quick links.
 func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
@@ -245,11 +206,11 @@ func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	links := []struct{ Href, Text string }{
-		{Href: "/dev/panic", Text: "Trigger Panic (/dev/panic)"},
-		{Href: "/dev/404", Text: "Simulate 404 (/dev/404)"},
-		{Href: "/dev/500", Text: "Simulate 500 (/dev/500)"},
-		{Href: "/dev/tmpl-error", Text: "Simulate Template Error (/dev/tmpl-error)"},
-		{Href: "/health", Text: "Health Check (/health)"},
+		{"/dev/panic", "Trigger Panic (/dev/panic)"},
+		{"/dev/404", "Simulate 404 (/dev/404)"},
+		{"/dev/500", "Simulate 500 (/dev/500)"},
+		{"/dev/tmpl-error", "Simulate Template Error (/dev/tmpl-error)"},
+		{"/health", "Health Check (/health)"},
 	}
 
 	data := struct {
@@ -288,6 +249,24 @@ func (h *Handler) Error(w http.ResponseWriter, r *http.Request, status int, mess
 	}
 
 	h.render(w, r, "error.tmpl", data, status)
+}
+
+// Health provides a health check endpoint.
+func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	response := map[string]any{
+		"status":    "healthy",
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+		"stats":     h.repo.GetStats(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
 }
 
 // DevPanic is a development endpoint to test panic recovery.

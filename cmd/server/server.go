@@ -35,11 +35,13 @@ func newServer() (*http.Server, error) {
 
 	// Pretty single-line startup summary
 	stats := repo.GetStats()
-	if config.WithCache {
-		log.Printf("Data loaded successfully with caching enabled - %d artists (Images: %d cached, %d downloaded, %d failed)",
-			stats["total_artists"], stats["cached_images"], stats["downloaded_images"], stats["failed_images"])
-	} else {
-		log.Printf("Data loaded successfully - %d artists (Image caching is disabled)", stats["total_artists"])
+	switch repo.CacheStatus {
+	case data.CacheDisabled:
+		log.Printf("Data loaded successfully - %d artists (Image caching is disabled, serving from API)", stats["total_artists"])
+	case data.CacheCold:
+		log.Printf("Data loaded successfully with Cold cache - %d artists (Downloaded %d images)", stats["total_artists"], stats["downloaded_images"])
+	case data.CacheWarm:
+		log.Printf("Data loaded successfully with Warm cache - %d artists (Loaded %d images from cache)", stats["total_artists"], stats["cached_images"])
 	}
 
 	// Initialize handlers, routes, and middleware

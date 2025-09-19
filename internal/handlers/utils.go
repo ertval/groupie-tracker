@@ -11,6 +11,23 @@ import (
 	"strings"
 )
 
+// --- Request Validation Helpers ---
+
+// validateGETRequest checks if request is GET method and matches expected path.
+func (h *Handler) validateGETRequest(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
+	if r.Method != http.MethodGet {
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return false
+	}
+
+	if r.URL.Path != expectedPath {
+		h.Error(w, r, http.StatusNotFound, "Page not found")
+		return false
+	}
+
+	return true
+}
+
 // --- Template Helpers ---
 
 // render renders a template with the given data and status code (if provided) managing all errors.
@@ -136,17 +153,17 @@ func (h *Handler) getContentType(ext string) string {
 // getCacheControl returns appropriate cache control headers based on file type
 func (h *Handler) getCacheControl(ext string) string {
 	switch ext {
-	case ".css", ".js":
-		// CSS and JS files - cache for 1 year
-		return "public, max-age=3600"
-	case ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico":
-		// Images - cache for 1 month
-		return "public, max-age=3600"
-	case ".woff", ".woff2", ".ttf", ".eot":
-		// Fonts - cache for 1 year
-		return "public, max-age=3600"
+	case ".css", ".js", ".woff", ".woff2", ".ttf", ".eot":
+		// Assets like CSS, JS, and fonts are fingerprinted and can be cached "forever".
+		return "public, max-age=31536000" // 1 year
+	case ".png", ".jpg", ".jpeg", ".gif", ".svg":
+		// Images can be cached for a long time, but not indefinitely.
+		return "public, max-age=2592000" // 30 days
+	case ".ico":
+		// Favicon can be cached for a day.
+		return "public, max-age=86400" // 24 hours
 	default:
-		// Other files - cache for 1 hour
+		// Other files (like JSON manifests, etc.) - cache for 1 hour.
 		return "public, max-age=3600"
 	}
 }
