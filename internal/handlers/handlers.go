@@ -29,7 +29,7 @@ func NewHandler(repo *data.Repository) *Handler {
 
 // Home handles the home page.
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
-	if !h.validateGETRequest(w, r, "/") {
+	if !h.validateRequestMethodPath(w, r, "/") {
 		return
 	}
 
@@ -57,7 +57,7 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 
 // Artists handles the artists listing page.
 func (h *Handler) Artists(w http.ResponseWriter, r *http.Request) {
-	if !h.validateGETRequest(w, r, "/artists") {
+	if !h.validateRequestMethodPath(w, r, "/artists") {
 		return
 	}
 
@@ -136,7 +136,7 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 
 // Locations handles the locations listing page.
 func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) {
-	if !h.validateGETRequest(w, r, "/locations") {
+	if !h.validateRequestMethodPath(w, r, "/locations") {
 		return
 	}
 
@@ -276,8 +276,19 @@ func (h *Handler) DevPanic(w http.ResponseWriter, r *http.Request) {
 
 // Dev404 is a development endpoint to test 404 error template.
 func (h *Handler) Dev404(w http.ResponseWriter, r *http.Request) {
-	// Simulate a proper 404 error - this tests if the error template renders correctly
-	h.Error(w, r, http.StatusNotFound, "This is a simulated 404 error.")
+	// Simulate a realistic 404 by mutating a shallow copy of the request
+	// so that template rendering sees a non-existent requested URL.
+	// We keep the original request untouched and pass the modified copy
+	// to the Home handler which will validate the path and trigger a 404.
+	nr := new(http.Request)
+	*nr = *r
+	// Ensure method is GET and set a path that we know doesn't exist in the router
+	nr.Method = http.MethodGet
+	nr.URL.Path = "/this-page-does-not-exist"
+
+	// Call Home with the modified request so the Error template is rendered
+	// using the realistic requested URL stored in nr.URL.Path.
+	h.Home(w, nr)
 }
 
 // Dev500 is a development endpoint to test 500 error template.

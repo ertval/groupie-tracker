@@ -13,8 +13,8 @@ import (
 
 // --- Request Validation Helpers ---
 
-// validateGETRequest checks if request is GET method and matches expected path.
-func (h *Handler) validateGETRequest(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
+// validateRequestMethodPath checks if request is GET method and matches expected path.
+func (h *Handler) validateRequestMethodPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
 	if r.Method != http.MethodGet {
 		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return false

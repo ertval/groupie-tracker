@@ -29,7 +29,8 @@ func newServer() (*http.Server, error) {
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	if err := repo.LoadData(loadCtx); err != nil {
+	err := repo.LoadData(loadCtx)
+	if err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
@@ -48,6 +49,7 @@ func newServer() (*http.Server, error) {
 	handler := handlers.NewHandler(repo)
 	mux := withMiddleware(createRouter(handler))
 	port := getPort()
+	// log.Printf("Server is starting on port %s", port)
 
 	// Create HTTP server using values from config
 	httpServer := &http.Server{
@@ -58,15 +60,15 @@ func newServer() (*http.Server, error) {
 		IdleTimeout:  config.IdleTimeout,
 	}
 
-	addr := httpServer.Addr
-	url := addr
-	if strings.HasPrefix(addr, ":") {
-		url = "http://localhost" + addr
-	} else if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
-		url = "http://" + addr
-	}
+	// addr := httpServer.Addr
+	// url := addr
+	// if strings.HasPrefix(addr, ":") {
+	// 	url = "http://localhost" + addr
+	// } else if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
+	// 	url = "http://" + addr
+	// }
 
-	log.Printf("🚀 Server Initialized in %v and Ready to Open - %s in your browser", time.Since(start), url)
+	log.Printf("🚀 Server Initialized in %v and Ready to Open - %s in your browser", time.Since(start), "http://localhost"+port)
 
 	return httpServer, nil
 }
