@@ -1,9 +1,11 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -305,62 +307,146 @@ func (h *Handler) Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
 	const staticDir = "static"
 
-	// Verify static directory exists
-	if _, err := os.Stat(staticDir); err != nil {
-		h.Error(w, r, http.StatusInternalServerError, "Static directory not found")
-		return
-	}
-
-	// Only allow safe HTTP methods
+	// Only allow GET and HEAD methods
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
 		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	// Handle favicon.ico requests explicitly
-	reqPath := r.URL.Path
-	if reqPath == "/favicon.ico" {
-		h.serveFavicon(w, r, staticDir)
+	// Handle favicon.ico requests
+	if r.URL.Path == "/favicon.ico" {
+		target := filepath.Join(staticDir, "favicon.ico")
+		if fi, err := os.Stat(target); err != nil || fi.IsDir() {
+			h.Error(w, r, http.StatusNotFound, "Favicon not found")
+			return
+		}
+		http.ServeFile(w, r, target)
 		return
 	}
 
-	// Only allow requests that start with /static/
-	const prefix = "/static/"
-	if !strings.HasPrefix(reqPath, prefix) {
+	// Only allow /static/ prefix
+	if !strings.HasPrefix(r.URL.Path, "/static/") {
 		h.Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
-	// Extract and validate the relative path
-	rel := strings.TrimPrefix(reqPath, prefix)
-	if !h.isValidStaticPath(rel) {
+	// Extract relative path and prevent directory traversal
+	rel := strings.TrimPrefix(r.URL.Path, "/static/")
+	if rel == "" || strings.Contains(rel, "..") || strings.HasPrefix(rel, "/") {
 		h.Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
-	// Build the target file path securely
+	// Build target path and verify it's a regular file
 	target := filepath.Join(staticDir, rel)
-	if !h.isPathSafe(staticDir, target) {
+	if fi, err := os.Stat(target); err != nil || fi.IsDir() {
 		h.Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
-	// Verify the target is a regular file
-	fi, err := os.Stat(target)
-	if err != nil || fi.IsDir() {
-		h.Error(w, r, http.StatusNotFound, "Not found")
-		return
-	}
-
-	// Handle conditional requests (304 Not Modified)
-	if h.handleConditionalRequest(w, r, fi) {
-		return // 304 Not Modified was sent
-	}
-
-	// Set content type and caching headers
-	h.setStaticFileHeaders(w, target)
-
-	// Serve the file
+	// Serve the file (Go's http.ServeFile handles content-type automatically)
 	http.ServeFile(w, r, target)
+}
+
+// --- Request Validation Helpers ---
+
+// validateRequestMethodPath checks if request is GET method and matches expected path.
+func (h *Handler) validateRequestMethodPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
+	if r.Method != http.MethodGet {
+		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return false
+	}
+
+	if r.URL.Path != expectedPath {
+		h.Error(w, r, http.StatusNotFound, "Page not found")
+		return false
+	}
+
+	return true
+}
+
+// --- Template Helpers ---
+
+// render renders a template with the given data and status code (if provided) managing all errors.
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
+	code := http.StatusOK
+	if len(status) > 0 {
+		code = status[0]
+	}
+
+	tmpl, ok := h.templates[name]
+	if !ok {
+		// If we are already rendering an error, don't call h.Error again.
+		if name == "error.tmpl" {
+			log.Printf("FATAL: error.tmpl is missing")
+			http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
+			return
+		}
+		h.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
+		return
+	}
+
+	buf := new(bytes.Buffer)
+	if err := tmpl.ExecuteTemplate(buf, "base", data); err != nil {
+		// If we get an error while executing the error template, we need to fallback.
+		if name == "error.tmpl" {
+			log.Printf("Error executing error template: %v", err)
+			http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
+			return
+		}
+		h.Error(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(code)
+	buf.WriteTo(w)
+}
+
+// loadTemplates loads and parses all templates from the templates directory.
+func (h *Handler) loadTemplates() {
+	h.templates = make(map[string]*template.Template)
+
+	funcMap := template.FuncMap{
+		"add":   func(a, b int) int { return a + b },
+		"sub":   func(a, b int) int { return a - b },
+		"join":  func(items []string, sep string) string { return strings.Join(items, sep) },
+		"upper": func(s string) string { return strings.ToUpper(s) },
+		"title": func(s string) string {
+			words := strings.Fields(strings.ReplaceAll(s, "-", " "))
+			for i, word := range words {
+				if len(word) > 0 {
+					words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
+				}
+			}
+			return strings.Join(words, " ")
+		},
+	}
+
+	const templateDir = "templates"
+	baseTmplPath := filepath.Join(templateDir, "base.tmpl")
+
+	if _, err := os.Stat(baseTmplPath); err != nil {
+		log.Fatalf("Failed to find base template at %s: %v", baseTmplPath, err)
+	}
+
+	pages, err := filepath.Glob(filepath.Join(templateDir, "*.tmpl"))
+	if err != nil {
+		log.Fatalf("Failed to glob templates: %v", err)
+	}
+
+	for _, page := range pages {
+		name := filepath.Base(page)
+		if name == "base.tmpl" {
+			continue
+		}
+
+		ts, err := template.New(name).Funcs(funcMap).ParseFiles(baseTmplPath, page)
+		if err != nil {
+			log.Fatalf("Failed to parse template %s: %v", name, err)
+		}
+
+		h.templates[name] = ts
+	}
 }
