@@ -5,7 +5,7 @@ import "time"
 // Server and API configuration defaults. Tests can override these values.
 var (
 	// Enable or disable image caching (true = enabled, false = disabled)
-	WithCache = false
+	WithCache = true
 	
 	// API base URL used by the repository when fetching data
 	APIBaseURL = "https://groupietrackers.herokuapp.com"

@@ -289,25 +289,7 @@ func (h *Handler) Error(w http.ResponseWriter, r *http.Request, status int, mess
 		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
 	}
 
-	// Special case for rendering errors to avoid recursion.
-	ts, ok := h.templates["error.tmpl"]
-	if !ok {
-		// Fallback if the error template itself is not found
-		http.Error(w, "500 Internal Server Error - Error template not found (http.Error returned)", http.StatusInternalServerError)
-		return
-	}
-
-	buf := new(bytes.Buffer)
-	err := ts.ExecuteTemplate(buf, "base", data)
-	if err != nil {
-		// Fallback if executing the error template fails
-		log.Printf("Error executing error template: %v", err)
-		http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(status)
-	buf.WriteTo(w)
+	h.render(w, r, "error.tmpl", data, status)
 }
 
 // DevPanic is a development endpoint to test panic recovery.
@@ -335,28 +317,23 @@ func (h *Handler) Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
 	const staticDir = "static"
 
+	// Verify static directory exists
 	if _, err := os.Stat(staticDir); err != nil {
 		h.Error(w, r, http.StatusInternalServerError, "Static directory not found")
 		return
 	}
 
-	// Only allow safe methods
+	// Only allow safe HTTP methods
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
 		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
-	// Normalize and validate the path to avoid path traversal
+	// Handle favicon.ico requests explicitly
 	reqPath := r.URL.Path
 	if reqPath == "/favicon.ico" {
-		// Serve favicon explicitly
-		faviconPath := filepath.Join(staticDir, "favicon.ico")
-		if fi, err := os.Stat(faviconPath); err != nil || fi.IsDir() {
-			h.Error(w, r, http.StatusNotFound, "favicon not found")
-			return
-		}
-		http.ServeFile(w, r, faviconPath)
+		h.serveFavicon(w, r, staticDir)
 		return
 	}
 
@@ -367,38 +344,205 @@ func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Clean the path and prevent directory listing
+	// Extract and validate the relative path
 	rel := strings.TrimPrefix(reqPath, prefix)
-	rel = filepath.Clean(rel)
-	if rel == "." || rel == "" || strings.HasSuffix(reqPath, "/") {
-		// don't allow directory browsing
+	if !h.isValidStaticPath(rel) {
 		h.Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
-	// Prevent path traversal: ensure the resulting path is within staticDir
+	// Build the target file path securely
 	target := filepath.Join(staticDir, rel)
-	absStatic, _ := filepath.Abs(staticDir)
-	absTarget, err := filepath.Abs(target)
-	if err != nil || !strings.HasPrefix(absTarget, absStatic+string(os.PathSeparator)) && absTarget != absStatic {
+	if !h.isPathSafe(staticDir, target) {
 		h.Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
-	// Ensure the target is a regular file
+	// Verify the target is a regular file
 	fi, err := os.Stat(target)
 	if err != nil || fi.IsDir() {
 		h.Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
+	// Handle conditional requests (304 Not Modified)
+	if h.handleConditionalRequest(w, r, fi) {
+		return // 304 Not Modified was sent
+	}
+
+	// Set content type and caching headers
+	h.setStaticFileHeaders(w, target, fi)
+
 	// Serve the file
 	http.ServeFile(w, r, target)
 }
 
+// generateETag creates a simple ETag based on file size and modification time
+func (h *Handler) generateETag(fi os.FileInfo) string {
+	return fmt.Sprintf(`"%x-%x"`, fi.Size(), fi.ModTime().Unix())
+}
+
+// getContentType returns the appropriate content type for file extensions
+func (h *Handler) getContentType(ext string) string {
+	switch ext {
+	case ".css":
+		return "text/css; charset=utf-8"
+	case ".js":
+		return "application/javascript; charset=utf-8"
+	case ".png":
+		return "image/png"
+	case ".jpg", ".jpeg":
+		return "image/jpeg"
+	case ".gif":
+		return "image/gif"
+	case ".svg":
+		return "image/svg+xml"
+	case ".ico":
+		return "image/x-icon"
+	case ".woff":
+		return "font/woff"
+	case ".woff2":
+		return "font/woff2"
+	case ".ttf":
+		return "font/ttf"
+	case ".eot":
+		return "application/vnd.ms-fontobject"
+	default:
+		return "application/octet-stream"
+	}
+}
+
+// getCacheControl returns appropriate cache control headers based on file type
+func (h *Handler) getCacheControl(ext string) string {
+	switch ext {
+	case ".css", ".js":
+		// CSS and JS files - cache for 1 year
+		return "public, max-age=31536000"
+	case ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico":
+		// Images - cache for 1 month
+		return "public, max-age=2592000"
+	case ".woff", ".woff2", ".ttf", ".eot":
+		// Fonts - cache for 1 year
+		return "public, max-age=31536000"
+	default:
+		// Other files - cache for 1 hour
+		return "public, max-age=3600"
+	}
+}
+
+// handleConditionalRequest handles If-None-Match and If-Modified-Since headers
+func (h *Handler) handleConditionalRequest(w http.ResponseWriter, r *http.Request, fi os.FileInfo) bool {
+	modTime := fi.ModTime()
+	etag := h.generateETag(fi)
+
+	// Set ETag and Last-Modified headers
+	w.Header().Set("ETag", etag)
+	w.Header().Set("Last-Modified", modTime.UTC().Format(http.TimeFormat))
+
+	// Check If-None-Match (ETag)
+	if inm := r.Header.Get("If-None-Match"); inm != "" {
+		if inm == etag || inm == "*" {
+			w.WriteHeader(http.StatusNotModified)
+			return true
+		}
+	}
+
+	// Check If-Modified-Since
+	if ims := r.Header.Get("If-Modified-Since"); ims != "" {
+		if t, err := http.ParseTime(ims); err == nil {
+			// Compare with 1-second precision (HTTP time format limitation)
+			if modTime.Unix() <= t.Unix() {
+				w.WriteHeader(http.StatusNotModified)
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// setStaticFileHeaders sets appropriate headers for static files
+func (h *Handler) setStaticFileHeaders(w http.ResponseWriter, target string, fi os.FileInfo) {
+	// Set content type based on file extension
+	ext := strings.ToLower(filepath.Ext(target))
+	contentType := h.getContentType(ext)
+	w.Header().Set("Content-Type", contentType)
+
+	// Set caching headers based on file type
+	cacheControl := h.getCacheControl(ext)
+	w.Header().Set("Cache-Control", cacheControl)
+	w.Header().Set("Vary", "Accept-Encoding")
+
+	// Set security headers for static files
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+}
+
+// isValidStaticPath validates the relative path to prevent directory traversal
+func (h *Handler) isValidStaticPath(rel string) bool {
+	// Clean the path and normalize path separators
+	rel = filepath.Clean(rel)
+	rel = filepath.ToSlash(rel) // Convert Windows backslashes to forward slashes
+
+	// Reject empty, current directory, or paths ending with slash
+	if rel == "." || rel == "" || strings.HasSuffix(rel, "/") {
+		return false
+	}
+
+	// Reject paths that try to go up directories
+	if strings.Contains(rel, "..") {
+		return false
+	}
+
+	// Reject paths starting with slash
+	if strings.HasPrefix(rel, "/") {
+		return false
+	}
+
+	return true
+}
+
+// isPathSafe ensures the resolved path is within the static directory
+func (h *Handler) isPathSafe(staticDir, target string) bool {
+	absStatic, err := filepath.Abs(staticDir)
+	if err != nil {
+		return false
+	}
+
+	absTarget, err := filepath.Abs(target)
+	if err != nil {
+		return false
+	}
+
+	// Ensure target is within static directory
+	staticPrefix := absStatic + string(filepath.Separator)
+	return strings.HasPrefix(absTarget, staticPrefix) || absTarget == absStatic
+}
+
+// serveFavicon handles favicon.ico requests with appropriate caching
+func (h *Handler) serveFavicon(w http.ResponseWriter, r *http.Request, staticDir string) {
+	faviconPath := filepath.Join(staticDir, "favicon.ico")
+	fi, err := os.Stat(faviconPath)
+	if err != nil || fi.IsDir() {
+		h.Error(w, r, http.StatusNotFound, "Favicon not found")
+		return
+	}
+
+	// Handle conditional requests for favicon
+	if h.handleConditionalRequest(w, r, fi) {
+		return
+	}
+
+	// Set favicon-specific headers
+	w.Header().Set("Cache-Control", "public, max-age=86400") // 24 hours for favicon
+	w.Header().Set("Vary", "Accept-Encoding")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+
+	http.ServeFile(w, r, faviconPath)
+}
+
 // --- Private Helper Methods ---
 
-// render renders a template with the given data and status code.
+// render renders a template with the given data and status code (if provided) managing all errors.
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
 	code := http.StatusOK
 	if len(status) > 0 {
@@ -407,12 +551,24 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, da
 
 	tmpl, ok := h.templates[name]
 	if !ok {
+		// If we are already rendering an error, don't call h.Error again.
+		if name == "error.tmpl" {
+			log.Printf("FATAL: error.tmpl is missing")
+			http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
+			return
+		}
 		h.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
 		return
 	}
 
 	buf := new(bytes.Buffer)
 	if err := tmpl.ExecuteTemplate(buf, "base", data); err != nil {
+		// If we get an error while executing the error template, we need to fallback.
+		if name == "error.tmpl" {
+			log.Printf("Error executing error template: %v", err)
+			http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
+			return
+		}
 		h.Error(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
