@@ -31,7 +31,7 @@ func NewHandler(repo *data.Repository) *Handler {
 
 // Home handles the home page.
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
-	if !h.validateRequestMethodPath(w, r, "/") {
+	if !h.validateRequestGETPath(w, r, "/") {
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 
 // Artists handles the artists listing page.
 func (h *Handler) Artists(w http.ResponseWriter, r *http.Request) {
-	if !h.validateRequestMethodPath(w, r, "/artists") {
+	if !h.validateRequestGETPath(w, r, "/artists") {
 		return
 	}
 
@@ -138,7 +138,7 @@ func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 
 // Locations handles the locations listing page.
 func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) {
-	if !h.validateRequestMethodPath(w, r, "/locations") {
+	if !h.validateRequestGETPath(w, r, "/locations") {
 		return
 	}
 
@@ -351,8 +351,8 @@ func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
 
 // --- Request Validation Helpers ---
 
-// validateRequestMethodPath checks if request is GET method and matches expected path.
-func (h *Handler) validateRequestMethodPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
+// validateRequestGETPath checks if request is GET method and matches expected path.
+func (h *Handler) validateRequestGETPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
 	if r.Method != http.MethodGet {
 		h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return false

@@ -13,43 +13,47 @@ Zone01 educational project implementing a Go web application that consumes the G
 **Quick Commands:**
 ```bash
 go run ./cmd/server/          # Start server (PORT=8080)
-go test ./...                 # Run all tests (note: tests/ has mixed package issue)
-go test -cover ./...         # Coverage report (handlers: 71.2%, repository: 84.2%)
+go test ./internal/...        # Run internal tests (clean)
+go test ./tests/...           # Run audit/e2e tests (may have package issues)
+go test -cover ./internal/... # Coverage report
 go build -o groupie-tracker ./cmd/server
-go version                   # Verify Go 1.25.1+ (go.mod specifies 1.24.3)
 ```
 
 ## Current Architecture (September 2025)
 
-### Clean Repository Pattern
+### Simplified Clean Architecture
 ```
-cmd/server/main.go           # Entry point with graceful shutdown
-cmd/server/server.go         # Server configuration and middleware
+cmd/server/
+  ├── main.go                # Entry point
+  ├── server.go              # HTTP server setup and routing
+  └── server_test.go         # Server integration tests
 internal/
-  ├── repository/            # Core data management
-    │   ├── data.go      # Complete data package (379 lines, 84.2% coverage)
-  │   └── repository_test.go # Comprehensive tests
-  └── handlers/              # HTTP handlers
-      ├── handlers.go        # All endpoints (395 lines, 71.2% coverage)
-      └── handlers_test.go   # Handler tests
+  ├── config/
+  │   └── config.go          # Centralized configuration (timeouts, URLs, cache settings)
+  ├── data/                  # Core domain layer
+  │   ├── repository.go      # Data management with simplified ETL pipeline
+  │   ├── domain.go          # Domain models (Artist, Location, Concert)
+  │   ├── api.go             # API response structures
+  │   └── repository_test.go # Repository tests
+  └── handlers/              # HTTP layer
+      ├── handlers.go        # All HTTP endpoints (~450 lines)
+      └── handlers_test.go   # Handler tests (some failing static file tests)
 templates/                   # Self-contained HTML templates
-static/css/                  # Page-specific stylesheets
+static/                     # Static assets (CSS, JS, images)
 tests/                      # End-to-end and audit tests
-  ├── audit_test.go         # Zone01 compliance verification
-  ├── debug_test.go         # Development debugging tests
-  └── simple_verify.go      # Quick verification utility
 ```
 
 **🏗️ Current Architecture:**
--- Data package: `data.Repository` manages all data operations
+- Centralized config: `internal/config` package sets all defaults
+- Data layer: `data.Repository` manages API data with sequential processing
 - Single initialization: Load data once at startup via `repo.LoadData(ctx)`
 - Precomputed indexes: SEO slugs, location stats calculated at load time
-- Thread-safe operations through repository methods
+- Thread-safe read operations from in-memory data
 
 ### Repository Pattern (September 2025)
 ```go
-// Repository initialization in server startup
-repo := data.NewRepository(apiURL, timeout)
+// Repository initialization in server startup (uses internal/config)
+repo := data.NewRepository()  // Config comes from internal/config package
 if err := repo.LoadData(ctx); err != nil {
     log.Fatalf("Failed to load data: %v", err)
 }
@@ -57,13 +61,26 @@ if err := repo.LoadData(ctx); err != nil {
 // All data access through repository methods
 artists := repo.GetArtists()
 artist, found := repo.GetArtistBySlug("queen")
-locationStats := repo.GetLocationStats()
+locations := repo.GetLocations()
 stats := repo.GetStats()
 ```
 
 ## Critical Data Flow Patterns
 
-### API Data Normalization (in `internal/data/data.go`)
+### Centralized Configuration Pattern
+```go
+// ALL configuration managed through internal/config package
+config.WithCache = false              // Image caching toggle
+config.APIBaseURL = "https://..."     // API endpoint
+config.APIRequestTimeout = 30*time.Second
+config.DefaultPort = ":8080"
+config.ReadTimeout = 15*time.Second
+
+// Repository reads config internally - no parameters needed
+repo := data.NewRepository()  // Uses config.* variables
+```
+
+### API Data Normalization (in `internal/data/repository.go`)
 - `/api/artists` → direct array of Artist structs
 - `/api/locations`, `/api/dates`, `/api/relation` → `{"index": [...]}` format
 - Must extract `.Index` field for locations/dates/relations
@@ -71,10 +88,17 @@ stats := repo.GetStats()
 ### Handler Error Template Pattern
 ```go
 // Error handlers expect specific struct fields
-data := ErrorData{
+data := struct {
+    Title        string
+    ExtraCSS     string
+    ErrorCode    int       // NOT "Code" 
+    RequestedURL string
+    Message      string
+    Timestamp    string
+}{
     Title:        "Page Not Found",
     ExtraCSS:     "errors.css",
-    ErrorCode:    404,        // NOT "Code" 
+    ErrorCode:    404,
     RequestedURL: r.URL.Path,
     Message:      "The page you're looking for doesn't exist.",
     Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
@@ -84,23 +108,22 @@ data := ErrorData{
 ### Template System (Self-Contained)
 - Each `.tmpl` file is complete HTML document
 - No template inheritance or `{{define "content"}}` blocks
-- Direct execution: `h.templates.ExecuteTemplate(w, "artist_detail.tmpl", data)`
-- Template functions: `add`, `sub`, `join`, `generateLocationSlug`, `normalizeLocationName`
+- Direct execution: `h.render(w, r, "artist_detail.tmpl", data)`
+- Template functions: `add`, `sub`, `join` plus custom functions in handlers.go
+- Template data uses inline struct patterns for type safety
 
-### Improved Error Handling (September 2025)
+### Current Error Handling Pattern
 ```go
-func (h *Handler) render(w http.ResponseWriter, templateName string, data any, statusCode ...int) {
-    // Handle nil templates gracefully (for tests)
-    if h.templates == nil {
-        w.Write([]byte("Internal server error - templates not loaded"))
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, templateName string, data any) {
+    // Template selection and status code logic
+    if h.templates[templateName] == nil {
+        h.Error(w, r, 500, "Template not found")
         return
     }
     
-    // If template fails and it's not error template, try to render error template
-    if err := h.templates.ExecuteTemplate(w, templateName, data); err != nil {
-        if templateName != "error.tmpl" {
-            // Try error template, fallback to plain text if that fails too
-        }
+    // Execute template with error fallback
+    if err := h.templates[templateName].Execute(w, data); err != nil {
+        // Fallback to error template if available
     }
 }
 ```
@@ -145,19 +168,21 @@ func (h *Handler) render(w http.ResponseWriter, templateName string, data any, s
 ## Development Workflow
 
 1. **Always write tests first** (Zone01 requirement)
-2. **Use the unified repository pattern** (`internal/repository/repository.go`)
+2. **Use centralized config** (`internal/config` package for all settings)
 3. **Follow self-contained template pattern** (no inheritance)
 4. **Test with audit data** (Queen, Gorillaz, Travis Scott)
-5. **Check error template compatibility** (ErrorCode, ExtraCSS fields)
+5. **Use inline struct patterns** for template data (type safety)
 
 **File Reading Priority:**
-1. `internal/data/data.go` (data package with all business logic)
-2. `internal/handlers/handlers.go` (error handling patterns)
-3. `templates/*.tmpl` (self-contained template examples)
-4. Test files for current API usage patterns
+1. `internal/data/repository.go` (core data management)
+2. `internal/config/config.go` (centralized configuration)
+3. `internal/handlers/handlers.go` (HTTP layer patterns)
+4. `cmd/server/server.go` (startup and routing)
+5. Test files for current usage patterns
 
 **Testing Strategy:**
-- All tests use audit-compliant data (Queen, Gorillaz, etc.)
-- Test repository methods with mock data
-- Verify template error handling with proper field structure
+- Use `go test ./internal/...` for clean test runs
+- All tests use audit-compliant data (Queen=7 members, Gorillaz="26-03-2001")
+- Test repository methods with mock data where needed  
+- Override config variables in tests rather than passing parameters
 - Ensure no regression in Zone01 audit requirements
