@@ -6,7 +6,7 @@ import "time"
 var (
 	// Enable or disable image caching (true = enabled, false = disabled)
 	WithCache = true
-	
+
 	// API base URL used by the repository when fetching data
 	APIBaseURL = "https://groupietrackers.herokuapp.com"
 

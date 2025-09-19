@@ -18,8 +18,8 @@ import (
 // Repository manages all application data and provides thread-safe access to it.
 type Repository struct {
 	// Configuration
-	baseURL string
-	client  *http.Client
+	apiEndpoint string
+	apiClient   *http.Client
 	// Controls whether image caching is enabled
 	withCache bool
 
@@ -37,8 +37,8 @@ type Repository struct {
 // tests simpler by allowing them to override `config` variables.
 func NewRepository() *Repository {
 	return &Repository{
-		baseURL: config.APIBaseURL,
-		client: &http.Client{
+		apiEndpoint: config.APIBaseURL,
+		apiClient: &http.Client{
 			Timeout: config.APIRequestTimeout,
 		},
 		withCache: config.WithCache,
@@ -368,12 +368,12 @@ func (r *Repository) populateData(finalArtists []Artist, finalLocations []Locati
 // if any network or decoding issues occur.
 
 func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", r.baseURL+path, nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", r.apiEndpoint+path, nil)
 	if err != nil {
 		return fmt.Errorf("creating request: %w", err)
 	}
 
-	resp, err := r.client.Do(req)
+	resp, err := r.apiClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("making request: %w", err)
 	}

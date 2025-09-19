@@ -64,7 +64,7 @@ func newServer() (*http.Server, error) {
 		url = "http://" + addr
 	}
 
-	log.Printf("🚀 Server Initialized in %v seconds and Ready — open %s in your browser", time.Since(start), url)
+	log.Printf("🚀 Server Initialized in %v and Ready to Open - %s in your browser", time.Since(start), url)
 
 	return httpServer, nil
 }
