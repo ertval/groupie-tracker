@@ -405,19 +405,19 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, da
 		code = status[0]
 	}
 
-	ts, ok := h.templates[name]
+	tmpl, ok := h.templates[name]
 	if !ok {
 		h.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
 		return
 	}
 
 	buf := new(bytes.Buffer)
-	err := ts.ExecuteTemplate(buf, "base", data)
-	if err != nil {
+	if err := tmpl.ExecuteTemplate(buf, "base", data); err != nil {
 		h.Error(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
 	buf.WriteTo(w)
 }
