@@ -18,6 +18,9 @@ import (
 
 // newServer creates and initializes a new HTTP server.
 func newServer() (*http.Server, error) {
+
+	start := time.Now()
+
 	// Initialize data repository (reads config internally)
 	repo := data.NewRepository()
 
@@ -32,8 +35,12 @@ func newServer() (*http.Server, error) {
 
 	// Pretty single-line startup summary
 	stats := repo.GetStats()
-	log.Printf("Data loaded successfully - %d artists (Images: %d cached, %d downloaded, %d failed)",
-		stats["total_artists"], stats["cached_images"], stats["downloaded_images"], stats["failed_images"])
+	if config.WithCache {
+		log.Printf("Data loaded successfully with caching enabled - %d artists (Images: %d cached, %d downloaded, %d failed)",
+			stats["total_artists"], stats["cached_images"], stats["downloaded_images"], stats["failed_images"])
+	} else {
+		log.Printf("Data loaded successfully - %d artists (Image caching is disabled)", stats["total_artists"])
+	}
 
 	// Initialize handlers, routes, and middleware
 	handler := handlers.NewHandler(repo)
@@ -57,7 +64,7 @@ func newServer() (*http.Server, error) {
 		url = "http://" + addr
 	}
 
-	log.Printf("🚀 Server ready — open %s in your browser", url)
+	log.Printf("🚀 Server Initialized in %v seconds and Ready — open %s in your browser", time.Since(start), url)
 
 	return httpServer, nil
 }

@@ -417,13 +417,13 @@ func (h *Handler) getCacheControl(ext string) string {
 	switch ext {
 	case ".css", ".js":
 		// CSS and JS files - cache for 1 year
-		return "public, max-age=31536000"
+		return "public, max-age=3600"
 	case ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico":
 		// Images - cache for 1 month
-		return "public, max-age=2592000"
+		return "public, max-age=3600"
 	case ".woff", ".woff2", ".ttf", ".eot":
 		// Fonts - cache for 1 year
-		return "public, max-age=31536000"
+		return "public, max-age=3600"
 	default:
 		// Other files - cache for 1 hour
 		return "public, max-age=3600"
