@@ -269,6 +269,47 @@ func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) {
 	h.render(w, r, "dev.tmpl", data)
 }
 
+// Error handles all errors (4xx and 5xx) in a centralized way.
+func (h *Handler) Error(w http.ResponseWriter, r *http.Request, status int, message string) {
+	data := struct {
+		Title        string
+		ExtraCSS     string
+		ExtraJS      string
+		ErrorCode    int
+		RequestedURL string
+		Message      string
+		Timestamp    string
+	}{
+		Title:        fmt.Sprintf("%d %s", status, http.StatusText(status)),
+		ExtraCSS:     "errors.css",
+		ExtraJS:      "",
+		ErrorCode:    status,
+		RequestedURL: r.URL.Path,
+		Message:      message,
+		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+	}
+
+	// Special case for rendering errors to avoid recursion.
+	ts, ok := h.templates["error.tmpl"]
+	if !ok {
+		// Fallback if the error template itself is not found
+		http.Error(w, "500 Internal Server Error - Error template not found (http.Error returned)", http.StatusInternalServerError)
+		return
+	}
+
+	buf := new(bytes.Buffer)
+	err := ts.ExecuteTemplate(buf, "base", data)
+	if err != nil {
+		// Fallback if executing the error template fails
+		log.Printf("Error executing error template: %v", err)
+		http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(status)
+	buf.WriteTo(w)
+}
+
 // DevPanic is a development endpoint to test panic recovery.
 func (h *Handler) DevPanic(w http.ResponseWriter, r *http.Request) {
 	panic("Development panic triggered")
@@ -355,49 +396,33 @@ func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, target)
 }
 
-// Error handles all errors (4xx and 5xx) in a centralized way.
-func (h *Handler) Error(w http.ResponseWriter, r *http.Request, status int, message string) {
-	data := struct {
-		Title        string
-		ExtraCSS     string
-		ExtraJS      string
-		ErrorCode    int
-		RequestedURL string
-		Message      string
-		Timestamp    string
-	}{
-		Title:        fmt.Sprintf("%d %s", status, http.StatusText(status)),
-		ExtraCSS:     "errors.css",
-		ExtraJS:      "",
-		ErrorCode:    status,
-		RequestedURL: r.URL.Path,
-		Message:      message,
-		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+// --- Private Helper Methods ---
+
+// render renders a template with the given data and status code.
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
+	code := http.StatusOK
+	if len(status) > 0 {
+		code = status[0]
 	}
 
-	// Special case for rendering errors to avoid recursion.
-	ts, ok := h.templates["error.tmpl"]
+	ts, ok := h.templates[name]
 	if !ok {
-		// Fallback if the error template itself is not found
-		http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
+		h.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
 		return
 	}
 
 	buf := new(bytes.Buffer)
 	err := ts.ExecuteTemplate(buf, "base", data)
 	if err != nil {
-		// Fallback if executing the error template fails
-		log.Printf("Error executing error template: %v", err)
-		http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
+		h.Error(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	w.WriteHeader(status)
+	w.WriteHeader(code)
 	buf.WriteTo(w)
 }
 
-// --- Private Helper Methods ---
-
+// loadTemplates loads and parses all templates from the templates directory.
 func (h *Handler) loadTemplates() {
 	h.templates = make(map[string]*template.Template)
 
@@ -442,27 +467,4 @@ func (h *Handler) loadTemplates() {
 
 		h.templates[name] = ts
 	}
-}
-
-func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
-	code := http.StatusOK
-	if len(status) > 0 {
-		code = status[0]
-	}
-
-	ts, ok := h.templates[name]
-	if !ok {
-		h.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
-		return
-	}
-
-	buf := new(bytes.Buffer)
-	err := ts.ExecuteTemplate(buf, "base", data)
-	if err != nil {
-		h.Error(w, r, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	w.WriteHeader(code)
-	buf.WriteTo(w)
 }
