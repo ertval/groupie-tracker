@@ -301,38 +301,58 @@ func (r *Repository) downloadImage(url, path string) bool {
 func (r *Repository) createLocations(artists []Artist) []Location {
 	locationMap := make(map[string]*Location)
 
+	// Track concert count per artist per location
+	artistConcertCount := make(map[string]map[int]int)
+
 	for i := range artists {
 		artist := &artists[i]
 		for _, concert := range artist.Concerts {
-			loc, exists := locationMap[concert.Location]
-			if !exists {
-				loc = &Location{
+			// Initialize location if not exists
+			if _, exists := locationMap[concert.Location]; !exists {
+				locationMap[concert.Location] = &Location{
 					Name:    concert.Location,
 					Slug:    createSlug(concert.Location),
-					Artists: make([]Artist, 0),
+					Artists: make([]ArtistAtLocation, 0),
 				}
-				locationMap[concert.Location] = loc
+				artistConcertCount[concert.Location] = make(map[int]int)
 			}
 
-			// Add artist if not already present
-			found := false
-			for _, locArtist := range loc.Artists {
-				if locArtist.ID == artist.ID {
-					found = true
-					break
-				}
-			}
-			if !found {
-				loc.Artists = append(loc.Artists, *artist)
-			}
-			loc.TotalConcerts++
+			// Count concerts per artist per location
+			artistConcertCount[concert.Location][artist.ID]++
+			locationMap[concert.Location].TotalConcerts++
 		}
+	}
+
+	// Convert concert count map to ArtistAtLocation structs
+	for locationName, location := range locationMap {
+		artistCounts := artistConcertCount[locationName]
+		artistsAtLocation := make([]ArtistAtLocation, 0, len(artistCounts))
+
+		for artistID, concertCount := range artistCounts {
+			// Find the artist by ID
+			if artist, found := r.findArtistByID(artists, artistID); found {
+				artistsAtLocation = append(artistsAtLocation, ArtistAtLocation{
+					Artist:       artist,
+					ConcertCount: concertCount,
+				})
+			}
+		}
+
+		// Sort artists by concert count (descending), then by name
+		sort.Slice(artistsAtLocation, func(i, j int) bool {
+			if artistsAtLocation[i].ConcertCount != artistsAtLocation[j].ConcertCount {
+				return artistsAtLocation[i].ConcertCount > artistsAtLocation[j].ConcertCount
+			}
+			return artistsAtLocation[i].Artist.Name < artistsAtLocation[j].Artist.Name
+		})
+
+		location.Artists = artistsAtLocation
+		location.ArtistCount = len(artistsAtLocation)
 	}
 
 	// Convert to slice and sort by concert count
 	locations := make([]Location, 0, len(locationMap))
 	for _, loc := range locationMap {
-		loc.ArtistCount = len(loc.Artists)
 		locations = append(locations, *loc)
 	}
 
@@ -341,6 +361,16 @@ func (r *Repository) createLocations(artists []Artist) []Location {
 	})
 
 	return locations
+}
+
+// findArtistByID is a helper function to find an artist in a slice by ID.
+func (r *Repository) findArtistByID(artists []Artist, id int) (Artist, bool) {
+	for _, artist := range artists {
+		if artist.ID == id {
+			return artist, true
+		}
+	}
+	return Artist{}, false
 }
 
 // loadProcessedData stores the processed data in repository indexes.

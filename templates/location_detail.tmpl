@@ -16,18 +16,18 @@
                 {{range .Artists}}
                 <div class="artist-card">
                     <div class="artist-image">
-                        <a href="/artists/{{.Slug}}">
-                            <img src="{{.Image}}" alt="{{.Name}}" class="artist-img">
+                        <a href="/artists/{{.Artist.Slug}}">
+                            <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-img">
                         </a>
                     </div>
                     <div class="artist-info">
                         <h3 class="artist-heading">
-                            <a href="/artists/{{.Slug}}" class="artist-link">{{.Name}}</a>
+                            <a href="/artists/{{.Artist.Slug}}" class="artist-link">{{.Artist.Name}} ({{.ConcertCount}} concerts)</a>
                         </h3>
                         <div class="artist-meta muted-small">
-                            <strong>Creation Year:</strong> {{.CreationYear}} &nbsp; <strong>Members:</strong> {{len .Members}}
+                            <strong>Creation Year:</strong> {{.Artist.CreationYear}} &nbsp; <strong>Members:</strong> {{len .Artist.Members}}
                         </div>
-                        {{$dates := index .DatesAtLocation $.Location.Slug}}
+                        {{$dates := index .Artist.DatesAtLocation $.Location.Slug}}
                         {{if $dates}}
                         <p class="dates-list"><strong>Dates performed here:</strong> {{join $dates ", "}}</p>
                         {{end}}

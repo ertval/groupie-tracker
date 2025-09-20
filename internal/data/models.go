@@ -42,11 +42,17 @@ type Artist struct {
 	PrevArtistID    int      // ID of the previous artist
 }
 
+// ArtistAtLocation represents an artist and their concert count at a specific location.
+type ArtistAtLocation struct {
+	Artist       Artist
+	ConcertCount int
+}
+
 // Location is the rich internal representation of a concert location.
 type Location struct {
 	Name          string
 	Slug          string
-	Artists       []Artist // Artists who have played here
+	Artists       []ArtistAtLocation // Artists who have played here with their concert counts
 	ArtistCount   int
 	TotalConcerts int
 }
@@ -68,4 +74,3 @@ const (
 	// CacheWarm means caching is on, and images were served from the existing cache.
 	CacheWarm
 )
-

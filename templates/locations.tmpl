@@ -39,7 +39,7 @@
                             {{/* Inline list of artists for the full list view */}}
                             {{if gt (len .Artists) 0}}
                             <p class="location-artists muted">
-                                {{range $i, $artist := .Artists}}{{if gt $i 0}}, {{end}}<a href="/artists/{{$artist.Slug}}">{{$artist.Name}}</a>{{end}}
+                                {{range $i, $artistAtLocation := .Artists}}{{if gt $i 0}}, {{end}}<a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}} ({{$artistAtLocation.ConcertCount}})</a>{{end}}
                             </p>
                             {{end}}
                         </div>

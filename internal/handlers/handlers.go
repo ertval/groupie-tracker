@@ -188,7 +188,7 @@ func (h *Handler) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS string
 		ExtraJS  string
 		Location data.Location
-		Artists  []data.Artist
+		Artists  []data.ArtistAtLocation
 	}{
 		Title:    fmt.Sprintf("%s - Location", location.Name),
 		ExtraCSS: "location_detail.css",
