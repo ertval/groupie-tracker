@@ -105,7 +105,7 @@ func createRouter(h *handlers.Handler) *http.ServeMux {
 
 // withMiddleware applies all middleware to a handler.
 func withMiddleware(next http.Handler) http.Handler {
-	return withLogging(withRecovery(next))
+	return withLogging(withRecovery(withSecureHeaders(next)))
 }
 
 // withRecovery wraps a handler with panic recovery middleware.
@@ -129,6 +129,20 @@ func withLogging(next http.Handler) http.Handler {
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		log.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(start))
+	})
+}
+
+// withSecureHeaders wraps a handler with security headers middleware.
+func withSecureHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set security headers
+		w.Header().Set("Referrer-Policy", "origin-when-cross-origin")
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "deny")
+		w.Header().Set("X-XSS-Protection", "0")
+		// Content-Security-Policy is intentionally not set to allow flexibility with external resources
+		// w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';")	
+		next.ServeHTTP(w, r)
 	})
 }
 

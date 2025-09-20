@@ -123,6 +123,32 @@ func (r *Repository) fetchAPIData(ctx context.Context) ([]APIArtist, APIRelation
 	return apiArtists, apiRelations, nil
 }
 
+// fetchJSON performs a GET request against the repository's baseURL+path and
+// decodes the JSON response into dest. It returns a wrapped error with context
+// if any network or decoding issues occur.
+func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error {
+	req, err := http.NewRequestWithContext(ctx, "GET", r.apiEndpoint+path, nil)
+	if err != nil {
+		return fmt.Errorf("creating request: %w", err)
+	}
+
+	resp, err := r.apiClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("making request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("API returned status %d", resp.StatusCode)
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
+		return fmt.Errorf("decoding response: %w", err)
+	}
+
+	return nil
+}
+
 // processArtists converts API data to internal Artist models with enriched data.
 func (r *Repository) processArtists(apiArtists []APIArtist, apiRelations APIRelation) []Artist {
 	artists := make([]Artist, 0, len(apiArtists))
@@ -356,33 +382,6 @@ func (r *Repository) loadProcessedData(artists []Artist, locations []Location, c
 		"cached_images":     cachedCount,
 		"downloaded_images": downloadedCount,
 	}
-}
-
-// fetchJSON performs a GET request against the repository's baseURL+path and
-// decodes the JSON response into dest. It returns a wrapped error with context
-// if any network or decoding issues occur.
-
-func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", r.apiEndpoint+path, nil)
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-
-	resp, err := r.apiClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("making request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("API returned status %d", resp.StatusCode)
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
-		return fmt.Errorf("decoding response: %w", err)
-	}
-
-	return nil
 }
 
 func createSlug(name string) string {
