@@ -249,8 +249,7 @@ The application validates against specific audit requirements:
 - **SEO-friendly URLs** with slug-based routing (`/artists/queen`)
 - **Template inheritance** with base/body pattern for consistent UI
 
-
---
+---
 
 ### Summary
 The application integrates with the Groupie Trackers API which provides artist, location, date, and relation data. It handles the API's inconsistent response formats by normalizing data structures and building efficient search indexes for fast lookups by ID and slug. The repository loads all data once at startup, caches artist images if enabled, and provides thread-safe read operations for concurrent requests. Handlers extract URL parameters, fetch data from the repository, and render HTML templates using a base layout with inheritance.
