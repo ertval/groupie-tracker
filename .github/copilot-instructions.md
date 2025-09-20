@@ -1,68 +1,69 @@
 # Groupie Tracker - AI Coding Agent Instructions
 
 ## Project Overview
-Zone01 educational project implementing a Go web application that consumes the Groupie Trackers API to display band/artist information with client-server interactions. The project follows strict TDD principles and Zone01 coding standards.
+Zone01 educational project implementing a Go web application that consumes the Groupie Trackers API to display band/artist information. The project follows strict TDD principles, uses only Go standard library, and maintains Zone01 coding standards.
 
 ## Key Constraints & Commands
 
 **Critical Constraints:**
-- Standard-library-only Go project — NEVER add third-party modules
-- Follow Test-Driven Development: write `*_test.go` before implementation  
-- Server must never crash — implement panic recovery in all handlers
+- **Standard-library-only Go project** — NEVER add third-party modules (`go.mod` has no dependencies)
+- **Test-Driven Development** — Write `*_test.go` files before implementation  
+- **No server crashes** — All handlers have panic recovery and proper error handling
+- **Go 1.24+ required** — Uses modern Go features
 
 **Quick Commands:**
 ```bash
-go run ./cmd/server/          # Start server (PORT=8080)
-go test ./internal/...        # Run internal tests (clean)
-go test ./tests/...           # Run audit/e2e tests (may have package issues)
-go test -cover ./internal/... # Coverage report
+go run ./cmd/server/          # Start server (default PORT=8080)
+go test ./internal/...        # Run internal tests (clean, all passing)
+go test ./tests/...           # Run audit/e2e tests (package issues but functional)
+go test -cover ./internal/... # Coverage: ~60% overall, handlers ~52%, data ~72%
 go build -o groupie-tracker ./cmd/server
 ```
 
-## Current Architecture (September 2025)
+## Current Architecture (December 2025)
 
 ### Simplified Clean Architecture
 ```
 cmd/server/
-  ├── main.go                # Entry point
-  ├── server.go              # HTTP server setup and routing
+  ├── main.go                # Entry point with graceful shutdown
+  ├── server.go              # HTTP server setup, routing, middleware
   └── server_test.go         # Server integration tests
 internal/
   ├── config/
-  │   └── config.go          # Centralized configuration (timeouts, URLs, cache settings)
+  │   └── config.go          # Centralized global config (no constructor params)
   ├── data/                  # Core domain layer
-  │   ├── repository.go      # Data management with simplified ETL pipeline
+  │   ├── repository.go      # Single data load with thread-safe access
   │   ├── domain.go          # Domain models (Artist, Location, Concert)
   │   ├── api.go             # API response structures
-  │   └── repository_test.go # Repository tests
+  │   └── repository_test.go # Repository tests (71.9% coverage)
   └── handlers/              # HTTP layer
-      ├── handlers.go        # All HTTP endpoints (~450 lines)
-      └── handlers_test.go   # Handler tests (some failing static file tests)
-templates/                   # Self-contained HTML templates
-static/                     # Static assets (CSS, JS, images)
-tests/                      # End-to-end and audit tests
+      ├── handlers.go        # All endpoints in one file (453 lines)
+      └── handlers_test.go   # Comprehensive handler tests (51.9% coverage)
+templates/                   # Template inheritance with base/body pattern
+static/                     # Static assets with proper MIME types
+tests/                      # Audit tests (package issues but functional)
 ```
 
 **🏗️ Current Architecture:**
-- Centralized config: `internal/config` package sets all defaults
-- Data layer: `data.Repository` manages API data with sequential processing
-- Single initialization: Load data once at startup via `repo.LoadData(ctx)`
-- Precomputed indexes: SEO slugs, location stats calculated at load time
-- Thread-safe read operations from in-memory data
+- **Global config pattern**: `internal/config` package with module-level variables
+- **Single data load**: Repository loads all data once at startup via `LoadData(ctx)`
+- **Thread-safe reads**: All repository methods are read-only after initial load
+- **Template inheritance**: Uses `{{define "base"}}` and `{{template "body" .}}` pattern
+- **In-memory indexes**: SEO slugs, location mappings precomputed for fast lookup
 
-### Repository Pattern (September 2025)
+### Repository Pattern (December 2025)
 ```go
-// Repository initialization in server startup (uses internal/config)
-repo := data.NewRepository()  // Config comes from internal/config package
+// Repository initialization in server startup (reads internal/config automatically)
+repo := data.NewRepository()  // No constructor parameters needed
 if err := repo.LoadData(ctx); err != nil {
     log.Fatalf("Failed to load data: %v", err)
 }
 
-// All data access through repository methods
+// All data access through repository methods (thread-safe reads)
 artists := repo.GetArtists()
 artist, found := repo.GetArtistBySlug("queen")
 locations := repo.GetLocations()
-stats := repo.GetStats()
+stats := repo.GetStats()  // Precomputed statistics
 ```
 
 ## Critical Data Flow Patterns
@@ -105,25 +106,25 @@ data := struct {
 }
 ```
 
-### Template System (Self-Contained)
-- Each `.tmpl` file is complete HTML document
-- No template inheritance or `{{define "content"}}` blocks
-- Direct execution: `h.render(w, r, "artist_detail.tmpl", data)`
-- Template functions: `add`, `sub`, `join` plus custom functions in handlers.go
+### Template System (Template Inheritance)
+- Uses `{{define "base"}}` wrapper with `{{template "body" .}}` content injection
+- Each page template defines `{{define "title"}}` and `{{define "body"}}`
+- Template execution: `h.render(w, r, "artist_detail.tmpl", data)`
+- Custom template functions: `add`, `sub`, `join`, plus helpers in handlers.go
 - Template data uses inline struct patterns for type safety
 
 ### Current Error Handling Pattern
 ```go
 func (h *Handler) render(w http.ResponseWriter, r *http.Request, templateName string, data any) {
-    // Template selection and status code logic
+    // Nil template protection for tests
     if h.templates[templateName] == nil {
         h.Error(w, r, 500, "Template not found")
         return
     }
     
-    // Execute template with error fallback
+    // Execute template with error fallback to error.tmpl
     if err := h.templates[templateName].Execute(w, data); err != nil {
-        // Fallback to error template if available
+        // Graceful fallback without panic
     }
 }
 ```
@@ -144,7 +145,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, templateName st
 - `GET /locations/{slug}` (location detail)
 - `GET /health` (JSON health check)
 
-## Current Status (September 2025)
+## Current Status (December 2025)
 
 **✅ Recently Completed:**
 - Fixed all failing tests - repository tests now match current API structure
@@ -167,13 +168,11 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, templateName st
 
 ## Development Workflow
 
-1. **Always write tests first** (Zone01 requirement)
+1. **Always write tests first** (Zone01 requirement)  
 2. **Use centralized config** (`internal/config` package for all settings)
-3. **Follow self-contained template pattern** (no inheritance)
+3. **Follow template inheritance pattern** (base.tmpl with body blocks)
 4. **Test with audit data** (Queen, Gorillaz, Travis Scott)
-5. **Use inline struct patterns** for template data (type safety)
-
-**File Reading Priority:**
+5. **Use inline struct patterns** for template data (type safety)**File Reading Priority:**
 1. `internal/data/repository.go` (core data management)
 2. `internal/config/config.go` (centralized configuration)
 3. `internal/handlers/handlers.go` (HTTP layer patterns)
