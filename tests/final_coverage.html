@@ -1,0 +1,1246 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>server: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">groupie-tracker/cmd/server/main.go (0.0%)</option>
+				
+				<option value="file1">groupie-tracker/cmd/server/server.go (94.9%)</option>
+				
+				<option value="file2">groupie-tracker/cmd/testapi/main.go (53.3%)</option>
+				
+				<option value="file3">groupie-tracker/internal/data/repository.go (88.9%)</option>
+				
+				<option value="file4">groupie-tracker/internal/handlers/handlers.go (79.7%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Package main is the entry point for the Groupie Tracker server application.
+package main
+
+import (
+        "fmt"
+        "log"
+        "net/http"
+)
+
+func main() <span class="cov0" title="0">{
+        log.Println("Starting Groupie Tracker server...")
+
+        server, err := newServer()
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to create server: %v", err)
+        }</span>
+
+        // Start server (blocking)
+        <span class="cov0" title="0">err = server.ListenAndServe()
+        if err != nil &amp;&amp; err != http.ErrServerClosed </span><span class="cov0" title="0">{
+                log.Fatalf("Server failed to start: %v", fmt.Errorf("server failed to start: %w", err))
+        }</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package main
+
+import (
+        "context"
+        "fmt"
+        "log"
+        "net/http"
+        "os"
+        "strings"
+        "time"
+
+        "groupie-tracker/internal/config"
+        "groupie-tracker/internal/data"
+        "groupie-tracker/internal/handlers"
+)
+
+// server configuration is now provided by the internal/config package
+
+// newServer creates and initializes a new HTTP server.
+func newServer() (*http.Server, error) <span class="cov8" title="1">{
+
+        start := time.Now()
+
+        // Initialize data repository (reads config internally)
+        repo := data.NewRepository()
+
+        // Load data from API
+        log.Println("Loading initial data...")
+        loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
+        defer loadCancel()
+
+        err := repo.LoadData(loadCtx)
+        if err != nil </span><span class="cov0" title="0">{
+                return nil, fmt.Errorf("failed to load data: %w", err)
+        }</span>
+
+        // Pretty single-line startup summary
+        <span class="cov8" title="1">stats := repo.GetStats()
+        switch repo.CacheStatus </span>{
+        case data.CacheDisabled:<span class="cov8" title="1">
+                log.Printf("Data loaded successfully - %d artists (Image caching is disabled, serving from API)", stats["total_artists"])</span>
+        case data.CacheCold:<span class="cov0" title="0">
+                log.Printf("Data loaded successfully with Cold cache - %d artists (Downloaded %d images)", stats["total_artists"], stats["downloaded_images"])</span>
+        case data.CacheWarm:<span class="cov0" title="0">
+                log.Printf("Data loaded successfully with Warm cache - %d artists (Loaded %d images from cache)", stats["total_artists"], stats["cached_images"])</span>
+        }
+
+        // Initialize handlers, routes, and middleware
+        <span class="cov8" title="1">handler := handlers.NewHandler(repo)
+        mux := withMiddleware(createRouter(handler))
+        port := getPort()
+        // log.Printf("Server is starting on port %s", port)
+
+        // Create HTTP server using values from config
+        httpServer := &amp;http.Server{
+                Addr:         port,
+                Handler:      mux,
+                ReadTimeout:  config.ReadTimeout,
+                WriteTimeout: config.WriteTimeout,
+                IdleTimeout:  config.IdleTimeout,
+        }
+
+        log.Printf("🚀 Server Initialized in %v and Ready to Open - %s", time.Since(start), "http://localhost"+port)
+
+        return httpServer, nil</span>
+}
+
+// createRouter sets up all routes.
+func createRouter(h *handlers.Handler) *http.ServeMux <span class="cov8" title="1">{
+        mux := http.NewServeMux()
+
+        // Static file serving
+        mux.HandleFunc("/static/", h.StaticFiles)
+        mux.HandleFunc("/favicon.ico", h.StaticFiles)
+
+        // Health check
+        mux.HandleFunc("/health", h.Health)
+
+        // Dev routes
+        mux.HandleFunc("/dev", h.DevIndex)
+        mux.HandleFunc("/dev/panic", h.DevPanic)
+        mux.HandleFunc("/dev/404", h.Dev404)
+        mux.HandleFunc("/dev/500", h.Dev500)
+        mux.HandleFunc("/dev/tmpl-error", h.Dev500Tmpl)
+
+        // Web routes
+        mux.HandleFunc("/artists", h.Artists)
+        mux.HandleFunc("/artists/", h.ArtistDetail)
+        mux.HandleFunc("/locations", h.Locations)
+        mux.HandleFunc("/locations/", h.LocationDetail)
+
+        // Home route
+        mux.HandleFunc("/", h.Home)
+
+        return mux
+}</span>
+
+// withMiddleware applies all middleware to a handler.
+func withMiddleware(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return withLogging(withRecovery(withSecureHeaders(next)))
+}</span>
+
+// withRecovery wraps a handler with panic recovery middleware.
+func withRecovery(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                defer func() </span><span class="cov8" title="1">{
+                        if err := recover(); err != nil </span><span class="cov8" title="1">{
+                                log.Printf("Panic recovered: %v", err)
+                                w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+                                w.WriteHeader(http.StatusInternalServerError)
+                                w.Write([]byte("500 Internal Server Error"))
+                        }</span>
+                }()
+                <span class="cov8" title="1">next.ServeHTTP(w, r)</span>
+        })
+}
+
+// withLogging wraps a handler with request logging middleware.
+func withLogging(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                start := time.Now()
+                next.ServeHTTP(w, r)
+                log.Printf("%s %s %v", r.Method, r.URL.Path, time.Since(start))
+        }</span>)
+}
+
+// withSecureHeaders wraps a handler with security headers middleware.
+func withSecureHeaders(next http.Handler) http.Handler <span class="cov8" title="1">{
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) </span><span class="cov8" title="1">{
+                // Set security headers
+                w.Header().Set("Referrer-Policy", "origin-when-cross-origin")
+                w.Header().Set("X-Content-Type-Options", "nosniff")
+                w.Header().Set("X-Frame-Options", "deny")
+                w.Header().Set("X-XSS-Protection", "0")
+                // Content-Security-Policy is intentionally not set to allow flexibility with external resources
+                // w.Header().Set("Content-Security-Policy", 
+                // "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; 
+                // font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';")
+                next.ServeHTTP(w, r)
+        }</span>)
+}
+
+// getPort returns the port to run the server on.
+func getPort() string <span class="cov8" title="1">{
+        port := os.Getenv("PORT")
+        if port == "" </span><span class="cov8" title="1">{
+                return config.DefaultPort
+        }</span>
+
+        <span class="cov8" title="1">if !strings.HasPrefix(port, ":") </span><span class="cov8" title="1">{
+                port = ":" + port
+        }</span>
+
+        <span class="cov8" title="1">return port</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">// Simple test server to replace the external API when network is unavailable
+package main
+
+import (
+        "encoding/json"
+        "log"
+        "net/http"
+)
+
+type Artist struct {
+        ID           int      `json:"id"`
+        Image        string   `json:"image"`
+        Name         string   `json:"name"`
+        Members      []string `json:"members"`
+        CreationDate int      `json:"creationDate"`
+        FirstAlbum   string   `json:"firstAlbum"`
+}
+
+type Location struct {
+        ID        int      `json:"id"`
+        Locations []string `json:"locations"`
+}
+
+type Date struct {
+        ID    int      `json:"id"`
+        Dates []string `json:"dates"`
+}
+
+type Relation struct {
+        ID             int                 `json:"id"`
+        DatesLocations map[string][]string `json:"datesLocations"`
+}
+
+// artistsHandler handles GET /api/artists
+func artistsHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        artists := []Artist{
+                {ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May", "Roger Taylor", "John Deacon"}, CreationDate: 1970, FirstAlbum: "14-12-1973", Image: "https://groupietrackers.herokuapp.com/api/images/queen.jpeg"},
+                {ID: 2, Name: "Pink Floyd", Members: []string{"David Gilmour", "Roger Waters", "Nick Mason", "Richard Wright"}, CreationDate: 1965, FirstAlbum: "05-08-1967", Image: "https://groupietrackers.herokuapp.com/api/images/pinkfloyd.jpeg"},
+        }
+        w.Header().Set("Content-Type", "application/json")
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        json.NewEncoder(w).Encode(artists)
+}</span>
+
+// locationsHandler handles GET /api/locations
+func locationsHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        locations := map[string]interface{}{
+                "index": []Location{
+                        {ID: 1, Locations: []string{"london", "manchester", "birmingham"}},
+                        {ID: 2, Locations: []string{"london", "edinburgh", "glasgow"}},
+                },
+        }
+        w.Header().Set("Content-Type", "application/json")
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        json.NewEncoder(w).Encode(locations)
+}</span>
+
+// datesHandler handles GET /api/dates
+func datesHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        dates := map[string]interface{}{
+                "index": []Date{
+                        {ID: 1, Dates: []string{"23-08-2019", "22-08-2019", "20-08-2019"}},
+                        {ID: 2, Dates: []string{"15-07-2020", "14-07-2020", "13-07-2020"}},
+                },
+        }
+        w.Header().Set("Content-Type", "application/json")
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        json.NewEncoder(w).Encode(dates)
+}</span>
+
+// relationHandler handles GET /api/relation
+func relationHandler(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        relations := map[string]interface{}{
+                "index": []Relation{
+                        {ID: 1, DatesLocations: map[string][]string{"london": {"23-08-2019"}, "manchester": {"22-08-2019"}}},
+                        {ID: 2, DatesLocations: map[string][]string{"london": {"15-07-2020"}, "edinburgh": {"14-07-2020"}}},
+                },
+        }
+        w.Header().Set("Content-Type", "application/json")
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        json.NewEncoder(w).Encode(relations)
+}</span>
+
+func main() <span class="cov0" title="0">{
+        http.HandleFunc("/api/artists", artistsHandler)
+        http.HandleFunc("/api/locations", locationsHandler)
+        http.HandleFunc("/api/dates", datesHandler)
+        http.HandleFunc("/api/relation", relationHandler)
+
+        http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) </span><span class="cov0" title="0">{
+                w.WriteHeader(http.StatusNotFound)
+                w.Write([]byte("Test API Server - Use /api/ endpoints"))
+        }</span>)
+
+        <span class="cov0" title="0">log.Println("🧪 Test API server starting on :8081")
+        log.Println("📍 Available endpoints:")
+        log.Println("   GET /api/artists")
+        log.Println("   GET /api/locations")
+        log.Println("   GET /api/dates")
+        log.Println("   GET /api/relation")
+        log.Fatal(http.ListenAndServe(":8081", nil))</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package data
+
+import (
+        "context"
+        "encoding/json"
+        "fmt"
+        "io"
+        "net/http"
+        "os"
+        "path/filepath"
+        "regexp"
+        "sort"
+        "strings"
+
+        "groupie-tracker/internal/config"
+)
+
+// Repository manages all application data and provides thread-safe access to it.
+type Repository struct {
+        // Configuration
+        apiEndpoint string
+        apiClient   *http.Client
+        // Controls whether image caching is enabled
+        withCache bool
+
+        // CacheStatus indicates the state of the image cache after loading.
+        CacheStatus CacheStatus
+
+        // Pre-computed and sorted data collections
+        artists         []Artist
+        artistsByID     map[int]Artist
+        artistsBySlug   map[string]Artist
+        locations       []Location
+        locationsBySlug map[string]Location
+        globalStats     map[string]int
+}
+
+// NewRepository creates a new repository instance using values from the
+// `internal/config` package. This keeps configuration centralized and makes
+// tests simpler by allowing them to override `config` variables.
+func NewRepository() *Repository <span class="cov8" title="1">{
+        return &amp;Repository{
+                apiEndpoint: config.APIBaseURL,
+                apiClient: &amp;http.Client{
+                        Timeout: config.APIRequestTimeout,
+                },
+                withCache: config.WithCache,
+        }
+}</span>
+
+// LoadData fetches and processes all application data in a simple, sequential manner.
+func (r *Repository) LoadData(ctx context.Context) error <span class="cov8" title="1">{
+        // Fetch raw data from API
+        apiArtists, apiRelations, err := r.fetchAPIData(ctx)
+        if err != nil </span><span class="cov8" title="1">{
+                return err
+        }</span>
+
+        // Process artists with their concert data
+        <span class="cov8" title="1">artists := r.processArtists(apiArtists, apiRelations)
+
+        // Cache images if enabled and get statistics
+        cachedCount, downloadedCount := r.cacheImages(artists)
+
+        // Create locations from artist data
+        locations := r.createLocations(artists)
+
+        // Store processed data with cache statistics
+        r.loadProcessedData(artists, locations, cachedCount, downloadedCount)
+
+        return nil</span>
+}
+
+// --- Getters ---
+
+// GetArtists returns a pre-sorted slice of all artists.
+func (r *Repository) GetArtists() []Artist <span class="cov8" title="1">{
+        return r.artists
+}</span>
+
+// GetArtistByID returns an artist by their ID.
+func (r *Repository) GetArtistByID(id int) (Artist, bool) <span class="cov8" title="1">{
+        artist, found := r.artistsByID[id]
+        return artist, found
+}</span>
+
+// GetArtistBySlug returns an artist by their slug.
+func (r *Repository) GetArtistBySlug(slug string) (Artist, bool) <span class="cov8" title="1">{
+        artist, found := r.artistsBySlug[slug]
+        return artist, found
+}</span>
+
+// GetLocations returns a pre-sorted slice of all locations.
+func (r *Repository) GetLocations() []Location <span class="cov8" title="1">{
+        return r.locations
+}</span>
+
+// GetLocationBySlug returns a location by its slug.
+func (r *Repository) GetLocationBySlug(slug string) (Location, bool) <span class="cov8" title="1">{
+        location, found := r.locationsBySlug[slug]
+        return location, found
+}</span>
+
+// GetStats returns pre-computed global statistics.
+func (r *Repository) GetStats() map[string]int <span class="cov8" title="1">{
+        return r.globalStats
+}</span>
+
+// --- Private Helper Methods ---
+
+// fetchAPIData retrieves raw API payloads needed for repository initialization.
+// Returns the full set of artists and relations straight from the API.
+func (r *Repository) fetchAPIData(ctx context.Context) ([]APIArtist, APIRelation, error) <span class="cov8" title="1">{
+        var apiArtists []APIArtist
+        if err := r.fetchJSON(ctx, "/api/artists", &amp;apiArtists); err != nil </span><span class="cov8" title="1">{
+                return nil, APIRelation{}, fmt.Errorf("failed to fetch artists: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">var apiRelations APIRelation
+        if err := r.fetchJSON(ctx, "/api/relation", &amp;apiRelations); err != nil </span><span class="cov8" title="1">{
+                return nil, APIRelation{}, fmt.Errorf("failed to fetch relations: %w", err)
+        }</span>
+        <span class="cov8" title="1">return apiArtists, apiRelations, nil</span>
+}
+
+// fetchJSON performs a GET request against the repository's baseURL+path and
+// decodes the JSON response into dest. It returns a wrapped error with context
+// if any network or decoding issues occur.
+func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error <span class="cov8" title="1">{
+        req, err := http.NewRequestWithContext(ctx, "GET", r.apiEndpoint+path, nil)
+        if err != nil </span><span class="cov0" title="0">{
+                return fmt.Errorf("creating request: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">resp, err := r.apiClient.Do(req)
+        if err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("making request: %w", err)
+        }</span>
+        <span class="cov8" title="1">defer resp.Body.Close()
+
+        if resp.StatusCode != http.StatusOK </span><span class="cov8" title="1">{
+                return fmt.Errorf("API returned status %d", resp.StatusCode)
+        }</span>
+
+        <span class="cov8" title="1">if err := json.NewDecoder(resp.Body).Decode(dest); err != nil </span><span class="cov8" title="1">{
+                return fmt.Errorf("decoding response: %w", err)
+        }</span>
+
+        <span class="cov8" title="1">return nil</span>
+}
+
+// processArtists converts API data to internal Artist models with enriched data.
+func (r *Repository) processArtists(apiArtists []APIArtist, apiRelations APIRelation) []Artist <span class="cov8" title="1">{
+        artists := make([]Artist, 0, len(apiArtists))
+        relationMap := make(map[int]APIRelationIndex)
+
+        // Index relations by artist ID for efficient lookup
+        for _, rel := range apiRelations.Index </span><span class="cov8" title="1">{
+                relationMap[rel.ID] = rel
+        }</span>
+
+        // Build artists with concert data
+        <span class="cov8" title="1">for _, apiArtist := range apiArtists </span><span class="cov8" title="1">{
+                artist := Artist{
+                        ID:              apiArtist.ID,
+                        Name:            apiArtist.Name,
+                        Slug:            createSlug(apiArtist.Name),
+                        Members:         apiArtist.Members,
+                        CreationYear:    apiArtist.CreationYear,
+                        FirstAlbum:      apiArtist.FirstAlbum,
+                        Image:           apiArtist.Image,
+                        DatesAtLocation: make(map[string][]string),
+                }
+
+                // Add concert data if available
+                if rel, exists := relationMap[apiArtist.ID]; exists </span><span class="cov8" title="1">{
+                        countries := make(map[string]bool)
+
+                        for location, dates := range rel.DatesLocations </span><span class="cov8" title="1">{
+                                normalizedLoc := normalizeLocation(location)
+                                locationSlug := createSlug(normalizedLoc)
+                                artist.DatesAtLocation[locationSlug] = dates
+
+                                for _, date := range dates </span><span class="cov8" title="1">{
+                                        artist.Concerts = append(artist.Concerts, Concert{
+                                                Date:     date,
+                                                Location: normalizedLoc,
+                                        })
+                                }</span>
+
+                                // Extract countries
+                                <span class="cov8" title="1">parts := strings.Split(normalizedLoc, "-")
+                                if len(parts) &gt; 1 </span><span class="cov8" title="1">{
+                                        country := strings.TrimSpace(parts[len(parts)-1])
+                                        countries[country] = true
+                                }</span>
+                        }
+
+                        // Sort concerts by date
+                        <span class="cov8" title="1">sort.Slice(artist.Concerts, func(i, j int) bool </span><span class="cov8" title="1">{
+                                return artist.Concerts[i].Date &lt; artist.Concerts[j].Date
+                        }</span>)
+
+                        // Set derived fields
+                        <span class="cov8" title="1">artist.ConcertCount = len(artist.Concerts)
+                        artist.Countries = make([]string, 0, len(countries))
+                        for country := range countries </span><span class="cov8" title="1">{
+                                artist.Countries = append(artist.Countries, country)
+                        }</span>
+                        <span class="cov8" title="1">sort.Strings(artist.Countries)</span>
+                }
+
+                <span class="cov8" title="1">artists = append(artists, artist)</span>
+        }
+
+        // Sort artists by name and set navigation links
+        <span class="cov8" title="1">sort.Slice(artists, func(i, j int) bool </span><span class="cov8" title="1">{
+                return artists[i].Name &lt; artists[j].Name
+        }</span>)
+
+        <span class="cov8" title="1">for i := range artists </span><span class="cov8" title="1">{
+                if i &gt; 0 </span><span class="cov8" title="1">{
+                        artists[i].PrevArtistID = artists[i-1].ID
+                }</span>
+                <span class="cov8" title="1">if i &lt; len(artists)-1 </span><span class="cov8" title="1">{
+                        artists[i].NextArtistID = artists[i+1].ID
+                }</span>
+        }
+
+        <span class="cov8" title="1">return artists</span>
+}
+
+// cacheImages handles image caching when enabled and returns cache statistics.
+func (r *Repository) cacheImages(artists []Artist) (cached, downloaded int) <span class="cov8" title="1">{
+        if !r.withCache </span><span class="cov8" title="1">{
+                r.CacheStatus = CacheDisabled
+                return 0, 0
+        }</span>
+
+        <span class="cov8" title="1">cacheDir := "static/img/artists"
+        if err := os.MkdirAll(cacheDir, 0755); err != nil </span><span class="cov0" title="0">{
+                r.CacheStatus = CacheCold
+                return 0, 0
+        }</span>
+
+        <span class="cov8" title="1">for i := range artists </span><span class="cov8" title="1">{
+                artist := &amp;artists[i]
+                fileName := fmt.Sprintf("%s.jpg", artist.Slug)
+                filePath := filepath.Join(cacheDir, fileName)
+                localPath := "/" + filepath.ToSlash(filePath)
+
+                // Use cached file if it exists
+                if _, err := os.Stat(filePath); err == nil </span><span class="cov0" title="0">{
+                        artist.Image = localPath
+                        cached++
+                        continue</span>
+                }
+
+                // Download image
+                <span class="cov8" title="1">if r.downloadImage(artist.Image, filePath) </span><span class="cov0" title="0">{
+                        artist.Image = localPath
+                        downloaded++
+                }</span>
+        }
+
+        <span class="cov8" title="1">if downloaded &gt; 0 </span><span class="cov0" title="0">{
+                r.CacheStatus = CacheCold
+        }</span> else<span class="cov8" title="1"> {
+                r.CacheStatus = CacheWarm
+        }</span>
+
+        <span class="cov8" title="1">return cached, downloaded</span>
+}
+
+// downloadImage downloads an image from URL to local path.
+func (r *Repository) downloadImage(url, path string) bool <span class="cov8" title="1">{
+        if strings.TrimSpace(url) == "" </span><span class="cov0" title="0">{
+                return false
+        }</span>
+
+        <span class="cov8" title="1">resp, err := http.Get(url)
+        if err != nil || resp.StatusCode != http.StatusOK </span><span class="cov8" title="1">{
+                if resp != nil </span><span class="cov8" title="1">{
+                        resp.Body.Close()
+                }</span>
+                <span class="cov8" title="1">return false</span>
+        }
+        <span class="cov0" title="0">defer resp.Body.Close()
+
+        file, err := os.Create(path)
+        if err != nil </span><span class="cov0" title="0">{
+                return false
+        }</span>
+        <span class="cov0" title="0">defer file.Close()
+
+        _, err = io.Copy(file, resp.Body)
+        return err == nil</span>
+}
+
+// createLocations builds location data from artist concerts.
+func (r *Repository) createLocations(artists []Artist) []Location <span class="cov8" title="1">{
+        locationMap := make(map[string]*Location)
+
+        for i := range artists </span><span class="cov8" title="1">{
+                artist := &amp;artists[i]
+                for _, concert := range artist.Concerts </span><span class="cov8" title="1">{
+                        loc, exists := locationMap[concert.Location]
+                        if !exists </span><span class="cov8" title="1">{
+                                loc = &amp;Location{
+                                        Name:    concert.Location,
+                                        Slug:    createSlug(concert.Location),
+                                        Artists: make([]Artist, 0),
+                                }
+                                locationMap[concert.Location] = loc
+                        }</span>
+
+                        // Add artist if not already present
+                        <span class="cov8" title="1">found := false
+                        for _, locArtist := range loc.Artists </span><span class="cov8" title="1">{
+                                if locArtist.ID == artist.ID </span><span class="cov8" title="1">{
+                                        found = true
+                                        break</span>
+                                }
+                        }
+                        <span class="cov8" title="1">if !found </span><span class="cov8" title="1">{
+                                loc.Artists = append(loc.Artists, *artist)
+                        }</span>
+                        <span class="cov8" title="1">loc.TotalConcerts++</span>
+                }
+        }
+
+        // Convert to slice and sort by concert count
+        <span class="cov8" title="1">locations := make([]Location, 0, len(locationMap))
+        for _, loc := range locationMap </span><span class="cov8" title="1">{
+                loc.ArtistCount = len(loc.Artists)
+                locations = append(locations, *loc)
+        }</span>
+
+        <span class="cov8" title="1">sort.Slice(locations, func(i, j int) bool </span><span class="cov8" title="1">{
+                return locations[i].TotalConcerts &gt; locations[j].TotalConcerts
+        }</span>)
+
+        <span class="cov8" title="1">return locations</span>
+}
+
+// loadProcessedData stores the processed data in repository indexes.
+func (r *Repository) loadProcessedData(artists []Artist, locations []Location, cachedCount, downloadedCount int) <span class="cov8" title="1">{
+        // Store artists
+        r.artists = artists
+        r.artistsByID = make(map[int]Artist, len(artists))
+        r.artistsBySlug = make(map[string]Artist, len(artists))
+
+        totalMembers := 0
+        totalConcerts := 0
+        countries := make(map[string]bool)
+
+        for _, artist := range artists </span><span class="cov8" title="1">{
+                r.artistsByID[artist.ID] = artist
+                r.artistsBySlug[artist.Slug] = artist
+                totalMembers += len(artist.Members)
+                totalConcerts += artist.ConcertCount
+
+                for _, country := range artist.Countries </span><span class="cov8" title="1">{
+                        countries[country] = true
+                }</span>
+        }
+
+        // Store locations
+        <span class="cov8" title="1">r.locations = locations
+        r.locationsBySlug = make(map[string]Location, len(locations))
+        for _, location := range locations </span><span class="cov8" title="1">{
+                r.locationsBySlug[location.Slug] = location
+        }</span>
+
+        // Store global stats including cache statistics
+        <span class="cov8" title="1">r.globalStats = map[string]int{
+                "total_artists":     len(artists),
+                "total_members":     totalMembers,
+                "total_locations":   len(locations),
+                "total_concerts":    totalConcerts,
+                "total_countries":   len(countries),
+                "cached_images":     cachedCount,
+                "downloaded_images": downloadedCount,
+        }</span>
+}
+
+func createSlug(name string) string <span class="cov8" title="1">{
+        reg := regexp.MustCompile(`[^a-z0-9]+`)
+        slug := reg.ReplaceAllString(strings.ToLower(name), "-")
+        return strings.Trim(slug, "-")
+}</span>
+
+func normalizeLocation(location string) string <span class="cov8" title="1">{
+        return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(location), "_", "-"))
+}</span>
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package handlers
+
+import (
+        "bytes"
+        "encoding/json"
+        "fmt"
+        "html/template"
+        "log"
+        "net/http"
+        "os"
+        "path/filepath"
+        "strconv"
+        "strings"
+        "time"
+
+        "groupie-tracker/internal/data"
+)
+
+// Handler holds the application state and handlers.
+type Handler struct {
+        repo      *data.Repository
+        templates map[string]*template.Template
+}
+
+// NewHandler creates a new handler with the given repository.
+func NewHandler(repo *data.Repository) *Handler <span class="cov8" title="1">{
+        h := &amp;Handler{repo: repo}
+        h.loadTemplates()
+        return h
+}</span>
+
+// Home handles the home page.
+func (h *Handler) Home(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if !h.validateRequestGETPath(w, r, "/") </span><span class="cov8" title="1">{
+                return
+        }</span>
+
+        <span class="cov8" title="1">artists := h.repo.GetArtists()
+        stats := h.repo.GetStats()
+
+        data := struct {
+                Title          string
+                ExtraCSS       string
+                ExtraJS        string
+                Artists        []data.Artist
+                TotalMembers   int
+                TotalLocations int
+        }{
+                Title:          "Home",
+                ExtraCSS:       "home.css",
+                ExtraJS:        "",
+                Artists:        artists,
+                TotalMembers:   stats["total_members"],
+                TotalLocations: stats["total_locations"],
+        }
+
+        h.render(w, r, "home.tmpl", data)</span>
+}
+
+// Artists handles the artists listing page.
+func (h *Handler) Artists(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if !h.validateRequestGETPath(w, r, "/artists") </span><span class="cov8" title="1">{
+                return
+        }</span>
+
+        <span class="cov8" title="1">artists := h.repo.GetArtists()
+        data := struct {
+                Title    string
+                ExtraCSS string
+                ExtraJS  string
+                Artists  []data.Artist
+        }{
+                Title:    "Artists",
+                ExtraCSS: "artists.css",
+                ExtraJS:  "",
+                Artists:  artists,
+        }
+
+        h.render(w, r, "artists.tmpl", data)</span>
+}
+
+// ArtistDetail handles individual artist pages.
+func (h *Handler) ArtistDetail(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov0" title="0">{
+                h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+                return
+        }</span>
+
+        <span class="cov8" title="1">path := strings.TrimPrefix(r.URL.Path, "/artists/")
+        if path == "" </span><span class="cov0" title="0">{
+                h.Error(w, r, http.StatusNotFound, "Page not found")
+                return
+        }</span>
+
+        // Try slug first, then ID
+        <span class="cov8" title="1">artist, found := h.repo.GetArtistBySlug(path)
+        if !found </span><span class="cov8" title="1">{
+                if id, err := strconv.Atoi(path); err == nil </span><span class="cov8" title="1">{
+                        artist, found = h.repo.GetArtistByID(id)
+                }</span>
+                <span class="cov8" title="1">if !found </span><span class="cov8" title="1">{
+                        h.Error(w, r, http.StatusNotFound, "Artist not found")
+                        return
+                }</span>
+        }
+
+        // Get navigation artists
+        <span class="cov8" title="1">var prevArtist, nextArtist *data.Artist
+        if artist.PrevArtistID != 0 </span><span class="cov8" title="1">{
+                if p, ok := h.repo.GetArtistByID(artist.PrevArtistID); ok </span><span class="cov8" title="1">{
+                        prevArtist = &amp;p
+                }</span>
+        }
+        <span class="cov8" title="1">if artist.NextArtistID != 0 </span><span class="cov0" title="0">{
+                if n, ok := h.repo.GetArtistByID(artist.NextArtistID); ok </span><span class="cov0" title="0">{
+                        nextArtist = &amp;n
+                }</span>
+        }
+
+        <span class="cov8" title="1">data := struct {
+                Title      string
+                ExtraCSS   string
+                ExtraJS    string
+                Artist     data.Artist
+                PrevArtist *data.Artist
+                NextArtist *data.Artist
+        }{
+                Title:      artist.Name,
+                ExtraCSS:   "artist_detail.css",
+                ExtraJS:    "",
+                Artist:     artist,
+                PrevArtist: prevArtist,
+                NextArtist: nextArtist,
+        }
+
+        h.render(w, r, "artist_detail.tmpl", data)</span>
+}
+
+// Locations handles the locations listing page.
+func (h *Handler) Locations(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if !h.validateRequestGETPath(w, r, "/locations") </span><span class="cov8" title="1">{
+                return
+        }</span>
+
+        <span class="cov8" title="1">locations := h.repo.GetLocations()
+        stats := h.repo.GetStats()
+
+        data := struct {
+                Title          string
+                ExtraCSS       string
+                ExtraJS        string
+                Locations      []data.Location
+                TotalCountries int
+                TotalConcerts  int
+        }{
+                Title:          "Locations",
+                ExtraCSS:       "locations.css",
+                ExtraJS:        "",
+                Locations:      locations,
+                TotalCountries: stats["total_countries"],
+                TotalConcerts:  stats["total_concerts"],
+        }
+
+        h.render(w, r, "locations.tmpl", data)</span>
+}
+
+// LocationDetail handles individual location pages.
+func (h *Handler) LocationDetail(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov0" title="0">{
+                h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+                return
+        }</span>
+
+        <span class="cov8" title="1">slug := strings.TrimPrefix(r.URL.Path, "/locations/")
+        if slug == "" </span><span class="cov0" title="0">{
+                h.Error(w, r, http.StatusNotFound, "Page not found")
+                return
+        }</span>
+
+        <span class="cov8" title="1">location, found := h.repo.GetLocationBySlug(slug)
+        if !found </span><span class="cov8" title="1">{
+                h.Error(w, r, http.StatusNotFound, "Location not found")
+                return
+        }</span>
+
+        <span class="cov8" title="1">data := struct {
+                Title    string
+                ExtraCSS string
+                ExtraJS  string
+                Location data.Location
+                Artists  []data.Artist
+        }{
+                Title:    fmt.Sprintf("%s - Location", location.Name),
+                ExtraCSS: "location_detail.css",
+                ExtraJS:  "",
+                Location: location,
+                Artists:  location.Artists,
+        }
+
+        h.render(w, r, "location_detail.tmpl", data)</span>
+}
+
+// DevIndex renders a small developer page with quick links.
+func (h *Handler) DevIndex(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov0" title="0">{
+                h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+                return
+        }</span>
+
+        <span class="cov8" title="1">links := []struct{ Href, Text string }{
+                {"/dev/panic", "Trigger Panic (/dev/panic)"},
+                {"/dev/404", "Simulate 404 (/dev/404)"},
+                {"/dev/500", "Simulate 500 (/dev/500)"},
+                {"/dev/tmpl-error", "Simulate Template Error (/dev/tmpl-error)"},
+                {"/health", "Health Check (/health)"},
+        }
+
+        data := struct {
+                Title    string
+                ExtraCSS string
+                ExtraJS  string
+                Links    []struct{ Href, Text string }
+        }{
+                Title:    "Developer Tools",
+                ExtraCSS: "dev.css",
+                ExtraJS:  "",
+                Links:    links,
+        }
+
+        h.render(w, r, "dev.tmpl", data)</span>
+}
+
+// Error handles all errors (4xx and 5xx) in a centralized way.
+func (h *Handler) Error(w http.ResponseWriter, r *http.Request, status int, message string) <span class="cov8" title="1">{
+        data := struct {
+                Title        string
+                ExtraCSS     string
+                ExtraJS      string
+                ErrorCode    int
+                RequestedURL string
+                Message      string
+                Timestamp    string
+        }{
+                Title:        fmt.Sprintf("%d %s", status, http.StatusText(status)),
+                ExtraCSS:     "errors.css",
+                ExtraJS:      "",
+                ErrorCode:    status,
+                RequestedURL: r.URL.Path,
+                Message:      message,
+                Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+        }
+
+        h.render(w, r, "error.tmpl", data, status)
+}</span>
+
+// Health provides a health check endpoint.
+func (h *Handler) Health(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov8" title="1">{
+                w.Header().Set("Allow", http.MethodGet)
+                h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+                return
+        }</span>
+
+        <span class="cov8" title="1">response := map[string]any{
+                "status":    "healthy",
+                "timestamp": time.Now().UTC().Format(time.RFC3339),
+                "stats":     h.repo.GetStats(),
+        }
+
+        w.Header().Set("Content-Type", "application/json")
+        json.NewEncoder(w).Encode(response)</span>
+}
+
+// DevPanic is a development endpoint to test panic recovery.
+func (h *Handler) DevPanic(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        panic("Development panic triggered")</span>
+}
+
+// Dev404 is a development endpoint to test 404 error template.
+func (h *Handler) Dev404(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        // Simulate a realistic 404 by mutating a shallow copy of the request
+        // so that template rendering sees a non-existent requested URL.
+        // We keep the original request untouched and pass the modified copy
+        // to the Home handler which will validate the path and trigger a 404.
+        nr := new(http.Request)
+        *nr = *r
+        // Ensure method is GET and set a path that we know doesn't exist in the router
+        nr.Method = http.MethodGet
+        nr.URL.Path = "/this-page-does-not-exist"
+
+        // Call Home with the modified request so the Error template is rendered
+        // using the realistic requested URL stored in nr.URL.Path.
+        h.Home(w, nr)
+}</span>
+
+// Dev500 is a development endpoint to test 500 error template.
+func (h *Handler) Dev500(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        h.Error(w, r, http.StatusInternalServerError, "This is a simulated 500 error.")
+}</span>
+
+// Dev500Tmpl is a development endpoint to test template failure.
+func (h *Handler) Dev500Tmpl(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        // To simulate a template error, we can try to render a template that doesn't exist.
+        h.render(w, r, "nonexistent.tmpl", nil)
+}</span>
+
+func (h *Handler) StaticFiles(w http.ResponseWriter, r *http.Request) <span class="cov8" title="1">{
+        const staticDir = "static"
+
+        // Only allow GET and HEAD methods
+        if r.Method != http.MethodGet &amp;&amp; r.Method != http.MethodHead </span><span class="cov8" title="1">{
+                w.Header().Set("Allow", "GET, HEAD")
+                h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+                return
+        }</span>
+
+        // Handle favicon.ico requests
+        <span class="cov8" title="1">if r.URL.Path == "/favicon.ico" </span><span class="cov8" title="1">{
+                target := filepath.Join(staticDir, "favicon.ico")
+                if fi, err := os.Stat(target); err != nil || fi.IsDir() </span><span class="cov0" title="0">{
+                        h.Error(w, r, http.StatusNotFound, "Favicon not found")
+                        return
+                }</span>
+                <span class="cov8" title="1">http.ServeFile(w, r, target)
+                return</span>
+        }
+
+        // Only allow /static/ prefix
+        <span class="cov8" title="1">if !strings.HasPrefix(r.URL.Path, "/static/") </span><span class="cov8" title="1">{
+                h.Error(w, r, http.StatusNotFound, "Not found")
+                return
+        }</span>
+
+        // Extract relative path and prevent directory traversal
+        <span class="cov8" title="1">rel := strings.TrimPrefix(r.URL.Path, "/static/")
+        if rel == "" || strings.Contains(rel, "..") || strings.HasPrefix(rel, "/") </span><span class="cov8" title="1">{
+                h.Error(w, r, http.StatusNotFound, "Not found")
+                return
+        }</span>
+
+        // Build target path and verify it's a regular file
+        <span class="cov8" title="1">target := filepath.Join(staticDir, rel)
+        if fi, err := os.Stat(target); err != nil || fi.IsDir() </span><span class="cov8" title="1">{
+                h.Error(w, r, http.StatusNotFound, "Not found")
+                return
+        }</span>
+
+        // Serve the file (Go's http.ServeFile handles content-type automatically)
+        <span class="cov8" title="1">http.ServeFile(w, r, target)</span>
+}
+
+// --- Request Validation Helpers ---
+
+// validateRequestGETPath checks if request is GET method and matches expected path.
+func (h *Handler) validateRequestGETPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool <span class="cov8" title="1">{
+        if r.Method != http.MethodGet </span><span class="cov8" title="1">{
+                h.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+                return false
+        }</span>
+
+        <span class="cov8" title="1">if r.URL.Path != expectedPath </span><span class="cov8" title="1">{
+                h.Error(w, r, http.StatusNotFound, "Page not found")
+                return false
+        }</span>
+
+        <span class="cov8" title="1">return true</span>
+}
+
+// --- Template Helpers ---
+
+// render renders a template with the given data and status code (if provided) managing all errors.
+func (h *Handler) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) <span class="cov8" title="1">{
+        code := http.StatusOK
+        if len(status) &gt; 0 </span><span class="cov8" title="1">{
+                code = status[0]
+        }</span>
+
+        <span class="cov8" title="1">tmpl, ok := h.templates[name]
+        if !ok </span><span class="cov8" title="1">{
+                // If we are already rendering an error, don't call h.Error again.
+                if name == "error.tmpl" </span><span class="cov8" title="1">{
+                        log.Printf("FATAL: error.tmpl is missing")
+                        http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
+                        return
+                }</span>
+                <span class="cov8" title="1">h.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
+                return</span>
+        }
+
+        <span class="cov8" title="1">buf := new(bytes.Buffer)
+        if err := tmpl.ExecuteTemplate(buf, "base", data); err != nil </span><span class="cov0" title="0">{
+                // If we get an error while executing the error template, we need to fallback.
+                if name == "error.tmpl" </span><span class="cov0" title="0">{
+                        log.Printf("Error executing error template: %v", err)
+                        http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
+                        return
+                }</span>
+                <span class="cov0" title="0">h.Error(w, r, http.StatusInternalServerError, err.Error())
+                return</span>
+        }
+
+        <span class="cov8" title="1">w.Header().Set("Content-Type", "text/html; charset=utf-8")
+        w.WriteHeader(code)
+        buf.WriteTo(w)</span>
+}
+
+// loadTemplates loads and parses all templates from the templates directory.
+func (h *Handler) loadTemplates() <span class="cov8" title="1">{
+        h.templates = make(map[string]*template.Template)
+
+        funcMap := template.FuncMap{
+                "add":   func(a, b int) int </span><span class="cov0" title="0">{ return a + b }</span>,
+                "sub":   func(a, b int) int <span class="cov0" title="0">{ return a - b }</span>,
+                "join":  func(items []string, sep string) string <span class="cov0" title="0">{ return strings.Join(items, sep) }</span>,
+                "upper": func(s string) string <span class="cov0" title="0">{ return strings.ToUpper(s) }</span>,
+                "title": func(s string) string <span class="cov0" title="0">{
+                        words := strings.Fields(strings.ReplaceAll(s, "-", " "))
+                        for i, word := range words </span><span class="cov0" title="0">{
+                                if len(word) &gt; 0 </span><span class="cov0" title="0">{
+                                        words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
+                                }</span>
+                        }
+                        <span class="cov0" title="0">return strings.Join(words, " ")</span>
+                },
+        }
+
+        <span class="cov8" title="1">const templateDir = "templates"
+        baseTmplPath := filepath.Join(templateDir, "base.tmpl")
+
+        if _, err := os.Stat(baseTmplPath); err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to find base template at %s: %v", baseTmplPath, err)
+        }</span>
+
+        <span class="cov8" title="1">pages, err := filepath.Glob(filepath.Join(templateDir, "*.tmpl"))
+        if err != nil </span><span class="cov0" title="0">{
+                log.Fatalf("Failed to glob templates: %v", err)
+        }</span>
+
+        <span class="cov8" title="1">for _, page := range pages </span><span class="cov8" title="1">{
+                name := filepath.Base(page)
+                if name == "base.tmpl" </span><span class="cov8" title="1">{
+                        continue</span>
+                }
+
+                <span class="cov8" title="1">ts, err := template.New(name).Funcs(funcMap).ParseFiles(baseTmplPath, page)
+                if err != nil </span><span class="cov0" title="0">{
+                        log.Fatalf("Failed to parse template %s: %v", name, err)
+                }</span>
+
+                <span class="cov8" title="1">h.templates[name] = ts</span>
+        }
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
