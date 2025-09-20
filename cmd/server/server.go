@@ -47,7 +47,7 @@ func newServer() (*http.Server, error) {
 
 	// Initialize handlers, routes, and middleware
 	handler := handlers.NewHandler(repo)
-	mux := withMiddleware(createRouter(handler))
+	mux := withMiddleware(setupRoutes(handler))
 	port := getPort()
 	// log.Printf("Server is starting on port %s", port)
 
@@ -65,8 +65,8 @@ func newServer() (*http.Server, error) {
 	return httpServer, nil
 }
 
-// createRouter sets up all routes.
-func createRouter(h *handlers.Handler) *http.ServeMux {
+// setupRoutes sets up all routes.
+func setupRoutes(h *handlers.Handler) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Static file serving
@@ -133,8 +133,8 @@ func withSecureHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "deny")
 		w.Header().Set("X-XSS-Protection", "0")
 		// Content-Security-Policy is intentionally not set to allow flexibility with external resources
-		// w.Header().Set("Content-Security-Policy", 
-		// "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; 
+		// w.Header().Set("Content-Security-Policy",
+		// "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;
 		// font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';")
 		next.ServeHTTP(w, r)
 	})
