@@ -59,7 +59,7 @@ Since Playwright requires additional setup, we've implemented:
 ### Option 1: Install Requirements
 Run the installation commands above, then execute:
 ```bash
-cd "d:\Ertval One\- Academics\Zone01\Modules\groupie-tracker"
+cd "d:\Ertval One\- Academics\audit requirements\Modules\groupie-tracker"
 go test ./tests -v -run TestPlaywright
 ```
 
@@ -94,4 +94,4 @@ The application is fully tested and working. Current tests verify:
 
 The application is **fully functional and tested**. Browser automation with Playwright would be a nice addition for visual testing, but it's not required for the core functionality verification.
 
-All critical tests are passing, and the application meets all Zone01 audit requirements.
+All critical tests are passing, and the application meets all audit requirements.

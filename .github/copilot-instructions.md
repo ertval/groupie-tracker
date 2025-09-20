@@ -1,7 +1,7 @@
 # Groupie Tracker - AI Coding Agent Instructions
 
 ## Project Overview
-Zone01 educational project implementing a Go web application that consumes the Groupie Trackers API to display band/artist information. The project follows strict TDD principles, uses only Go standard library, and maintains Zone01 coding standards.
+An educational project implementing a Go web application that consumes the Groupie Trackers API to display band/artist information. The project follows strict TDD principles, uses only Go standard library, and maintains audit requirements.
 
 ## Key Constraints & Commands
 
@@ -129,7 +129,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, templateName st
 }
 ```
 
-## Zone01 Audit Requirements (Test Against These)
+## Audit Requirements (Test Against These)
 
 **Critical Data Points:**
 - Queen: exactly 7 members
@@ -168,7 +168,7 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, templateName st
 
 ## Development Workflow
 
-1. **Always write tests first** (Zone01 requirement)  
+1. **Always write tests first** (audit requirement)  
 2. **Use centralized config** (`internal/config` package for all settings)
 3. **Follow template inheritance pattern** (base.tmpl with body blocks)
 4. **Test with audit data** (Queen, Gorillaz, Travis Scott)
@@ -184,4 +184,4 @@ func (h *Handler) render(w http.ResponseWriter, r *http.Request, templateName st
 - All tests use audit-compliant data (Queen=7 members, Gorillaz="26-03-2001")
 - Test repository methods with mock data where needed  
 - Override config variables in tests rather than passing parameters
-- Ensure no regression in Zone01 audit requirements
+- Ensure no regression in audit requirements

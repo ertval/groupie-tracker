@@ -60,14 +60,6 @@ func newServer() (*http.Server, error) {
 		IdleTimeout:  config.IdleTimeout,
 	}
 
-	// addr := httpServer.Addr
-	// url := addr
-	// if strings.HasPrefix(addr, ":") {
-	// 	url = "http://localhost" + addr
-	// } else if !strings.HasPrefix(addr, "http://") && !strings.HasPrefix(addr, "https://") {
-	// 	url = "http://" + addr
-	// }
-
 	log.Printf("🚀 Server Initialized in %v and Ready to Open - %s", time.Since(start), "http://localhost"+port)
 
 	return httpServer, nil
@@ -141,7 +133,9 @@ func withSecureHeaders(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "deny")
 		w.Header().Set("X-XSS-Protection", "0")
 		// Content-Security-Policy is intentionally not set to allow flexibility with external resources
-		// w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';")
+		// w.Header().Set("Content-Security-Policy", 
+		// "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; 
+		// font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';")
 		next.ServeHTTP(w, r)
 	})
 }
