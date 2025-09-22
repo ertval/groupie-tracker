@@ -94,11 +94,11 @@ type FilterParams struct {
 // FilterOptions represents the available filter options
 type FilterOptions struct {
 	// Range bounds for sliders
-	CreationYearMin int `json:"creationYearMin"`
-	CreationYearMax int `json:"creationYearMax"`
+	CreationYearMin   int `json:"creationYearMin"`
+	CreationYearMax   int `json:"creationYearMax"`
 	FirstAlbumYearMin int `json:"firstAlbumYearMin"`
 	FirstAlbumYearMax int `json:"firstAlbumYearMax"`
-	
+
 	// Available checkbox options
 	MemberCounts []int    `json:"memberCounts"` // List of available member counts (1 to max)
 	Countries    []string `json:"countries"`    // List of countries extracted from locations

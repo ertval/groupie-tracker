@@ -14,16 +14,16 @@ func TestRepository_FilterArtists_CreationDate(t *testing.T) {
 		wantCount int
 	}{
 		{
-			name:     "Filter 1995-2000",
-			fromYear: intPtr(1995),
-			toYear:   intPtr(2000),
+			name:      "Filter 1995-2000",
+			fromYear:  intPtr(1995),
+			toYear:    intPtr(2000),
 			wantNames: []string{"SOJA", "Mamonas Assassinas", "Thirty Seconds to Mars", "Nickelback", "Gorillaz", "Linkin Park", "Coldplay"},
 			wantCount: 7,
 		},
 		{
-			name:     "Filter after 2010",
-			fromYear: intPtr(2010),
-			toYear:   nil,
+			name:      "Filter after 2010",
+			fromYear:  intPtr(2010),
+			toYear:    nil,
 			wantNames: []string{"XXXTentacion", "Juice WRLD", "Alec Benjamin", "Post Malone"},
 			wantCount: 4,
 		},
@@ -255,7 +255,7 @@ func TestRepository_GetFilterOptions(t *testing.T) {
 	if len(options.MemberCounts) == 0 {
 		t.Error("No member counts available")
 	}
-	
+
 	// Should have member counts from 1 to some reasonable maximum
 	if options.MemberCounts[0] != 1 {
 		t.Error("Member counts should start from 1")
@@ -281,7 +281,7 @@ func TestRepository_GetFilterOptions(t *testing.T) {
 
 func createMockRepository(t *testing.T) *Repository {
 	repo := &Repository{}
-	
+
 	// Create mock artists with diverse data for testing
 	mockArtists := []Artist{
 		{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May", "Roger Taylor", "John Deacon", "Mike Grose", "Barry Mitchell", "Doug Fogie"}, CreationYear: 1970, FirstAlbum: "14-07-1973", Concerts: []Concert{{Location: "london-uk"}, {Location: "new-york-usa"}}},
@@ -300,16 +300,16 @@ func createMockRepository(t *testing.T) *Repository {
 		{ID: 14, Name: "Coldplay", Members: []string{"Chris Martin", "Guy Berryman", "Jonny Buckland", "Will Champion"}, CreationYear: 1996, FirstAlbum: "2000", Concerts: []Concert{{Location: "london-uk"}}},
 		{ID: 15, Name: "Red Hot Chili Peppers", Members: []string{"Anthony Kiedis", "Flea", "Chad Smith", "John Frusciante"}, CreationYear: 1982, FirstAlbum: "1991", Concerts: []Concert{{Location: "los-angeles-california-usa"}}},
 	}
-	
+
 	repo.artists = mockArtists
 	repo.artistsByID = make(map[int]Artist)
 	repo.artistsBySlug = make(map[string]Artist)
-	
+
 	for _, artist := range mockArtists {
 		repo.artistsByID[artist.ID] = artist
 		repo.artistsBySlug[createSlug(artist.Name)] = artist
 	}
-	
+
 	return repo
 }
 
