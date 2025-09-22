@@ -5,9 +5,9 @@
     <header class="page-header">
         <h1>Concert Locations</h1>
         {{if .IsFiltered}}
-        <p class="muted results-count">Showing {{len .Locations}} filtered results out of {{.TotalLocations}} total locations</p>
+        <p class="muted results-count">Showing {{len .Locations}} filtered locations {{if .FilterDescription}}in {{.FilterDescription}}{{end}} out of {{.TotalLocations}} total locations</p>
         <div class="filter-status">
-            <span class="filter-badge">Filtered</span>
+            <span class="filter-badge">Filtered {{if .FilterDescription}}by {{.FilterDescription}}{{end}}</span>
             <a href="/locations" class="clear-filters-link">Show All Locations</a>
         </div>
         {{else}}
@@ -19,11 +19,12 @@
         <div class="content-wrapper">
             <!-- Main Content -->
             <div class="main-content">
+                {{if not .IsFiltered}}
                 <section class="top-locations">
-                    <h2>{{if .IsFiltered}}Filtered{{else}}Top 10{{end}} Locations by Concerts</h2>
+                    <h2>Top 10 Locations by Concerts</h2>
                     <div class="top-locations-list">
                         {{range $index, $location := .Locations}}
-                        {{if or $.IsFiltered (lt $index 10)}}
+                        {{if lt $index 10}}
                         <div class="top-location-item">
                             <span class="rank">{{add $index 1}}</span>
                             <span class="location-name"><a href="/locations/{{$location.Slug}}">{{$location.Name | title}}</a></span>
@@ -33,9 +34,10 @@
                         {{end}}
                     </div>
                 </section>
+                {{end}}
 
                 <section class="locations-grid">
-                    <h2>{{if .IsFiltered}}Filtered{{else}}All{{end}} Locations (Sorted by Popularity)</h2>
+                    <h2>{{if .IsFiltered}}Filtered Locations{{if .FilterDescription}} in {{.FilterDescription}}{{end}}{{else}}All Locations{{end}} (Sorted by Popularity)</h2>
                     <div class="locations-list">
                         {{if .Locations}}
                         {{range .Locations}}
@@ -50,7 +52,7 @@
                                         </p>
                                         {{if gt (len .Artists) 0}}
                                         <p class="location-artists muted">
-                                            {{range $i, $artistAtLocation := .Artists}}{{if gt $i 0}}, {{end}}{{$artistAtLocation.Artist.Name}} ({{$artistAtLocation.ConcertCount}}){{end}}
+                                            {{range $i, $artistAtLocation := .Artists}}{{if gt $i 0}}, {{end}}<a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}} ({{$artistAtLocation.ConcertCount}})</a>{{end}}
                                         </p>
                                         {{end}}
                                     </div>

@@ -202,6 +202,26 @@ func (a *App) Locations(w http.ResponseWriter, r *http.Request) {
 		locations = a.repo.FilterLocations(appliedFilters)
 	}
 
+	// Check if any filter is applied
+	isFiltered := r.Method == http.MethodPost && (appliedFilters.ConcertCountFrom != nil || appliedFilters.ConcertCountTo != nil ||
+		appliedFilters.ArtistCountFrom != nil || appliedFilters.ArtistCountTo != nil ||
+		appliedFilters.ConcertYearFrom != nil || appliedFilters.ConcertYearTo != nil ||
+		len(appliedFilters.Countries) > 0)
+
+	// Generate filter description
+	filterDescription := ""
+	if isFiltered {
+		if len(appliedFilters.Countries) > 0 {
+			if len(appliedFilters.Countries) == 1 {
+				filterDescription = appliedFilters.Countries[0]
+			} else {
+				filterDescription = "Multiple Countries"
+			}
+		} else {
+			filterDescription = "Filters Applied"
+		}
+	}
+
 	data := struct {
 		Title                 string
 		ExtraCSS              string
@@ -210,6 +230,7 @@ func (a *App) Locations(w http.ResponseWriter, r *http.Request) {
 		LocationFilterOptions data.LocationFilterOptions
 		AppliedFilters        data.LocationFilterParams
 		IsFiltered            bool
+		FilterDescription     string
 		TotalLocations        int
 		TotalCountries        int
 		TotalConcerts         int
@@ -220,7 +241,8 @@ func (a *App) Locations(w http.ResponseWriter, r *http.Request) {
 		Locations:             locations,
 		LocationFilterOptions: filterOptions,
 		AppliedFilters:        appliedFilters,
-		IsFiltered:            r.Method == http.MethodPost,
+		IsFiltered:            isFiltered,
+		FilterDescription:     filterDescription,
 		TotalLocations:        totalLocations,
 		TotalCountries:        stats["total_countries"],
 		TotalConcerts:         stats["total_concerts"],

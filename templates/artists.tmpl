@@ -49,9 +49,10 @@
                             </div>
                             <div class="artist-info">
                                 <h3>{{.Name}}</h3>
-                                <p class="creation-year">{{.CreationYear}}</p>
+                                <p class="creation-year">Founded: {{.CreationYear}}</p>
                                 <p class="first-album">First Album: {{.FirstAlbum}}</p>
                                 <p class="members-count">{{len .Members}} members</p>
+                                <p class="concert-count">{{.ConcertCount}} concerts performed</p>
                                 <div class="members-preview">
                                     {{range $index, $member := .Members}}
                                     {{if lt $index 3}}
@@ -151,7 +152,7 @@
                                 <!-- Country Checkboxes Filter -->
                                 <div class="filter-group">
                                     <label class="filter-label">Concert Countries</label>
-                                    <div class="checkbox-group">
+                                    <div class="checkbox-grid">
                                         {{range $country := .FilterOptions.Countries}}
                                         <div class="checkbox-item">
                                             <input type="checkbox" 
