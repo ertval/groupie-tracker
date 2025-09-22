@@ -1,7 +1,10 @@
-package main
+package server
 
 import (
+	"context"
 	"fmt"
+	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/data"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -10,9 +13,47 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"groupie-tracker/internal/config"
 )
+
+// newTestApplication creates a new application instance for testing.
+func newTestApplication(t *testing.T) *Handler {
+	// Create a mock server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/artists":
+			w.Write([]byte(`[
+				{"id": 1, "name": "Queen", "creationDate": 1970},
+				{"id": 2, "name": "AC/DC", "creationDate": 1973}
+			]`))
+		case "/api/relation":
+			w.Write([]byte(`{
+				"index": [
+					{"id": 1, "datesLocations": {"london-uk": ["2022-01-01"]}},
+					{"id": 2, "datesLocations": {"london-uk": ["2023-01-01"]}}
+				]
+			}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+
+	// Disable image caching for tests to avoid creating files on disk
+	config.WithCache = false
+	// Point repository to the mock server and use a short timeout for tests
+	config.APIBaseURL = server.URL
+	config.APIRequestTimeout = 5 * time.Second
+	repo := data.NewRepository()
+	if err := repo.LoadData(context.Background()); err != nil {
+		t.Fatalf("failed to load data for tests: %v", err)
+	}
+
+	// For handler testing without templates (templates are nil by design)
+	return &Handler{
+		repo:      repo,
+		templates: nil, // nil templates to trigger error responses for testing
+	}
+}
 
 // newTestServer creates a new server for testing, including a mock API.
 func newTestServer(t *testing.T) *httptest.Server {
@@ -37,7 +78,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	config.APIBaseURL = mockAPIServer.URL
 	config.APIRequestTimeout = 5 * time.Second
 
-	srv, err := newServer()
+	srv, err := NewServer()
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -51,6 +92,220 @@ func newTestServer(t *testing.T) *httptest.Server {
 
 	return testServer
 }
+
+// Handler Tests
+
+func TestHome(t *testing.T) {
+	h := newTestApplication(t)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+
+	h.Home(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+}
+
+func TestArtists(t *testing.T) {
+	h := newTestApplication(t)
+
+	req := httptest.NewRequest("GET", "/artists", nil)
+	w := httptest.NewRecorder()
+
+	h.Artists(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+}
+
+func TestHealth(t *testing.T) {
+	h := newTestApplication(t)
+
+	req := httptest.NewRequest("GET", "/health", nil)
+	w := httptest.NewRecorder()
+
+	h.Health(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "healthy") {
+		t.Errorf("expected body to contain 'healthy', got: %s", body)
+	}
+
+	contentType := w.Header().Get("Content-Type")
+	if !strings.Contains(contentType, "application/json") {
+		t.Errorf("expected content type to be application/json, got: %s", contentType)
+	}
+}
+
+func TestArtistDetail(t *testing.T) {
+	h := newTestApplication(t)
+
+	tests := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{"Valid artist slug", "/artists/queen", http.StatusOK},
+		{"Valid artist slug (AC/DC)", "/artists/ac-dc", http.StatusOK},
+		{"Invalid artist slug", "/artists/nonexistent", http.StatusNotFound},
+		{"Empty slug", "/artists/", http.StatusNotFound},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.path, nil)
+			w := httptest.NewRecorder()
+
+			h.ArtistDetail(w, req)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("expected status %d, got %d", tt.wantStatus, w.Code)
+			}
+		})
+	}
+}
+
+func TestLocations(t *testing.T) {
+	h := newTestApplication(t)
+
+	req := httptest.NewRequest("GET", "/locations", nil)
+	w := httptest.NewRecorder()
+
+	h.Locations(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status 200, got %d", w.Code)
+	}
+}
+
+func TestLocationDetail(t *testing.T) {
+	h := newTestApplication(t)
+
+	tests := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{"Valid location slug", "/locations/london-uk", http.StatusOK},
+		{"Invalid location slug", "/locations/nonexistent", http.StatusNotFound},
+		{"Empty slug", "/locations/", http.StatusNotFound},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.path, nil)
+			w := httptest.NewRecorder()
+
+			h.LocationDetail(w, req)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("expected status %d, got %d", tt.wantStatus, w.Code)
+			}
+		})
+	}
+}
+
+func TestStaticFiles(t *testing.T) {
+	h := newTestApplication(t)
+
+	// Change to repo root for static files
+	origWd, _ := os.Getwd()
+	repoRoot := filepath.Join(origWd, "..", "..")
+	_ = os.Chdir(repoRoot)
+	defer func() { _ = os.Chdir(origWd) }()
+
+	tests := []struct {
+		name       string
+		path       string
+		wantStatus int
+	}{
+		{"Base CSS", "/static/css/base.css", http.StatusOK},
+		{"Favicon", "/favicon.ico", http.StatusOK},
+		{"Non-existent file", "/static/css/nonexistent.css", http.StatusNotFound},
+		{"Directory traversal attempt", "/static/../go.mod", http.StatusBadRequest},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.path, nil)
+			w := httptest.NewRecorder()
+
+			h.StaticFiles(w, req)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("expected status %d, got %d", tt.wantStatus, w.Code)
+			}
+		})
+	}
+}
+
+func TestInvalidMethods(t *testing.T) {
+	h := newTestApplication(t)
+
+	endpoints := []string{"/", "/artists", "/locations", "/health"}
+	methods := []string{"POST", "PUT", "DELETE", "PATCH", "HEAD"}
+
+	for _, endpoint := range endpoints {
+		for _, method := range methods {
+			t.Run(fmt.Sprintf("%s %s", method, endpoint), func(t *testing.T) {
+				req := httptest.NewRequest(method, endpoint, nil)
+				w := httptest.NewRecorder()
+
+				switch endpoint {
+				case "/":
+					h.Home(w, req)
+				case "/artists":
+					h.Artists(w, req)
+				case "/locations":
+					h.Locations(w, req)
+				case "/health":
+					h.Health(w, req)
+				}
+
+				if w.Code != http.StatusMethodNotAllowed {
+					t.Errorf("expected status 405 for %s %s, got %d", method, endpoint, w.Code)
+				}
+			})
+		}
+	}
+}
+
+func TestInvalidPaths(t *testing.T) {
+	h := newTestApplication(t)
+
+	tests := []struct {
+		name       string
+		path       string
+		handler    func(http.ResponseWriter, *http.Request)
+		wantStatus int
+	}{
+		{"Home with extra path", "/extra", h.Home, http.StatusNotFound},
+		{"Artists with invalid path", "/artists/some/extra/path", h.ArtistDetail, http.StatusNotFound},
+		{"Locations with invalid path", "/locations/some/extra/path", h.LocationDetail, http.StatusNotFound},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("GET", tt.path, nil)
+			w := httptest.NewRecorder()
+
+			tt.handler(w, req)
+
+			if w.Code != tt.wantStatus {
+				t.Errorf("expected status %d, got %d", tt.wantStatus, w.Code)
+			}
+		})
+	}
+}
+
+// Routes and Server Tests
 
 func TestGetPort(t *testing.T) {
 	// Test default port
@@ -104,6 +359,8 @@ func TestRouter(t *testing.T) {
 	}
 }
 
+// Middleware Tests
+
 func TestMiddleware(t *testing.T) {
 	// Test withRecovery
 	recoveryTestHandler := withRecovery(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -128,6 +385,32 @@ func TestMiddleware(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("withLogging: expected status 200, got %d", w.Code)
+	}
+
+	// Test withSecureHeaders
+	secureTestHandler := withSecureHeaders(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	w = httptest.NewRecorder()
+	secureTestHandler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("withSecureHeaders: expected status 200, got %d", w.Code)
+	}
+
+	// Check security headers are set
+	expectedHeaders := map[string]string{
+		"Referrer-Policy":        "origin-when-cross-origin",
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":        "deny",
+		"X-XSS-Protection":       "0",
+	}
+
+	for header, expectedValue := range expectedHeaders {
+		if w.Header().Get(header) != expectedValue {
+			t.Errorf("expected header %s to be %s, got %s", header, expectedValue, w.Header().Get(header))
+		}
 	}
 }
 
@@ -155,7 +438,7 @@ func TestServerCreation(t *testing.T) {
 	config.APIBaseURL = mockAPI.URL
 	config.APIRequestTimeout = 5 * time.Second
 
-	srv, err := newServer()
+	srv, err := NewServer()
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -208,7 +491,7 @@ func TestServerWithDifferentPorts(t *testing.T) {
 			originalPort := config.DefaultPort
 			config.DefaultPort = port
 
-			srv, err := newServer()
+			srv, err := NewServer()
 			if err != nil {
 				t.Fatalf("failed to create server with port %s: %v", port, err)
 			}

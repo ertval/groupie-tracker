@@ -17,11 +17,13 @@ Groupie Tracker is a Go-based web application that:
 
 ### Key Implementation Files
 - `cmd/server/main.go` - Application entry point with graceful shutdown
-- `cmd/server/server.go` - HTTP server, routing, middleware (162 lines)
+- `cmd/server/server.go` - Server configuration and startup coordination
+- `internal/server/routes.go` - HTTP server, routing, middleware (111 lines)
+- `internal/server/handlers.go` - All HTTP endpoints (453 lines)  
+- `internal/server/middleware.go` - Panic recovery, logging, security headers (54 lines)
 - `internal/config/config.go` - Centralized configuration variables
 - `internal/data/repository.go` - Core data management logic (396 lines)
 - `internal/data/domain.go` - Domain models (Artist, Location, Concert)
-- `internal/handlers/handlers.go` - All HTTP endpoints (453 lines)
 - `templates/base.tmpl` - Base template with inheritance support
 - `static/css/base.css` - Core styling with responsive design
 
@@ -57,8 +59,8 @@ The application handles the API's inconsistent response formats:
 ```
 cmd/server/                 # Application entry point
   ├── main.go              # Graceful shutdown and server lifecycle
-  ├── server.go            # HTTP server setup, routing, middleware
-  └── server_test.go       # Server integration tests
+  ├── server.go            # Server configuration and startup coordination
+  └── e2e_test.go          # End-to-end integration tests
 
 internal/
   ├── config/              # Centralized configuration
@@ -66,11 +68,13 @@ internal/
   ├── data/                # Core domain layer (71.9% test coverage)
   │   ├── repository.go    # Single data load with thread-safe read operations
   │   ├── domain.go        # Domain models (Artist, Location, Concert)
-  │   ├── api.go           # API response structures  
+  │   ├── models.go        # API response structures  
   │   └── repository_test.go # Repository tests
-  └── handlers/            # HTTP layer (51.9% test coverage)
+  └── server/              # HTTP layer (comprehensive test coverage)
+      ├── routes.go        # HTTP server setup, routing (111 lines)
       ├── handlers.go      # All HTTP endpoints (453 lines)
-      └── handlers_test.go # Comprehensive handler tests
+      ├── middleware.go    # Panic recovery, logging, security headers (54 lines)
+      └── server_test.go   # Comprehensive unified server tests
 
 templates/                 # Template inheritance system
   ├── base.tmpl           # Base layout with {{define "base"}}
@@ -128,7 +132,7 @@ Step 5: loadProcessedData()
 HTTP Request → Router → Handler → Repository → Template → Response
 
 Example: GET /artists/queen
-  ├── server.go: mux.HandleFunc("/artists/", h.ArtistDetail)
+  ├── routes.go: mux.HandleFunc("/artists/", h.ArtistDetail)
   ├── handlers.go: ArtistDetail() extracts "queen" from URL path
   ├── repository.go: GetArtistBySlug("queen") returns cached Artist
   ├── handlers.go: Creates inline struct with Artist + metadata
