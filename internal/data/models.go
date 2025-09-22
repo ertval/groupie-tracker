@@ -79,25 +79,27 @@ const (
 
 // FilterParams represents the filter criteria for artist searches
 type FilterParams struct {
-	// Range filters
+	// Range filters (using sliders)
 	CreationYearFrom *int `json:"creationYearFrom,omitempty"`
 	CreationYearTo   *int `json:"creationYearTo,omitempty"`
 
-	FirstAlbumFrom *string `json:"firstAlbumFrom,omitempty"`
-	FirstAlbumTo   *string `json:"firstAlbumTo,omitempty"`
+	FirstAlbumYearFrom *int `json:"firstAlbumYearFrom,omitempty"`
+	FirstAlbumYearTo   *int `json:"firstAlbumYearTo,omitempty"`
 
-	MembersFrom *int `json:"membersFrom,omitempty"`
-	MembersTo   *int `json:"membersTo,omitempty"`
-
-	// Checkbox filters - locations
-	Locations []string `json:"locations,omitempty"`
+	// Checkbox filters
+	MemberCounts []int    `json:"memberCounts,omitempty"` // Changed to checkbox list
+	Countries    []string `json:"countries,omitempty"`    // Changed to countries instead of cities
 }
 
 // FilterOptions represents the available filter options
 type FilterOptions struct {
-	CreationYearMin int      `json:"creationYearMin"`
-	CreationYearMax int      `json:"creationYearMax"`
-	MemberCountMin  int      `json:"memberCountMin"`
-	MemberCountMax  int      `json:"memberCountMax"`
-	Locations       []string `json:"locations"`
+	// Range bounds for sliders
+	CreationYearMin int `json:"creationYearMin"`
+	CreationYearMax int `json:"creationYearMax"`
+	FirstAlbumYearMin int `json:"firstAlbumYearMin"`
+	FirstAlbumYearMax int `json:"firstAlbumYearMax"`
+	
+	// Available checkbox options
+	MemberCounts []int    `json:"memberCounts"` // List of available member counts (1 to max)
+	Countries    []string `json:"countries"`    // List of countries extracted from locations
 }

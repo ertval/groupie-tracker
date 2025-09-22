@@ -20,69 +20,81 @@
 
             <div id="filters-panel" class="filters-panel" style="display: none;">
                 <form id="filter-form">
-                    <!-- Creation Year Range Filter -->
+                    <!-- Creation Year Range Slider -->
                     <div class="filter-group">
                         <label class="filter-label">Creation Year</label>
-                        <div class="range-inputs">
-                            <div class="range-input-group">
-                                <label for="creation-year-from">From:</label>
-                                <input type="number" id="creation-year-from" name="creationYearFrom" 
-                                       min="{{.FilterOptions.CreationYearMin}}" 
-                                       max="{{.FilterOptions.CreationYearMax}}" 
-                                       placeholder="{{.FilterOptions.CreationYearMin}}">
+                        <div class="slider-container">
+                            <div class="slider-values">
+                                <span id="creation-year-min">{{.FilterOptions.CreationYearMin}}</span>
+                                <span id="creation-year-max">{{.FilterOptions.CreationYearMax}}</span>
                             </div>
-                            <div class="range-input-group">
-                                <label for="creation-year-to">To:</label>
-                                <input type="number" id="creation-year-to" name="creationYearTo" 
+                            <div class="range-slider">
+                                <input type="range" id="creation-year-from" name="creationYearFrom" 
                                        min="{{.FilterOptions.CreationYearMin}}" 
                                        max="{{.FilterOptions.CreationYearMax}}" 
-                                       placeholder="{{.FilterOptions.CreationYearMax}}">
+                                       value="{{.FilterOptions.CreationYearMin}}"
+                                       class="range-input range-from">
+                                <input type="range" id="creation-year-to" name="creationYearTo" 
+                                       min="{{.FilterOptions.CreationYearMin}}" 
+                                       max="{{.FilterOptions.CreationYearMax}}" 
+                                       value="{{.FilterOptions.CreationYearMax}}"
+                                       class="range-input range-to">
+                            </div>
+                            <div class="slider-labels">
+                                <span>From: <span id="creation-year-from-value">{{.FilterOptions.CreationYearMin}}</span></span>
+                                <span>To: <span id="creation-year-to-value">{{.FilterOptions.CreationYearMax}}</span></span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- First Album Date Range Filter -->
+                    <!-- First Album Year Range Slider -->
                     <div class="filter-group">
                         <label class="filter-label">First Album Year</label>
-                        <div class="range-inputs">
-                            <div class="range-input-group">
-                                <label for="first-album-from">From:</label>
-                                <input type="text" id="first-album-from" name="firstAlbumFrom" 
-                                       placeholder="1960">
+                        <div class="slider-container">
+                            <div class="slider-values">
+                                <span id="first-album-year-min">{{.FilterOptions.FirstAlbumYearMin}}</span>
+                                <span id="first-album-year-max">{{.FilterOptions.FirstAlbumYearMax}}</span>
                             </div>
-                            <div class="range-input-group">
-                                <label for="first-album-to">To:</label>
-                                <input type="text" id="first-album-to" name="firstAlbumTo" 
-                                       placeholder="2025">
+                            <div class="range-slider">
+                                <input type="range" id="first-album-year-from" name="firstAlbumYearFrom" 
+                                       min="{{.FilterOptions.FirstAlbumYearMin}}" 
+                                       max="{{.FilterOptions.FirstAlbumYearMax}}" 
+                                       value="{{.FilterOptions.FirstAlbumYearMin}}"
+                                       class="range-input range-from">
+                                <input type="range" id="first-album-year-to" name="firstAlbumYearTo" 
+                                       min="{{.FilterOptions.FirstAlbumYearMin}}" 
+                                       max="{{.FilterOptions.FirstAlbumYearMax}}" 
+                                       value="{{.FilterOptions.FirstAlbumYearMax}}"
+                                       class="range-input range-to">
+                            </div>
+                            <div class="slider-labels">
+                                <span>From: <span id="first-album-year-from-value">{{.FilterOptions.FirstAlbumYearMin}}</span></span>
+                                <span>To: <span id="first-album-year-to-value">{{.FilterOptions.FirstAlbumYearMax}}</span></span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Member Count Range Filter -->
+                    <!-- Member Count Checkboxes -->
                     <div class="filter-group">
                         <label class="filter-label">Number of Members</label>
-                        <div class="range-inputs">
-                            <div class="range-input-group">
-                                <label for="members-from">From:</label>
-                                <input type="number" id="members-from" name="membersFrom" 
-                                       min="1" max="20" placeholder="1">
+                        <div class="checkbox-grid" id="member-count-checkboxes">
+                            {{range .FilterOptions.MemberCounts}}
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="members-{{.}}" name="memberCounts" value="{{.}}">
+                                <label for="members-{{.}}">{{.}} member{{if ne . 1}}s{{end}}</label>
                             </div>
-                            <div class="range-input-group">
-                                <label for="members-to">To:</label>
-                                <input type="number" id="members-to" name="membersTo" 
-                                       min="1" max="20" placeholder="20">
-                            </div>
+                            {{end}}
                         </div>
                     </div>
 
-                    <!-- Location Checkboxes Filter -->
+                    <!-- Country Checkboxes Filter -->
                     <div class="filter-group">
-                        <label class="filter-label">Concert Locations</label>
-                        <div class="checkbox-group" id="location-checkboxes">
-                            {{range .FilterOptions.Locations}}
+                        <label class="filter-label">Concert Countries</label>
+                        <div class="checkbox-group" id="country-checkboxes">
+                            {{range .FilterOptions.Countries}}
                             <div class="checkbox-item">
-                                <input type="checkbox" id="location-{{.}}" name="locations" value="{{.}}">
-                                <label for="location-{{.}}">{{.}}</label>
+                                <input type="checkbox" id="country-{{.}}" name="countries" value="{{.}}">
+                                <label for="country-{{.}}">{{.}}</label>
                             </div>
                             {{end}}
                         </div>
