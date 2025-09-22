@@ -16,7 +16,7 @@ import (
 )
 
 // newTestApplication creates a new application instance for testing.
-func newTestApplication(t *testing.T) *Handler {
+func newTestApplication(t *testing.T) *App {
 	// Create a mock server
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -48,11 +48,16 @@ func newTestApplication(t *testing.T) *Handler {
 		t.Fatalf("failed to load data for tests: %v", err)
 	}
 
-	// For handler testing without templates (templates are nil by design)
-	return &Handler{
-		repo:      repo,
-		templates: nil, // nil templates to trigger error responses for testing
-	}
+	// Change working directory to repository root so templates/static files are found
+	origWd, _ := os.Getwd()
+	repoRoot := filepath.Join(origWd, "..", "..")
+	_ = os.Chdir(repoRoot)
+	// Create an App that loads templates from the repo
+	app := NewApp(repo)
+	// Restore working directory
+	_ = os.Chdir(origWd)
+
+	return app
 }
 
 // newTestServer creates a new server for testing, including a mock API.
@@ -229,7 +234,7 @@ func TestStaticFiles(t *testing.T) {
 		{"Base CSS", "/static/css/base.css", http.StatusOK},
 		{"Favicon", "/favicon.ico", http.StatusOK},
 		{"Non-existent file", "/static/css/nonexistent.css", http.StatusNotFound},
-		{"Directory traversal attempt", "/static/../go.mod", http.StatusBadRequest},
+		{"Directory traversal attempt", "/static/../go.mod", http.StatusNotFound},
 	}
 
 	for _, tt := range tests {
