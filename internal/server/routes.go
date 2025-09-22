@@ -9,11 +9,11 @@ func (a *App) Routes() *http.ServeMux {
 	router := http.NewServeMux()
 
 	// Static file serving
-	router.HandleFunc("GET /static/", a.StaticFiles)
-	router.HandleFunc("GET /favicon.ico", a.StaticFiles)
+	router.HandleFunc("/static/", a.StaticFiles)
+	router.HandleFunc("/favicon.ico", a.StaticFiles)
 
 	// Health check
-	router.HandleFunc("GET /health", a.Health)
+	router.HandleFunc("/health", a.Health)
 
 	// Dev routes
 	router.HandleFunc("/dev", a.DevIndex)
@@ -23,14 +23,13 @@ func (a *App) Routes() *http.ServeMux {
 	router.HandleFunc("/dev/tmpl-error", a.Dev500Tmpl)
 
 	// Web routes
-	router.HandleFunc("GET /artists", a.Artists)
-	router.HandleFunc("GET /artists/", a.ArtistDetail)
-	router.HandleFunc("GET /locations", a.Locations)
-	router.HandleFunc("GET /locations/", a.LocationDetail)
+	router.HandleFunc("/artists", a.Artists)
+	router.HandleFunc("/artists/", a.ArtistDetail)
+	router.HandleFunc("/locations", a.Locations)
+	router.HandleFunc("/locations/", a.LocationDetail)
 
 	// Home route
-	//router.HandleFunc("/", a.Home)
-	router.HandleFunc("GET /", a.Home)
+	router.HandleFunc("/", a.Home)
 
 	return router
 }
