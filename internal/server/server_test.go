@@ -254,16 +254,23 @@ func TestStaticFiles(t *testing.T) {
 func TestInvalidMethods(t *testing.T) {
 	h := newTestApplication(t)
 
-	endpoints := []string{"/", "/artists", "/locations", "/health"}
-	methods := []string{"POST", "PUT", "DELETE", "PATCH", "HEAD"}
+	tests := []struct {
+		endpoint string
+		methods  []string
+	}{
+		{"/", []string{"POST", "PUT", "DELETE", "PATCH", "HEAD"}},
+		{"/artists", []string{"PUT", "DELETE", "PATCH", "HEAD"}}, // POST is now allowed for filtering
+		{"/locations", []string{"POST", "PUT", "DELETE", "PATCH", "HEAD"}},
+		{"/health", []string{"POST", "PUT", "DELETE", "PATCH", "HEAD"}},
+	}
 
-	for _, endpoint := range endpoints {
-		for _, method := range methods {
-			t.Run(fmt.Sprintf("%s %s", method, endpoint), func(t *testing.T) {
-				req := httptest.NewRequest(method, endpoint, nil)
+	for _, tt := range tests {
+		for _, method := range tt.methods {
+			t.Run(fmt.Sprintf("%s %s", method, tt.endpoint), func(t *testing.T) {
+				req := httptest.NewRequest(method, tt.endpoint, nil)
 				w := httptest.NewRecorder()
 
-				switch endpoint {
+				switch tt.endpoint {
 				case "/":
 					h.Home(w, req)
 				case "/artists":
@@ -275,7 +282,7 @@ func TestInvalidMethods(t *testing.T) {
 				}
 
 				if w.Code != http.StatusMethodNotAllowed {
-					t.Errorf("expected status 405 for %s %s, got %d", method, endpoint, w.Code)
+					t.Errorf("expected status 405 for %s %s, got %d", method, tt.endpoint, w.Code)
 				}
 			})
 		}
@@ -659,13 +666,20 @@ func TestServerMethodNotAllowed(t *testing.T) {
 	defer server.Close()
 
 	// Test that unsupported methods return 405
-	paths := []string{"/", "/artists", "/locations", "/health"}
-	methods := []string{"POST", "PUT", "DELETE", "PATCH"}
+	tests := []struct {
+		path    string
+		methods []string
+	}{
+		{"/", []string{"POST", "PUT", "DELETE", "PATCH"}},
+		{"/artists", []string{"PUT", "DELETE", "PATCH"}}, // POST is now allowed for filtering
+		{"/locations", []string{"POST", "PUT", "DELETE", "PATCH"}},
+		{"/health", []string{"POST", "PUT", "DELETE", "PATCH"}},
+	}
 
-	for _, path := range paths {
-		for _, method := range methods {
-			t.Run(fmt.Sprintf("%s %s", method, path), func(t *testing.T) {
-				req, err := http.NewRequest(method, server.URL+path, nil)
+	for _, tt := range tests {
+		for _, method := range tt.methods {
+			t.Run(fmt.Sprintf("%s %s", method, tt.path), func(t *testing.T) {
+				req, err := http.NewRequest(method, server.URL+tt.path, nil)
 				if err != nil {
 					t.Fatalf("failed to create request: %v", err)
 				}
@@ -677,9 +691,138 @@ func TestServerMethodNotAllowed(t *testing.T) {
 				defer res.Body.Close()
 
 				if res.StatusCode != http.StatusMethodNotAllowed {
-					t.Errorf("expected status 405 for %s %s, got %d", method, path, res.StatusCode)
+					t.Errorf("expected status 405 for %s %s, got %d", method, tt.path, res.StatusCode)
 				}
 			})
 		}
 	}
+}
+
+// intPtr returns a pointer to the given int value
+func intPtr(i int) *int {
+	return &i
+}
+
+// TestParseFilterParams tests the form parsing functionality
+func TestParseFilterParams(t *testing.T) {
+	h := newTestApplication(t)
+
+	tests := []struct {
+		name     string
+		formData map[string][]string
+		want     data.FilterParams
+	}{
+		{
+			name: "Creation year range",
+			formData: map[string][]string{
+				"creationYearFrom": {"1990"},
+				"creationYearTo":   {"2000"},
+			},
+			want: data.FilterParams{
+				CreationYearFrom: intPtr(1990),
+				CreationYearTo:   intPtr(2000),
+			},
+		},
+		{
+			name: "Member counts and countries",
+			formData: map[string][]string{
+				"memberCounts": {"4", "5", "6"},
+				"countries":    {"USA", "UK"},
+			},
+			want: data.FilterParams{
+				MemberCounts: []int{4, 5, 6},
+				Countries:    []string{"USA", "UK"},
+			},
+		},
+		{
+			name: "All filters",
+			formData: map[string][]string{
+				"creationYearFrom":   {"1995"},
+				"creationYearTo":     {"2005"},
+				"firstAlbumYearFrom": {"1990"},
+				"firstAlbumYearTo":   {"2010"},
+				"memberCounts":       {"3", "4"},
+				"countries":          {"USA"},
+			},
+			want: data.FilterParams{
+				CreationYearFrom:   intPtr(1995),
+				CreationYearTo:     intPtr(2005),
+				FirstAlbumYearFrom: intPtr(1990),
+				FirstAlbumYearTo:   intPtr(2010),
+				MemberCounts:       []int{3, 4},
+				Countries:          []string{"USA"},
+			},
+		},
+		{
+			name:     "Empty form",
+			formData: map[string][]string{},
+			want:     data.FilterParams{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest("POST", "/artists", nil)
+			req.Form = tt.formData
+
+			got := h.parseFilterParams(req)
+
+			// Compare basic fields
+			if !equalIntPtr(got.CreationYearFrom, tt.want.CreationYearFrom) {
+				t.Errorf("CreationYearFrom: got %v, want %v", got.CreationYearFrom, tt.want.CreationYearFrom)
+			}
+			if !equalIntPtr(got.CreationYearTo, tt.want.CreationYearTo) {
+				t.Errorf("CreationYearTo: got %v, want %v", got.CreationYearTo, tt.want.CreationYearTo)
+			}
+			if !equalIntPtr(got.FirstAlbumYearFrom, tt.want.FirstAlbumYearFrom) {
+				t.Errorf("FirstAlbumYearFrom: got %v, want %v", got.FirstAlbumYearFrom, tt.want.FirstAlbumYearFrom)
+			}
+			if !equalIntPtr(got.FirstAlbumYearTo, tt.want.FirstAlbumYearTo) {
+				t.Errorf("FirstAlbumYearTo: got %v, want %v", got.FirstAlbumYearTo, tt.want.FirstAlbumYearTo)
+			}
+
+			// Compare slices
+			if !equalIntSlices(got.MemberCounts, tt.want.MemberCounts) {
+				t.Errorf("MemberCounts: got %v, want %v", got.MemberCounts, tt.want.MemberCounts)
+			}
+			if !equalStringSlices(got.Countries, tt.want.Countries) {
+				t.Errorf("Countries: got %v, want %v", got.Countries, tt.want.Countries)
+			}
+		})
+	}
+}
+
+// Helper functions for test comparisons
+func equalIntPtr(a, b *int) bool {
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+	return *a == *b
+}
+
+func equalIntSlices(a, b []int) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func equalStringSlices(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, v := range a {
+		if v != b[i] {
+			return false
+		}
+	}
+	return true
 }

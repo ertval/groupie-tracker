@@ -43,28 +43,101 @@ func (a *App) Home(w http.ResponseWriter, r *http.Request) {
 
 // Artists handles the artists listing page.
 func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
-	if !a.validateRequestGETPath(w, r, "/artists") {
+	// Allow both GET and POST requests
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, POST")
+		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Validate path for both GET and POST
+	if r.URL.Path != "/artists" {
+		a.Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
 	artists := a.repo.GetArtists()
 	filterOptions := a.repo.GetFilterOptions()
+	var appliedFilters data.FilterParams
+	totalArtists := len(artists)
+
+	// If POST request, parse form data and apply filters
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			a.Error(w, r, http.StatusBadRequest, "Failed to parse form data")
+			return
+		}
+
+		appliedFilters = a.parseFilterParams(r)
+		artists = a.repo.FilterArtists(appliedFilters)
+	}
 
 	data := struct {
-		Title         string
-		ExtraCSS      string
-		ExtraJS       string
-		Artists       []data.Artist
-		FilterOptions data.FilterOptions
+		Title          string
+		ExtraCSS       string
+		ExtraJS        string
+		Artists        []data.Artist
+		FilterOptions  data.FilterOptions
+		AppliedFilters data.FilterParams
+		IsFiltered     bool
+		TotalArtists   int
 	}{
-		Title:         "Artists",
-		ExtraCSS:      "artists.css",
-		ExtraJS:       "",
-		Artists:       artists,
-		FilterOptions: filterOptions,
+		Title:          "Artists",
+		ExtraCSS:       "artists.css",
+		ExtraJS:        "",
+		Artists:        artists,
+		FilterOptions:  filterOptions,
+		AppliedFilters: appliedFilters,
+		IsFiltered:     r.Method == http.MethodPost,
+		TotalArtists:   totalArtists,
 	}
 
 	a.render(w, r, "artists.tmpl", data)
+}
+
+// parseFilterParams extracts filter parameters from HTML form data
+func (a *App) parseFilterParams(r *http.Request) data.FilterParams {
+	var params data.FilterParams
+
+	// Parse creation year range
+	if fromStr := r.FormValue("creationYearFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.CreationYearFrom = &from
+		}
+	}
+	if toStr := r.FormValue("creationYearTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.CreationYearTo = &to
+		}
+	}
+
+	// Parse first album year range
+	if fromStr := r.FormValue("firstAlbumYearFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.FirstAlbumYearFrom = &from
+		}
+	}
+	if toStr := r.FormValue("firstAlbumYearTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.FirstAlbumYearTo = &to
+		}
+	}
+
+	// Parse member counts (multiple checkboxes)
+	if memberCounts := r.Form["memberCounts"]; len(memberCounts) > 0 {
+		for _, countStr := range memberCounts {
+			if count, err := strconv.Atoi(countStr); err == nil {
+				params.MemberCounts = append(params.MemberCounts, count)
+			}
+		}
+	}
+
+	// Parse countries (multiple checkboxes)
+	if countries := r.Form["countries"]; len(countries) > 0 {
+		params.Countries = countries
+	}
+
+	return params
 }
 
 // ArtistDetail handles individual artist pages.
@@ -335,51 +408,4 @@ func (a *App) StaticFiles(w http.ResponseWriter, r *http.Request) {
 
 	// Serve the file (Go's http.ServeFile handles content-type automatically)
 	http.ServeFile(w, r, target)
-}
-
-// --- Filter Handlers ---
-
-// FilterArtists handles JSON API requests for filtered artists
-func (a *App) FilterArtists(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST requests for filter operations
-	if r.Method != http.MethodPost {
-		w.Header().Set("Allow", "POST")
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	// Parse the filter parameters from the request body
-	var params data.FilterParams
-	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
-		http.Error(w, "Invalid JSON", http.StatusBadRequest)
-		return
-	}
-
-	// Apply filters to get the filtered artists
-	filteredArtists := a.repo.FilterArtists(params)
-
-	// Return JSON response
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(filteredArtists); err != nil {
-		a.Error(w, r, http.StatusInternalServerError, "Failed to encode response")
-		return
-	}
-}
-
-// FilterOptions returns the available filter options as JSON
-func (a *App) FilterOptions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	filterOptions := a.repo.GetFilterOptions()
-
-	// Return JSON response
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(filterOptions); err != nil {
-		a.Error(w, r, http.StatusInternalServerError, "Failed to encode response")
-		return
-	}
 }

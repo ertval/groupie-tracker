@@ -28,10 +28,6 @@ func (a *App) Routes() *http.ServeMux {
 	router.HandleFunc("/locations", a.Locations)
 	router.HandleFunc("/locations/", a.LocationDetail)
 
-	// API routes for filtering
-	router.HandleFunc("/api/filter-artists", a.FilterArtists)
-	router.HandleFunc("/api/filter-options", a.FilterOptions)
-
 	// Home route
 	router.HandleFunc("/", a.Home)
 

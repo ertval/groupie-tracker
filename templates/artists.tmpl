@@ -4,7 +4,15 @@
 <div class="page artists">
     <header class="page-header">
         <h1>All Artists</h1>
+        {{if .IsFiltered}}
+        <p class="muted results-count">Showing {{len .Artists}} filtered results out of {{.TotalArtists}} total artists</p>
+        <div class="filter-status">
+            <span class="filter-badge">Filtered</span>
+            <a href="/artists" class="clear-filters-link">Show All Artists</a>
+        </div>
+        {{else}}
         <p class="muted results-count">Browse through our collection of {{len .Artists}} artists</p>
+        {{end}}
     </header>
 
     <main class="page-body">
@@ -12,64 +20,61 @@
         <section class="filters-section">
             <div class="filters-header">
                 <h2>Filter Artists</h2>
-                <button id="toggle-filters" class="filter-toggle" aria-expanded="false">
-                    <span class="filter-icon">⚙️</span>
-                    <span class="filter-text">Show Filters</span>
-                </button>
+                <details class="filter-toggle">
+                    <summary class="filter-summary">
+                        <span class="filter-icon">⚙️</span>
+                        <span class="filter-text">Show Filters</span>
+                    </summary>
             </div>
 
-            <div id="filters-panel" class="filters-panel" style="display: none;">
-                <form id="filter-form">
-                    <!-- Creation Year Range Slider -->
+            <div class="filters-panel">
+                <form method="POST" action="/artists" class="filter-form">
+                    <!-- Creation Year Range -->
                     <div class="filter-group">
                         <label class="filter-label">Creation Year</label>
-                        <div class="slider-container">
-                            <div class="slider-values">
-                                <span id="creation-year-min">{{.FilterOptions.CreationYearMin}}</span>
-                                <span id="creation-year-max">{{.FilterOptions.CreationYearMax}}</span>
-                            </div>
-                            <div class="range-slider">
-                                <input type="range" id="creation-year-from" name="creationYearFrom" 
+                        <div class="range-group">
+                            <div class="range-inputs">
+                                <input type="number" 
+                                       name="creationYearFrom" 
                                        min="{{.FilterOptions.CreationYearMin}}" 
-                                       max="{{.FilterOptions.CreationYearMax}}" 
-                                       value="{{.FilterOptions.CreationYearMin}}"
-                                       class="range-input range-from">
-                                <input type="range" id="creation-year-to" name="creationYearTo" 
+                                       max="{{.FilterOptions.CreationYearMax}}"
+                                       value="{{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}}"
+                                       placeholder="From" class="range-input">
+                                <span class="range-separator">to</span>
+                                <input type="number" 
+                                       name="creationYearTo" 
                                        min="{{.FilterOptions.CreationYearMin}}" 
-                                       max="{{.FilterOptions.CreationYearMax}}" 
-                                       value="{{.FilterOptions.CreationYearMax}}"
-                                       class="range-input range-to">
+                                       max="{{.FilterOptions.CreationYearMax}}"
+                                       value="{{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}"
+                                       placeholder="To" class="range-input">
                             </div>
-                            <div class="slider-labels">
-                                <span>From: <span id="creation-year-from-value">{{.FilterOptions.CreationYearMin}}</span></span>
-                                <span>To: <span id="creation-year-to-value">{{.FilterOptions.CreationYearMax}}</span></span>
+                            <div class="range-bounds">
+                                <small>Range: {{.FilterOptions.CreationYearMin}} - {{.FilterOptions.CreationYearMax}}</small>
                             </div>
                         </div>
                     </div>
 
-                    <!-- First Album Year Range Slider -->
+                    <!-- First Album Year Range -->
                     <div class="filter-group">
                         <label class="filter-label">First Album Year</label>
-                        <div class="slider-container">
-                            <div class="slider-values">
-                                <span id="first-album-year-min">{{.FilterOptions.FirstAlbumYearMin}}</span>
-                                <span id="first-album-year-max">{{.FilterOptions.FirstAlbumYearMax}}</span>
-                            </div>
-                            <div class="range-slider">
-                                <input type="range" id="first-album-year-from" name="firstAlbumYearFrom" 
+                        <div class="range-group">
+                            <div class="range-inputs">
+                                <input type="number" 
+                                       name="firstAlbumYearFrom" 
                                        min="{{.FilterOptions.FirstAlbumYearMin}}" 
-                                       max="{{.FilterOptions.FirstAlbumYearMax}}" 
-                                       value="{{.FilterOptions.FirstAlbumYearMin}}"
-                                       class="range-input range-from">
-                                <input type="range" id="first-album-year-to" name="firstAlbumYearTo" 
+                                       max="{{.FilterOptions.FirstAlbumYearMax}}"
+                                       value="{{if .AppliedFilters.FirstAlbumYearFrom}}{{.AppliedFilters.FirstAlbumYearFrom}}{{else}}{{.FilterOptions.FirstAlbumYearMin}}{{end}}"
+                                       placeholder="From" class="range-input">
+                                <span class="range-separator">to</span>
+                                <input type="number" 
+                                       name="firstAlbumYearTo" 
                                        min="{{.FilterOptions.FirstAlbumYearMin}}" 
-                                       max="{{.FilterOptions.FirstAlbumYearMax}}" 
-                                       value="{{.FilterOptions.FirstAlbumYearMax}}"
-                                       class="range-input range-to">
+                                       max="{{.FilterOptions.FirstAlbumYearMax}}"
+                                       value="{{if .AppliedFilters.FirstAlbumYearTo}}{{.AppliedFilters.FirstAlbumYearTo}}{{else}}{{.FilterOptions.FirstAlbumYearMax}}{{end}}"
+                                       placeholder="To" class="range-input">
                             </div>
-                            <div class="slider-labels">
-                                <span>From: <span id="first-album-year-from-value">{{.FilterOptions.FirstAlbumYearMin}}</span></span>
-                                <span>To: <span id="first-album-year-to-value">{{.FilterOptions.FirstAlbumYearMax}}</span></span>
+                            <div class="range-bounds">
+                                <small>Range: {{.FilterOptions.FirstAlbumYearMin}} - {{.FilterOptions.FirstAlbumYearMax}}</small>
                             </div>
                         </div>
                     </div>
@@ -77,11 +82,15 @@
                     <!-- Member Count Checkboxes -->
                     <div class="filter-group">
                         <label class="filter-label">Number of Members</label>
-                        <div class="checkbox-grid" id="member-count-checkboxes">
-                            {{range .FilterOptions.MemberCounts}}
+                        <div class="checkbox-grid">
+                            {{range $memberCount := .FilterOptions.MemberCounts}}
                             <div class="checkbox-item">
-                                <input type="checkbox" id="members-{{.}}" name="memberCounts" value="{{.}}">
-                                <label for="members-{{.}}">{{.}} member{{if ne . 1}}s{{end}}</label>
+                                <input type="checkbox" 
+                                       id="members-{{$memberCount}}" 
+                                       name="memberCounts" 
+                                       value="{{$memberCount}}"
+                                       {{range $.AppliedFilters.MemberCounts}}{{if eq . $memberCount}}checked{{end}}{{end}}>
+                                <label for="members-{{$memberCount}}">{{$memberCount}} member{{if ne $memberCount 1}}s{{end}}</label>
                             </div>
                             {{end}}
                         </div>
@@ -90,11 +99,15 @@
                     <!-- Country Checkboxes Filter -->
                     <div class="filter-group">
                         <label class="filter-label">Concert Countries</label>
-                        <div class="checkbox-group" id="country-checkboxes">
-                            {{range .FilterOptions.Countries}}
+                        <div class="checkbox-group">
+                            {{range $country := .FilterOptions.Countries}}
                             <div class="checkbox-item">
-                                <input type="checkbox" id="country-{{.}}" name="countries" value="{{.}}">
-                                <label for="country-{{.}}">{{.}}</label>
+                                <input type="checkbox" 
+                                       id="country-{{$country}}" 
+                                       name="countries" 
+                                       value="{{$country}}"
+                                       {{range $.AppliedFilters.Countries}}{{if eq . $country}}checked{{end}}{{end}}>
+                                <label for="country-{{$country}}">{{$country}}</label>
                             </div>
                             {{end}}
                         </div>
@@ -103,15 +116,16 @@
                     <!-- Filter Actions -->
                     <div class="filter-actions">
                         <button type="submit" class="btn btn-primary">Apply Filters</button>
-                        <button type="button" id="clear-filters" class="btn btn-secondary">Clear All</button>
-                        <button type="button" id="reset-filters" class="btn btn-tertiary">Reset</button>
+                        <a href="/artists" class="btn btn-secondary">Clear All</a>
                     </div>
                 </form>
+                </details>
             </div>
         </section>
 
         <!-- Artists Grid -->
         <section class="artists-grid" id="artists-grid">
+            {{if .Artists}}
             {{range .Artists}}
             <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}" 
                  data-members="{{len .Members}}" data-first-album="{{.FirstAlbum}}"
@@ -139,19 +153,14 @@
                 </a>
             </div>
             {{end}}
+            {{else}}
+            <div class="no-results">
+                <h3>No artists found</h3>
+                <p>Try adjusting your search criteria or filters.</p>
+                <a href="/artists" class="btn btn-primary">Show All Artists</a>
+            </div>
+            {{end}}
         </section>
-
-        <div id="no-results" class="no-results" style="display: none;">
-            <h3>No artists found</h3>
-            <p>Try adjusting your search criteria or filters.</p>
-        </div>
-
-        <div id="loading" class="loading" style="display: none;">
-            <div class="loading-spinner"></div>
-            <p>Filtering artists...</p>
-        </div>
     </main>
 </div>
-
-<script src="/static/js/filters.js"></script>
 {{end}}
