@@ -140,6 +140,42 @@ func (a *App) parseFilterParams(r *http.Request) data.FilterParams {
 	return params
 }
 
+// parseLocationFilterParams extracts location filter parameters from HTML form data
+func (a *App) parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
+	var params data.LocationFilterParams
+
+	// Parse concert count range
+	if fromStr := r.FormValue("concertCountFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.ConcertCountFrom = &from
+		}
+	}
+	if toStr := r.FormValue("concertCountTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.ConcertCountTo = &to
+		}
+	}
+
+	// Parse artist count range
+	if fromStr := r.FormValue("artistCountFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.ArtistCountFrom = &from
+		}
+	}
+	if toStr := r.FormValue("artistCountTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.ArtistCountTo = &to
+		}
+	}
+
+	// Parse countries (multiple checkboxes)
+	if countries := r.Form["countries"]; len(countries) > 0 {
+		params.Countries = countries
+	}
+
+	return params
+}
+
 // ArtistDetail handles individual artist pages.
 func (a *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -199,27 +235,58 @@ func (a *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 
 // Locations handles the locations listing page.
 func (a *App) Locations(w http.ResponseWriter, r *http.Request) {
-	if !a.validateRequestGETPath(w, r, "/locations") {
+	// Allow both GET and POST requests
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, POST")
+		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Validate path for both GET and POST
+	if r.URL.Path != "/locations" {
+		a.Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
 	locations := a.repo.GetLocations()
+	filterOptions := a.repo.GetLocationFilterOptions()
+	var appliedFilters data.LocationFilterParams
+	totalLocations := len(locations)
 	stats := a.repo.GetStats()
 
+	// If POST request, parse form data and apply filters
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			a.Error(w, r, http.StatusBadRequest, "Failed to parse form data")
+			return
+		}
+
+		appliedFilters = a.parseLocationFilterParams(r)
+		locations = a.repo.FilterLocations(appliedFilters)
+	}
+
 	data := struct {
-		Title          string
-		ExtraCSS       string
-		ExtraJS        string
-		Locations      []data.Location
-		TotalCountries int
-		TotalConcerts  int
+		Title                 string
+		ExtraCSS              string
+		ExtraJS               string
+		Locations             []data.Location
+		LocationFilterOptions data.LocationFilterOptions
+		AppliedFilters        data.LocationFilterParams
+		IsFiltered            bool
+		TotalLocations        int
+		TotalCountries        int
+		TotalConcerts         int
 	}{
-		Title:          "Locations",
-		ExtraCSS:       "locations.css",
-		ExtraJS:        "",
-		Locations:      locations,
-		TotalCountries: stats["total_countries"],
-		TotalConcerts:  stats["total_concerts"],
+		Title:                 "Locations",
+		ExtraCSS:              "locations.css",
+		ExtraJS:               "",
+		Locations:             locations,
+		LocationFilterOptions: filterOptions,
+		AppliedFilters:        appliedFilters,
+		IsFiltered:            r.Method == http.MethodPost,
+		TotalLocations:        totalLocations,
+		TotalCountries:        stats["total_countries"],
+		TotalConcerts:         stats["total_concerts"],
 	}
 
 	a.render(w, r, "locations.tmpl", data)

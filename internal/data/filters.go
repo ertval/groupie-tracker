@@ -213,3 +213,105 @@ func (r *Repository) GetFilterOptions() FilterOptions {
 		Countries:         countries,
 	}
 }
+
+// --- Location Filter Functionality ---
+
+// FilterLocations filters the locations based on the provided criteria
+func (r *Repository) FilterLocations(params LocationFilterParams) []Location {
+	var filtered []Location
+
+	for _, location := range r.locations {
+		if r.matchesLocationFilters(location, params) {
+			filtered = append(filtered, location)
+		}
+	}
+
+	return filtered
+}
+
+// matchesLocationFilters checks if a location matches the filter criteria
+func (r *Repository) matchesLocationFilters(location Location, params LocationFilterParams) bool {
+	// Concert count range filter
+	if params.ConcertCountFrom != nil && location.TotalConcerts < *params.ConcertCountFrom {
+		return false
+	}
+	if params.ConcertCountTo != nil && location.TotalConcerts > *params.ConcertCountTo {
+		return false
+	}
+
+	// Artist count range filter
+	if params.ArtistCountFrom != nil && location.ArtistCount < *params.ArtistCountFrom {
+		return false
+	}
+	if params.ArtistCountTo != nil && location.ArtistCount > *params.ArtistCountTo {
+		return false
+	}
+
+	// Country filter - check if location's country is in the allowed list
+	if len(params.Countries) > 0 {
+		locationCountry := r.extractCountryFromLocation(location.Name)
+		found := false
+		for _, allowedCountry := range params.Countries {
+			if locationCountry == allowedCountry {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+
+	return true
+}
+
+// GetLocationFilterOptions returns the available location filter options based on current data
+func (r *Repository) GetLocationFilterOptions() LocationFilterOptions {
+	if len(r.locations) == 0 {
+		return LocationFilterOptions{}
+	}
+
+	// Initialize with first location's values
+	minConcerts, maxConcerts := r.locations[0].TotalConcerts, r.locations[0].TotalConcerts
+	minArtists, maxArtists := r.locations[0].ArtistCount, r.locations[0].ArtistCount
+	countrySet := make(map[string]bool)
+
+	for _, location := range r.locations {
+		// Concert count range
+		if location.TotalConcerts < minConcerts {
+			minConcerts = location.TotalConcerts
+		}
+		if location.TotalConcerts > maxConcerts {
+			maxConcerts = location.TotalConcerts
+		}
+
+		// Artist count range
+		if location.ArtistCount < minArtists {
+			minArtists = location.ArtistCount
+		}
+		if location.ArtistCount > maxArtists {
+			maxArtists = location.ArtistCount
+		}
+
+		// Collect unique countries
+		country := r.extractCountryFromLocation(location.Name)
+		if country != "" {
+			countrySet[country] = true
+		}
+	}
+
+	// Convert country set to sorted slice
+	countries := make([]string, 0, len(countrySet))
+	for country := range countrySet {
+		countries = append(countries, country)
+	}
+	sort.Strings(countries)
+
+	return LocationFilterOptions{
+		ConcertCountMin: minConcerts,
+		ConcertCountMax: maxConcerts,
+		ArtistCountMin:  minArtists,
+		ArtistCountMax:  maxArtists,
+		Countries:       countries,
+	}
+}

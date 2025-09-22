@@ -4,50 +4,152 @@
 <div class="page locations">
     <header class="page-header">
         <h1>Concert Locations</h1>
+        {{if .IsFiltered}}
+        <p class="muted results-count">Showing {{len .Locations}} filtered results out of {{.TotalLocations}} total locations</p>
+        <div class="filter-status">
+            <span class="filter-badge">Filtered</span>
+            <a href="/locations" class="clear-filters-link">Show All Locations</a>
+        </div>
+        {{else}}
         <p class="muted">Explore {{len .Locations}} unique concert venues around the world</p>
+        {{end}}
     </header>
 
     <main class="page-body">
-        <section class="top-locations">
-            <h2>Top 10 Locations by Concerts</h2>
-            <div class="top-locations-list">
-                {{range $index, $location := .Locations}}
-                {{if lt $index 10}}
-                <div class="top-location-item">
-                    <span class="rank">{{add $index 1}}</span>
-                    <span class="location-name"><a href="/locations/{{$location.Slug}}">{{$location.Name | title}}</a></span>
-                    <span class="stats">{{$location.TotalConcerts}} concerts • {{$location.ArtistCount}} artists</span>
-                    {{/* Top 10 list intentionally kept clean (no artist names) */}}
-                </div>
-                {{end}}
-                {{end}}
-            </div>
-        </section>
-
-        <section class="locations-grid">
-            <h2>All Locations (Sorted by Popularity)</h2>
-            <div class="locations-list">
-                {{range .Locations}}
-                <div class="location-card" data-location="{{.Name}}">
-                    <div class="location-info">
-                        <h3 class="location-name"><a href="/locations/{{.Slug}}">{{.Name | title}}</a></h3>
-                        <div class="location-meta">
-                            <p class="location-stats-inline">
-                                <span class="concert-count">{{.TotalConcerts}} concerts</span> • 
-                                <span class="artist-count">{{.ArtistCount}} artists</span>
-                            </p>
-                            {{/* Inline list of artists for the full list view */}}
-                            {{if gt (len .Artists) 0}}
-                            <p class="location-artists muted">
-                                {{range $i, $artistAtLocation := .Artists}}{{if gt $i 0}}, {{end}}<a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}} ({{$artistAtLocation.ConcertCount}})</a>{{end}}
-                            </p>
-                            {{end}}
+        <div class="content-wrapper">
+            <!-- Main Content -->
+            <div class="main-content">
+                <section class="top-locations">
+                    <h2>{{if .IsFiltered}}Filtered{{else}}Top 10{{end}} Locations by Concerts</h2>
+                    <div class="top-locations-list">
+                        {{range $index, $location := .Locations}}
+                        {{if or $.IsFiltered (lt $index 10)}}
+                        <div class="top-location-item">
+                            <span class="rank">{{add $index 1}}</span>
+                            <span class="location-name"><a href="/locations/{{$location.Slug}}">{{$location.Name | title}}</a></span>
+                            <span class="stats">{{$location.TotalConcerts}} concerts • {{$location.ArtistCount}} artists</span>
                         </div>
+                        {{end}}
+                        {{end}}
                     </div>
-                </div>
-                {{end}}
+                </section>
+
+                <section class="locations-grid">
+                    <h2>{{if .IsFiltered}}Filtered{{else}}All{{end}} Locations (Sorted by Popularity)</h2>
+                    <div class="locations-list">
+                        {{if .Locations}}
+                        {{range .Locations}}
+                        <div class="location-card" data-location="{{.Name}}">
+                            <div class="location-info">
+                                <h3 class="location-name"><a href="/locations/{{.Slug}}">{{.Name | title}}</a></h3>
+                                <div class="location-meta">
+                                    <p class="location-stats-inline">
+                                        <span class="concert-count">{{.TotalConcerts}} concerts</span> • 
+                                        <span class="artist-count">{{.ArtistCount}} artists</span>
+                                    </p>
+                                    {{if gt (len .Artists) 0}}
+                                    <p class="location-artists muted">
+                                        {{range $i, $artistAtLocation := .Artists}}{{if gt $i 0}}, {{end}}<a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}} ({{$artistAtLocation.ConcertCount}})</a>{{end}}
+                                    </p>
+                                    {{end}}
+                                </div>
+                            </div>
+                        </div>
+                        {{end}}
+                        {{else}}
+                        <div class="no-results">
+                            <h3>No locations found</h3>
+                            <p>Try adjusting your search criteria or filters.</p>
+                            <a href="/locations" class="btn btn-primary">Show All Locations</a>
+                        </div>
+                        {{end}}
+                    </div>
+                </section>
             </div>
-        </section>
+
+            <!-- Filter Sidebar -->
+            <aside class="filters-sidebar">
+                <div class="filters-section">
+                    <details class="filter-toggle" open>
+                        <summary class="filter-summary">
+                            <span class="filter-icon">⚙️</span>
+                            <span class="filter-text">Filters</span>
+                        </summary>
+
+                        <div class="filters-panel">
+                            <form method="POST" action="/locations" class="filter-form">
+                                <!-- Concert Count Range -->
+                                <div class="filter-group">
+                                    <label class="filter-label">Concert Count ({{.LocationFilterOptions.ConcertCountMin}} - {{.LocationFilterOptions.ConcertCountMax}})</label>
+                                    <div class="range-group">
+                                        <div class="range-inputs">
+                                            <input type="number" 
+                                                   name="concertCountFrom" 
+                                                   min="{{.LocationFilterOptions.ConcertCountMin}}" 
+                                                   max="{{.LocationFilterOptions.ConcertCountMax}}"
+                                                   value="{{if .AppliedFilters.ConcertCountFrom}}{{.AppliedFilters.ConcertCountFrom}}{{else}}{{.LocationFilterOptions.ConcertCountMin}}{{end}}"
+                                                   placeholder="From" class="range-input">
+                                            <span class="range-separator">to</span>
+                                            <input type="number" 
+                                                   name="concertCountTo" 
+                                                   min="{{.LocationFilterOptions.ConcertCountMin}}" 
+                                                   max="{{.LocationFilterOptions.ConcertCountMax}}"
+                                                   value="{{if .AppliedFilters.ConcertCountTo}}{{.AppliedFilters.ConcertCountTo}}{{else}}{{.LocationFilterOptions.ConcertCountMax}}{{end}}"
+                                                   placeholder="To" class="range-input">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Artist Count Range -->
+                                <div class="filter-group">
+                                    <label class="filter-label">Artist Count ({{.LocationFilterOptions.ArtistCountMin}} - {{.LocationFilterOptions.ArtistCountMax}})</label>
+                                    <div class="range-group">
+                                        <div class="range-inputs">
+                                            <input type="number" 
+                                                   name="artistCountFrom" 
+                                                   min="{{.LocationFilterOptions.ArtistCountMin}}" 
+                                                   max="{{.LocationFilterOptions.ArtistCountMax}}"
+                                                   value="{{if .AppliedFilters.ArtistCountFrom}}{{.AppliedFilters.ArtistCountFrom}}{{else}}{{.LocationFilterOptions.ArtistCountMin}}{{end}}"
+                                                   placeholder="From" class="range-input">
+                                            <span class="range-separator">to</span>
+                                            <input type="number" 
+                                                   name="artistCountTo" 
+                                                   min="{{.LocationFilterOptions.ArtistCountMin}}" 
+                                                   max="{{.LocationFilterOptions.ArtistCountMax}}"
+                                                   value="{{if .AppliedFilters.ArtistCountTo}}{{.AppliedFilters.ArtistCountTo}}{{else}}{{.LocationFilterOptions.ArtistCountMax}}{{end}}"
+                                                   placeholder="To" class="range-input">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Country Checkboxes Filter -->
+                                <div class="filter-group">
+                                    <label class="filter-label">Countries</label>
+                                    <div class="checkbox-group">
+                                        {{range $country := .LocationFilterOptions.Countries}}
+                                        <div class="checkbox-item">
+                                            <input type="checkbox" 
+                                                   id="loc-country-{{$country}}" 
+                                                   name="countries" 
+                                                   value="{{$country}}"
+                                                   {{range $.AppliedFilters.Countries}}{{if eq . $country}}checked{{end}}{{end}}>
+                                            <label for="loc-country-{{$country}}">{{$country}}</label>
+                                        </div>
+                                        {{end}}
+                                    </div>
+                                </div>
+
+                                <!-- Filter Actions -->
+                                <div class="filter-actions">
+                                    <button type="submit" class="btn btn-primary">Apply Filters</button>
+                                    <a href="/locations" class="btn btn-secondary">Clear All</a>
+                                </div>
+                            </form>
+                        </div>
+                    </details>
+                </div>
+            </aside>
+        </div>
     </main>
 </div>
 {{end}}

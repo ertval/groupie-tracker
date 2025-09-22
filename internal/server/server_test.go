@@ -259,8 +259,8 @@ func TestInvalidMethods(t *testing.T) {
 		methods  []string
 	}{
 		{"/", []string{"POST", "PUT", "DELETE", "PATCH", "HEAD"}},
-		{"/artists", []string{"PUT", "DELETE", "PATCH", "HEAD"}}, // POST is now allowed for filtering
-		{"/locations", []string{"POST", "PUT", "DELETE", "PATCH", "HEAD"}},
+		{"/artists", []string{"PUT", "DELETE", "PATCH", "HEAD"}},   // POST is now allowed for filtering
+		{"/locations", []string{"PUT", "DELETE", "PATCH", "HEAD"}}, // POST is now allowed for filtering
 		{"/health", []string{"POST", "PUT", "DELETE", "PATCH", "HEAD"}},
 	}
 
@@ -671,8 +671,8 @@ func TestServerMethodNotAllowed(t *testing.T) {
 		methods []string
 	}{
 		{"/", []string{"POST", "PUT", "DELETE", "PATCH"}},
-		{"/artists", []string{"PUT", "DELETE", "PATCH"}}, // POST is now allowed for filtering
-		{"/locations", []string{"POST", "PUT", "DELETE", "PATCH"}},
+		{"/artists", []string{"PUT", "DELETE", "PATCH"}},   // POST is now allowed for filtering
+		{"/locations", []string{"PUT", "DELETE", "PATCH"}}, // POST is now allowed for filtering
 		{"/health", []string{"POST", "PUT", "DELETE", "PATCH"}},
 	}
 

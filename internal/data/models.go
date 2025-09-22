@@ -103,3 +103,28 @@ type FilterOptions struct {
 	MemberCounts []int    `json:"memberCounts"` // List of available member counts (1 to max)
 	Countries    []string `json:"countries"`    // List of countries extracted from locations
 }
+
+// LocationFilterParams represents the filter criteria for location searches
+type LocationFilterParams struct {
+	// Range filters
+	ConcertCountFrom *int `json:"concertCountFrom,omitempty"`
+	ConcertCountTo   *int `json:"concertCountTo,omitempty"`
+
+	ArtistCountFrom *int `json:"artistCountFrom,omitempty"`
+	ArtistCountTo   *int `json:"artistCountTo,omitempty"`
+
+	// Checkbox filters
+	Countries []string `json:"countries,omitempty"`
+}
+
+// LocationFilterOptions represents the available location filter options
+type LocationFilterOptions struct {
+	// Range bounds for sliders
+	ConcertCountMin int `json:"concertCountMin"`
+	ConcertCountMax int `json:"concertCountMax"`
+	ArtistCountMin  int `json:"artistCountMin"`
+	ArtistCountMax  int `json:"artistCountMax"`
+
+	// Available checkbox options
+	Countries []string `json:"countries"` // List of countries extracted from locations
+}
