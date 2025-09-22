@@ -19,8 +19,25 @@
         <div class="content-wrapper">
             <!-- Main Content -->
             <div class="main-content">
+                <!-- Top 10 Artists Section -->
+                {{if not .IsFiltered}}
+                <section class="top-artists">
+                    <h2>Top 10 Artists by Concerts Performed</h2>
+                    <div class="top-artists-list">
+                        {{range $index, $artist := .TopArtists}}
+                        <div class="top-artist-item">
+                            <span class="rank">{{add $index 1}}</span>
+                            <span class="artist-name"><a href="/artists/{{$artist.Slug}}">{{$artist.Name}}</a></span>
+                            <span class="stats">{{$artist.ConcertCount}} concerts • {{len $artist.Members}} members</span>
+                        </div>
+                        {{end}}
+                    </div>
+                </section>
+                {{end}}
+
                 <!-- Artists Grid -->
                 <section class="artists-grid" id="artists-grid">
+                    <h2>{{if .IsFiltered}}Filtered{{else}}All{{end}} Artists (Sorted by Concert Count)</h2>
                     {{if .Artists}}
                     {{range .Artists}}
                     <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}" 

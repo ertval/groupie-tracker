@@ -313,30 +313,35 @@
 }
 
 .location-card {
-    padding: 1.5rem;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
     background: white;
     transition: all 0.2s ease;
+    overflow: hidden;
+}
+
+.location-card-link {
+    display: block;
+    padding: 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
 }
 
 .location-card:hover {
     border-color: #d1d5db;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transform: translateY(-1px);
 }
 
 .location-card .location-name {
     margin: 0 0 0.75rem 0;
-}
-
-.location-card .location-name a {
     font-size: 1.25rem;
     font-weight: 600;
     color: #1f2937;
-    text-decoration: none;
 }
 
-.location-card .location-name a:hover {
+.location-card:hover .location-name {
     color: #3b82f6;
 }
 

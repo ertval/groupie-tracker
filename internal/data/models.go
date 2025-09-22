@@ -55,6 +55,8 @@ type Location struct {
 	Artists       []ArtistAtLocation // Artists who have played here with their concert counts
 	ArtistCount   int
 	TotalConcerts int
+	EarliestYear  int // Earliest concert year at this location
+	LatestYear    int // Latest concert year at this location
 }
 
 // Concert represents a single concert event.
@@ -77,8 +79,8 @@ const (
 
 // == Filter-related data structures ==
 
-// FilterParams represents the filter criteria for artist searches
-type FilterParams struct {
+// ArtistFilterParams represents the filter criteria for artist searches
+type ArtistFilterParams struct {
 	// Range filters (using sliders)
 	CreationYearFrom *int `json:"creationYearFrom,omitempty"`
 	CreationYearTo   *int `json:"creationYearTo,omitempty"`
@@ -91,8 +93,8 @@ type FilterParams struct {
 	Countries    []string `json:"countries,omitempty"`    // Changed to countries instead of cities
 }
 
-// FilterOptions represents the available filter options
-type FilterOptions struct {
+// ArtistFilterOptions represents the available artist filter options
+type ArtistFilterOptions struct {
 	// Range bounds for sliders
 	CreationYearMin   int `json:"creationYearMin"`
 	CreationYearMax   int `json:"creationYearMax"`
@@ -113,6 +115,9 @@ type LocationFilterParams struct {
 	ArtistCountFrom *int `json:"artistCountFrom,omitempty"`
 	ArtistCountTo   *int `json:"artistCountTo,omitempty"`
 
+	ConcertYearFrom *int `json:"concertYearFrom,omitempty"`
+	ConcertYearTo   *int `json:"concertYearTo,omitempty"`
+
 	// Checkbox filters
 	Countries []string `json:"countries,omitempty"`
 }
@@ -124,6 +129,8 @@ type LocationFilterOptions struct {
 	ConcertCountMax int `json:"concertCountMax"`
 	ArtistCountMin  int `json:"artistCountMin"`
 	ArtistCountMax  int `json:"artistCountMax"`
+	ConcertYearMin  int `json:"concertYearMin"`
+	ConcertYearMax  int `json:"concertYearMax"`
 
 	// Available checkbox options
 	Countries []string `json:"countries"` // List of countries extracted from locations

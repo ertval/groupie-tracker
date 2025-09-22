@@ -39,12 +39,32 @@ func (r *Repository) extractCountryFromLocation(location string) string {
 	}
 }
 
+// extractYearFromDate extracts year from various date formats
+func (r *Repository) extractYearFromDate(dateStr string) int {
+	// Handle common date formats
+	if len(dateStr) >= 4 {
+		// Check for YYYY at the end (DD-MM-YYYY)
+		if len(dateStr) >= 10 && dateStr[2] == '-' && dateStr[5] == '-' {
+			if year, err := strconv.Atoi(dateStr[6:10]); err == nil {
+				return year
+			}
+		}
+		// Check for YYYY at the beginning (YYYY-MM-DD or just YYYY)
+		if year, err := strconv.Atoi(dateStr[:4]); err == nil && year > 1900 && year < 3000 {
+			return year
+		}
+	}
+	return 0
+}
+
+// --- Artist Filter Functionality ---
+
 // FilterArtists filters the artists based on the provided criteria
-func (r *Repository) FilterArtists(params FilterParams) []Artist {
+func (r *Repository) FilterArtists(params ArtistFilterParams) []Artist {
 	var filtered []Artist
 
 	for _, artist := range r.artists {
-		if r.matchesFilters(artist, params) {
+		if r.matchesArtistFilters(artist, params) {
 			filtered = append(filtered, artist)
 		}
 	}
@@ -52,8 +72,8 @@ func (r *Repository) FilterArtists(params FilterParams) []Artist {
 	return filtered
 }
 
-// matchesFilters checks if an artist matches the filter criteria
-func (r *Repository) matchesFilters(artist Artist, params FilterParams) bool {
+// matchesArtistFilters checks if an artist matches the filter criteria
+func (r *Repository) matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 	// Creation year range filter
 	if params.CreationYearFrom != nil && artist.CreationYear < *params.CreationYearFrom {
 		return false
@@ -119,28 +139,10 @@ func (r *Repository) matchesFilters(artist Artist, params FilterParams) bool {
 	return true
 }
 
-// extractYearFromDate extracts year from various date formats
-func (r *Repository) extractYearFromDate(dateStr string) int {
-	// Handle common date formats
-	if len(dateStr) >= 4 {
-		// Check for YYYY at the end (DD-MM-YYYY)
-		if len(dateStr) >= 10 && dateStr[2] == '-' && dateStr[5] == '-' {
-			if year, err := strconv.Atoi(dateStr[6:10]); err == nil {
-				return year
-			}
-		}
-		// Check for YYYY at the beginning (YYYY-MM-DD or just YYYY)
-		if year, err := strconv.Atoi(dateStr[:4]); err == nil && year > 1900 && year < 3000 {
-			return year
-		}
-	}
-	return 0
-}
-
-// GetFilterOptions returns the available filter options based on current data
-func (r *Repository) GetFilterOptions() FilterOptions {
+// GetArtistFilterOptions returns the available filter options based on current data
+func (r *Repository) GetArtistFilterOptions() ArtistFilterOptions {
 	if len(r.artists) == 0 {
-		return FilterOptions{}
+		return ArtistFilterOptions{}
 	}
 
 	// Initialize with first artist's values
@@ -204,7 +206,7 @@ func (r *Repository) GetFilterOptions() FilterOptions {
 		maxFirstAlbumYear = maxCreationYear
 	}
 
-	return FilterOptions{
+	return ArtistFilterOptions{
 		CreationYearMin:   minCreationYear,
 		CreationYearMax:   maxCreationYear,
 		FirstAlbumYearMin: minFirstAlbumYear,
@@ -247,6 +249,14 @@ func (r *Repository) matchesLocationFilters(location Location, params LocationFi
 		return false
 	}
 
+	// Concert year range filter
+	if params.ConcertYearFrom != nil && location.LatestYear < *params.ConcertYearFrom {
+		return false
+	}
+	if params.ConcertYearTo != nil && location.EarliestYear > *params.ConcertYearTo {
+		return false
+	}
+
 	// Country filter - check if location's country is in the allowed list
 	if len(params.Countries) > 0 {
 		locationCountry := r.extractCountryFromLocation(location.Name)
@@ -274,6 +284,7 @@ func (r *Repository) GetLocationFilterOptions() LocationFilterOptions {
 	// Initialize with first location's values
 	minConcerts, maxConcerts := r.locations[0].TotalConcerts, r.locations[0].TotalConcerts
 	minArtists, maxArtists := r.locations[0].ArtistCount, r.locations[0].ArtistCount
+	minYear, maxYear := r.locations[0].EarliestYear, r.locations[0].LatestYear
 	countrySet := make(map[string]bool)
 
 	for _, location := range r.locations {
@@ -291,6 +302,14 @@ func (r *Repository) GetLocationFilterOptions() LocationFilterOptions {
 		}
 		if location.ArtistCount > maxArtists {
 			maxArtists = location.ArtistCount
+		}
+
+		// Concert year range
+		if location.EarliestYear > 0 && location.EarliestYear < minYear {
+			minYear = location.EarliestYear
+		}
+		if location.LatestYear > maxYear {
+			maxYear = location.LatestYear
 		}
 
 		// Collect unique countries
@@ -312,6 +331,8 @@ func (r *Repository) GetLocationFilterOptions() LocationFilterOptions {
 		ConcertCountMax: maxConcerts,
 		ArtistCountMin:  minArtists,
 		ArtistCountMax:  maxArtists,
+		ConcertYearMin:  minYear,
+		ConcertYearMax:  maxYear,
 		Countries:       countries,
 	}
 }

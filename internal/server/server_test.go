@@ -710,7 +710,7 @@ func TestParseFilterParams(t *testing.T) {
 	tests := []struct {
 		name     string
 		formData map[string][]string
-		want     data.FilterParams
+		want     data.ArtistFilterParams
 	}{
 		{
 			name: "Creation year range",
@@ -718,7 +718,7 @@ func TestParseFilterParams(t *testing.T) {
 				"creationYearFrom": {"1990"},
 				"creationYearTo":   {"2000"},
 			},
-			want: data.FilterParams{
+			want: data.ArtistFilterParams{
 				CreationYearFrom: intPtr(1990),
 				CreationYearTo:   intPtr(2000),
 			},
@@ -729,7 +729,7 @@ func TestParseFilterParams(t *testing.T) {
 				"memberCounts": {"4", "5", "6"},
 				"countries":    {"USA", "UK"},
 			},
-			want: data.FilterParams{
+			want: data.ArtistFilterParams{
 				MemberCounts: []int{4, 5, 6},
 				Countries:    []string{"USA", "UK"},
 			},
@@ -744,7 +744,7 @@ func TestParseFilterParams(t *testing.T) {
 				"memberCounts":       {"3", "4"},
 				"countries":          {"USA"},
 			},
-			want: data.FilterParams{
+			want: data.ArtistFilterParams{
 				CreationYearFrom:   intPtr(1995),
 				CreationYearTo:     intPtr(2005),
 				FirstAlbumYearFrom: intPtr(1990),
@@ -756,7 +756,7 @@ func TestParseFilterParams(t *testing.T) {
 		{
 			name:     "Empty form",
 			formData: map[string][]string{},
-			want:     data.FilterParams{},
+			want:     data.ArtistFilterParams{},
 		},
 	}
 

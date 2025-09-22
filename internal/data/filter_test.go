@@ -34,7 +34,7 @@ func TestRepository_FilterArtists_CreationDate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			params := FilterParams{
+			params := ArtistFilterParams{
 				CreationYearFrom: tt.fromYear,
 				CreationYearTo:   tt.toYear,
 			}
@@ -85,7 +85,7 @@ func TestRepository_FilterArtists_FirstAlbumYear(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			params := FilterParams{
+			params := ArtistFilterParams{
 				FirstAlbumYearFrom: tt.fromYear,
 				FirstAlbumYearTo:   tt.toYear,
 			}
@@ -128,7 +128,7 @@ func TestRepository_FilterArtists_MemberCounts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			params := FilterParams{
+			params := ArtistFilterParams{
 				MemberCounts: tt.memberCounts,
 			}
 
@@ -178,7 +178,7 @@ func TestRepository_FilterArtists_Countries(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			params := FilterParams{
+			params := ArtistFilterParams{
 				Countries: tt.countries,
 			}
 
@@ -196,12 +196,12 @@ func TestRepository_FilterArtists_Countries(t *testing.T) {
 func TestRepository_FilterArtists_Combined(t *testing.T) {
 	tests := []struct {
 		name    string
-		params  FilterParams
+		params  ArtistFilterParams
 		wantMin int
 	}{
 		{
 			name: "Solo artists formed 1970-2000",
-			params: FilterParams{
+			params: ArtistFilterParams{
 				CreationYearFrom: intPtr(1970),
 				CreationYearTo:   intPtr(2000),
 				MemberCounts:     []int{1},
@@ -210,7 +210,7 @@ func TestRepository_FilterArtists_Combined(t *testing.T) {
 		},
 		{
 			name: "Small bands with USA concerts formed after 2000",
-			params: FilterParams{
+			params: ArtistFilterParams{
 				CreationYearFrom: intPtr(2000),
 				MemberCounts:     []int{2, 3, 4},
 				Countries:        []string{"USA"},
@@ -236,7 +236,7 @@ func TestRepository_FilterArtists_Combined(t *testing.T) {
 // TestRepository_GetFilterOptions tests the filter options generation
 func TestRepository_GetFilterOptions(t *testing.T) {
 	repo := createMockRepository(t)
-	options := repo.GetFilterOptions()
+	options := repo.GetArtistFilterOptions()
 
 	// Test creation year bounds
 	if options.CreationYearMin == 0 || options.CreationYearMax == 0 {

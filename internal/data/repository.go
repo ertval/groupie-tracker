@@ -310,9 +310,11 @@ func (r *Repository) createLocations(artists []Artist) []Location {
 			// Initialize location if not exists
 			if _, exists := locationMap[concert.Location]; !exists {
 				locationMap[concert.Location] = &Location{
-					Name:    concert.Location,
-					Slug:    createSlug(concert.Location),
-					Artists: make([]ArtistAtLocation, 0),
+					Name:         concert.Location,
+					Slug:         createSlug(concert.Location),
+					Artists:      make([]ArtistAtLocation, 0),
+					EarliestYear: 9999, // Initialize with high value
+					LatestYear:   0,    // Initialize with low value
 				}
 				artistConcertCount[concert.Location] = make(map[int]int)
 			}
@@ -320,6 +322,17 @@ func (r *Repository) createLocations(artists []Artist) []Location {
 			// Count concerts per artist per location
 			artistConcertCount[concert.Location][artist.ID]++
 			locationMap[concert.Location].TotalConcerts++
+
+			// Update year range for this location
+			year := r.extractYearFromDate(concert.Date)
+			if year > 0 {
+				if year < locationMap[concert.Location].EarliestYear {
+					locationMap[concert.Location].EarliestYear = year
+				}
+				if year > locationMap[concert.Location].LatestYear {
+					locationMap[concert.Location].LatestYear = year
+				}
+			}
 		}
 	}
 

@@ -40,20 +40,22 @@
                         {{if .Locations}}
                         {{range .Locations}}
                         <div class="location-card" data-location="{{.Name}}">
-                            <div class="location-info">
-                                <h3 class="location-name"><a href="/locations/{{.Slug}}">{{.Name | title}}</a></h3>
-                                <div class="location-meta">
-                                    <p class="location-stats-inline">
-                                        <span class="concert-count">{{.TotalConcerts}} concerts</span> • 
-                                        <span class="artist-count">{{.ArtistCount}} artists</span>
-                                    </p>
-                                    {{if gt (len .Artists) 0}}
-                                    <p class="location-artists muted">
-                                        {{range $i, $artistAtLocation := .Artists}}{{if gt $i 0}}, {{end}}<a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}} ({{$artistAtLocation.ConcertCount}})</a>{{end}}
-                                    </p>
-                                    {{end}}
+                            <a href="/locations/{{.Slug}}" class="location-card-link">
+                                <div class="location-info">
+                                    <h3 class="location-name">{{.Name | title}}</h3>
+                                    <div class="location-meta">
+                                        <p class="location-stats-inline">
+                                            <span class="concert-count">{{.TotalConcerts}} concerts</span> • 
+                                            <span class="artist-count">{{.ArtistCount}} artists</span>
+                                        </p>
+                                        {{if gt (len .Artists) 0}}
+                                        <p class="location-artists muted">
+                                            {{range $i, $artistAtLocation := .Artists}}{{if gt $i 0}}, {{end}}{{$artistAtLocation.Artist.Name}} ({{$artistAtLocation.ConcertCount}}){{end}}
+                                        </p>
+                                        {{end}}
+                                    </div>
                                 </div>
-                            </div>
+                            </a>
                         </div>
                         {{end}}
                         {{else}}
@@ -117,6 +119,28 @@
                                                    min="{{.LocationFilterOptions.ArtistCountMin}}" 
                                                    max="{{.LocationFilterOptions.ArtistCountMax}}"
                                                    value="{{if .AppliedFilters.ArtistCountTo}}{{.AppliedFilters.ArtistCountTo}}{{else}}{{.LocationFilterOptions.ArtistCountMax}}{{end}}"
+                                                   placeholder="To" class="range-input">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Concert Year Range -->
+                                <div class="filter-group">
+                                    <label class="filter-label">Concert Years ({{.LocationFilterOptions.ConcertYearMin}} - {{.LocationFilterOptions.ConcertYearMax}})</label>
+                                    <div class="range-group">
+                                        <div class="range-inputs">
+                                            <input type="number" 
+                                                   name="concertYearFrom" 
+                                                   min="{{.LocationFilterOptions.ConcertYearMin}}" 
+                                                   max="{{.LocationFilterOptions.ConcertYearMax}}"
+                                                   value="{{if .AppliedFilters.ConcertYearFrom}}{{.AppliedFilters.ConcertYearFrom}}{{else}}{{.LocationFilterOptions.ConcertYearMin}}{{end}}"
+                                                   placeholder="From" class="range-input">
+                                            <span class="range-separator">to</span>
+                                            <input type="number" 
+                                                   name="concertYearTo" 
+                                                   min="{{.LocationFilterOptions.ConcertYearMin}}" 
+                                                   max="{{.LocationFilterOptions.ConcertYearMax}}"
+                                                   value="{{if .AppliedFilters.ConcertYearTo}}{{.AppliedFilters.ConcertYearTo}}{{else}}{{.LocationFilterOptions.ConcertYearMax}}{{end}}"
                                                    placeholder="To" class="range-input">
                                         </div>
                                     </div>

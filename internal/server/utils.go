@@ -4,11 +4,13 @@ import (
 	"bytes"
 	"fmt"
 	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/data"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -126,4 +128,97 @@ func getPort() string {
 	}
 
 	return port
+}
+
+// parseFilterParams extracts filter parameters from HTML form data
+func (a *App) parseFilterParams(r *http.Request) data.ArtistFilterParams {
+	var params data.ArtistFilterParams
+
+	// Parse creation year range
+	if fromStr := r.FormValue("creationYearFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.CreationYearFrom = &from
+		}
+	}
+	if toStr := r.FormValue("creationYearTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.CreationYearTo = &to
+		}
+	}
+
+	// Parse first album year range
+	if fromStr := r.FormValue("firstAlbumYearFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.FirstAlbumYearFrom = &from
+		}
+	}
+	if toStr := r.FormValue("firstAlbumYearTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.FirstAlbumYearTo = &to
+		}
+	}
+
+	// Parse member counts (multiple checkboxes)
+	if memberCounts := r.Form["memberCounts"]; len(memberCounts) > 0 {
+		for _, countStr := range memberCounts {
+			if count, err := strconv.Atoi(countStr); err == nil {
+				params.MemberCounts = append(params.MemberCounts, count)
+			}
+		}
+	}
+
+	// Parse countries (multiple checkboxes)
+	if countries := r.Form["countries"]; len(countries) > 0 {
+		params.Countries = countries
+	}
+
+	return params
+}
+
+// parseLocationFilterParams extracts location filter parameters from HTML form data
+func (a *App) parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
+	var params data.LocationFilterParams
+
+	// Parse concert count range
+	if fromStr := r.FormValue("concertCountFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.ConcertCountFrom = &from
+		}
+	}
+	if toStr := r.FormValue("concertCountTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.ConcertCountTo = &to
+		}
+	}
+
+	// Parse artist count range
+	if fromStr := r.FormValue("artistCountFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.ArtistCountFrom = &from
+		}
+	}
+	if toStr := r.FormValue("artistCountTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.ArtistCountTo = &to
+		}
+	}
+
+	// Parse concert year range
+	if fromStr := r.FormValue("concertYearFrom"); fromStr != "" {
+		if from, err := strconv.Atoi(fromStr); err == nil {
+			params.ConcertYearFrom = &from
+		}
+	}
+	if toStr := r.FormValue("concertYearTo"); toStr != "" {
+		if to, err := strconv.Atoi(toStr); err == nil {
+			params.ConcertYearTo = &to
+		}
+	}
+
+	// Parse countries (multiple checkboxes)
+	if countries := r.Form["countries"]; len(countries) > 0 {
+		params.Countries = countries
+	}
+
+	return params
 }

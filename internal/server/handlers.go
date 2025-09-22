@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -57,8 +58,8 @@ func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	artists := a.repo.GetArtists()
-	filterOptions := a.repo.GetFilterOptions()
-	var appliedFilters data.FilterParams
+	filterOptions := a.repo.GetArtistFilterOptions()
+	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 
 	// If POST request, parse form data and apply filters
@@ -72,13 +73,29 @@ func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
 		artists = a.repo.FilterArtists(appliedFilters)
 	}
 
+	// Sort artists by concert count (descending) for main display
+	sort.Slice(artists, func(i, j int) bool {
+		return artists[i].ConcertCount > artists[j].ConcertCount
+	})
+
+	// Get top 10 artists by concert count for the top section
+	topArtists := make([]data.Artist, 0, 10)
+	if len(artists) > 0 {
+		limit := 10
+		if len(artists) < 10 {
+			limit = len(artists)
+		}
+		topArtists = artists[:limit]
+	}
+
 	data := struct {
 		Title          string
 		ExtraCSS       string
 		ExtraJS        string
 		Artists        []data.Artist
-		FilterOptions  data.FilterOptions
-		AppliedFilters data.FilterParams
+		TopArtists     []data.Artist
+		FilterOptions  data.ArtistFilterOptions
+		AppliedFilters data.ArtistFilterParams
 		IsFiltered     bool
 		TotalArtists   int
 	}{
@@ -86,6 +103,7 @@ func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:       "artists.css",
 		ExtraJS:        "",
 		Artists:        artists,
+		TopArtists:     topArtists,
 		FilterOptions:  filterOptions,
 		AppliedFilters: appliedFilters,
 		IsFiltered:     r.Method == http.MethodPost,
@@ -93,87 +111,6 @@ func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	a.render(w, r, "artists.tmpl", data)
-}
-
-// parseFilterParams extracts filter parameters from HTML form data
-func (a *App) parseFilterParams(r *http.Request) data.FilterParams {
-	var params data.FilterParams
-
-	// Parse creation year range
-	if fromStr := r.FormValue("creationYearFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.CreationYearFrom = &from
-		}
-	}
-	if toStr := r.FormValue("creationYearTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.CreationYearTo = &to
-		}
-	}
-
-	// Parse first album year range
-	if fromStr := r.FormValue("firstAlbumYearFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.FirstAlbumYearFrom = &from
-		}
-	}
-	if toStr := r.FormValue("firstAlbumYearTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.FirstAlbumYearTo = &to
-		}
-	}
-
-	// Parse member counts (multiple checkboxes)
-	if memberCounts := r.Form["memberCounts"]; len(memberCounts) > 0 {
-		for _, countStr := range memberCounts {
-			if count, err := strconv.Atoi(countStr); err == nil {
-				params.MemberCounts = append(params.MemberCounts, count)
-			}
-		}
-	}
-
-	// Parse countries (multiple checkboxes)
-	if countries := r.Form["countries"]; len(countries) > 0 {
-		params.Countries = countries
-	}
-
-	return params
-}
-
-// parseLocationFilterParams extracts location filter parameters from HTML form data
-func (a *App) parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
-	var params data.LocationFilterParams
-
-	// Parse concert count range
-	if fromStr := r.FormValue("concertCountFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.ConcertCountFrom = &from
-		}
-	}
-	if toStr := r.FormValue("concertCountTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.ConcertCountTo = &to
-		}
-	}
-
-	// Parse artist count range
-	if fromStr := r.FormValue("artistCountFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.ArtistCountFrom = &from
-		}
-	}
-	if toStr := r.FormValue("artistCountTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.ArtistCountTo = &to
-		}
-	}
-
-	// Parse countries (multiple checkboxes)
-	if countries := r.Form["countries"]; len(countries) > 0 {
-		params.Countries = countries
-	}
-
-	return params
 }
 
 // ArtistDetail handles individual artist pages.
