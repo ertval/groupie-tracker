@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 
 	"groupie-tracker/internal/config"
@@ -422,4 +423,163 @@ func createSlug(name string) string {
 
 func normalizeLocation(location string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(location), "_", "-"))
+}
+
+// --- Filter Functionality ---
+
+// FilterArtists filters the artists based on the provided criteria
+func (r *Repository) FilterArtists(params FilterParams) []Artist {
+	var filtered []Artist
+
+	for _, artist := range r.artists {
+		if r.matchesFilters(artist, params) {
+			filtered = append(filtered, artist)
+		}
+	}
+
+	return filtered
+}
+
+// matchesFilters checks if an artist matches the filter criteria
+func (r *Repository) matchesFilters(artist Artist, params FilterParams) bool {
+	// Creation year range filter
+	if params.CreationYearFrom != nil && artist.CreationYear < *params.CreationYearFrom {
+		return false
+	}
+	if params.CreationYearTo != nil && artist.CreationYear > *params.CreationYearTo {
+		return false
+	}
+
+	// First album date filter (extract year from date string)
+	if params.FirstAlbumFrom != nil || params.FirstAlbumTo != nil {
+		albumYear := r.extractYearFromDate(artist.FirstAlbum)
+		if albumYear > 0 {
+			if params.FirstAlbumFrom != nil {
+				fromYear := r.extractYearFromDate(*params.FirstAlbumFrom)
+				if fromYear > 0 && albumYear < fromYear {
+					return false
+				}
+			}
+			if params.FirstAlbumTo != nil {
+				toYear := r.extractYearFromDate(*params.FirstAlbumTo)
+				if toYear > 0 && albumYear > toYear {
+					return false
+				}
+			}
+		}
+	}
+
+	// Member count range filter
+	memberCount := len(artist.Members)
+	if params.MembersFrom != nil && memberCount < *params.MembersFrom {
+		return false
+	}
+	if params.MembersTo != nil && memberCount > *params.MembersTo {
+		return false
+	}
+
+	// Location filter - check if artist has concerts in any of the specified locations
+	if len(params.Locations) > 0 {
+		hasMatchingLocation := false
+		for _, concert := range artist.Concerts {
+			for _, filterLocation := range params.Locations {
+				if r.locationMatches(concert.Location, filterLocation) {
+					hasMatchingLocation = true
+					break
+				}
+			}
+			if hasMatchingLocation {
+				break
+			}
+		}
+		if !hasMatchingLocation {
+			return false
+		}
+	}
+
+	return true
+}
+
+// extractYearFromDate extracts year from various date formats
+func (r *Repository) extractYearFromDate(dateStr string) int {
+	// Handle common date formats
+	if len(dateStr) >= 4 {
+		// Check for YYYY at the end (DD-MM-YYYY)
+		if len(dateStr) >= 10 && dateStr[2] == '-' && dateStr[5] == '-' {
+			if year, err := strconv.Atoi(dateStr[6:10]); err == nil {
+				return year
+			}
+		}
+		// Check for YYYY at the beginning (YYYY-MM-DD or just YYYY)
+		if year, err := strconv.Atoi(dateStr[:4]); err == nil && year > 1900 && year < 3000 {
+			return year
+		}
+	}
+	return 0
+}
+
+// locationMatches checks if a concert location matches the filter location
+func (r *Repository) locationMatches(concertLocation, filterLocation string) bool {
+	// Normalize both locations for comparison
+	normalizedConcert := normalizeLocation(concertLocation)
+	normalizedFilter := normalizeLocation(filterLocation)
+
+	// Exact match
+	if normalizedConcert == normalizedFilter {
+		return true
+	}
+
+	// Check if filter location is part of concert location (e.g., "texas-usa" part of "houston-texas-usa")
+	return strings.Contains(normalizedConcert, normalizedFilter)
+}
+
+// GetFilterOptions returns the available filter options based on current data
+func (r *Repository) GetFilterOptions() FilterOptions {
+	if len(r.artists) == 0 {
+		return FilterOptions{}
+	}
+
+	// Calculate min/max creation years
+	minYear, maxYear := r.artists[0].CreationYear, r.artists[0].CreationYear
+	minMembers, maxMembers := len(r.artists[0].Members), len(r.artists[0].Members)
+	locationSet := make(map[string]bool)
+
+	for _, artist := range r.artists {
+		// Creation year range
+		if artist.CreationYear < minYear {
+			minYear = artist.CreationYear
+		}
+		if artist.CreationYear > maxYear {
+			maxYear = artist.CreationYear
+		}
+
+		// Member count range
+		memberCount := len(artist.Members)
+		if memberCount < minMembers {
+			minMembers = memberCount
+		}
+		if memberCount > maxMembers {
+			maxMembers = memberCount
+		}
+
+		// Collect unique locations
+		for _, concert := range artist.Concerts {
+			locationSet[concert.Location] = true
+		}
+	}
+
+	// Convert location set to sorted slice
+	locations := make([]string, 0, len(locationSet))
+	for location := range locationSet {
+		locations = append(locations, location)
+	}
+	sort.Strings(locations)
+
+	return FilterOptions{
+		CreationYearMin: minYear,
+		CreationYearMax: maxYear,
+		MemberCountMin:  minMembers,
+		MemberCountMax:  maxMembers,
+		Locations:       locations,
+	}
 }

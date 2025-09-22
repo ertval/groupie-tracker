@@ -4,13 +4,106 @@
 <div class="page artists">
     <header class="page-header">
         <h1>All Artists</h1>
-        <p class="muted">Browse through our collection of {{len .Artists}} artists</p>
+        <p class="muted results-count">Browse through our collection of {{len .Artists}} artists</p>
     </header>
 
     <main class="page-body">
-        <section class="artists-grid">
+        <!-- Filter Section -->
+        <section class="filters-section">
+            <div class="filters-header">
+                <h2>Filter Artists</h2>
+                <button id="toggle-filters" class="filter-toggle" aria-expanded="false">
+                    <span class="filter-icon">⚙️</span>
+                    <span class="filter-text">Show Filters</span>
+                </button>
+            </div>
+
+            <div id="filters-panel" class="filters-panel" style="display: none;">
+                <form id="filter-form">
+                    <!-- Creation Year Range Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">Creation Year</label>
+                        <div class="range-inputs">
+                            <div class="range-input-group">
+                                <label for="creation-year-from">From:</label>
+                                <input type="number" id="creation-year-from" name="creationYearFrom" 
+                                       min="{{.FilterOptions.CreationYearMin}}" 
+                                       max="{{.FilterOptions.CreationYearMax}}" 
+                                       placeholder="{{.FilterOptions.CreationYearMin}}">
+                            </div>
+                            <div class="range-input-group">
+                                <label for="creation-year-to">To:</label>
+                                <input type="number" id="creation-year-to" name="creationYearTo" 
+                                       min="{{.FilterOptions.CreationYearMin}}" 
+                                       max="{{.FilterOptions.CreationYearMax}}" 
+                                       placeholder="{{.FilterOptions.CreationYearMax}}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- First Album Date Range Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">First Album Year</label>
+                        <div class="range-inputs">
+                            <div class="range-input-group">
+                                <label for="first-album-from">From:</label>
+                                <input type="text" id="first-album-from" name="firstAlbumFrom" 
+                                       placeholder="1960">
+                            </div>
+                            <div class="range-input-group">
+                                <label for="first-album-to">To:</label>
+                                <input type="text" id="first-album-to" name="firstAlbumTo" 
+                                       placeholder="2025">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Member Count Range Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">Number of Members</label>
+                        <div class="range-inputs">
+                            <div class="range-input-group">
+                                <label for="members-from">From:</label>
+                                <input type="number" id="members-from" name="membersFrom" 
+                                       min="1" max="20" placeholder="1">
+                            </div>
+                            <div class="range-input-group">
+                                <label for="members-to">To:</label>
+                                <input type="number" id="members-to" name="membersTo" 
+                                       min="1" max="20" placeholder="20">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Location Checkboxes Filter -->
+                    <div class="filter-group">
+                        <label class="filter-label">Concert Locations</label>
+                        <div class="checkbox-group" id="location-checkboxes">
+                            {{range .FilterOptions.Locations}}
+                            <div class="checkbox-item">
+                                <input type="checkbox" id="location-{{.}}" name="locations" value="{{.}}">
+                                <label for="location-{{.}}">{{.}}</label>
+                            </div>
+                            {{end}}
+                        </div>
+                    </div>
+
+                    <!-- Filter Actions -->
+                    <div class="filter-actions">
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <button type="button" id="clear-filters" class="btn btn-secondary">Clear All</button>
+                        <button type="button" id="reset-filters" class="btn btn-tertiary">Reset</button>
+                    </div>
+                </form>
+            </div>
+        </section>
+
+        <!-- Artists Grid -->
+        <section class="artists-grid" id="artists-grid">
             {{range .Artists}}
-            <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}">
+            <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}" 
+                 data-members="{{len .Members}}" data-first-album="{{.FirstAlbum}}"
+                 data-locations="{{range .Concerts}}{{.Location}} {{end}}">
                 <a href="/artists/{{.Slug}}">
                     <div class="artist-image-container">
                         <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
@@ -40,6 +133,13 @@
             <h3>No artists found</h3>
             <p>Try adjusting your search criteria or filters.</p>
         </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            <div class="loading-spinner"></div>
+            <p>Filtering artists...</p>
+        </div>
     </main>
 </div>
+
+<script src="/static/js/filters.js"></script>
 {{end}}

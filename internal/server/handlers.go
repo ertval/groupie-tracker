@@ -48,16 +48,20 @@ func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	artists := a.repo.GetArtists()
+	filterOptions := a.repo.GetFilterOptions()
+
 	data := struct {
-		Title    string
-		ExtraCSS string
-		ExtraJS  string
-		Artists  []data.Artist
+		Title         string
+		ExtraCSS      string
+		ExtraJS       string
+		Artists       []data.Artist
+		FilterOptions data.FilterOptions
 	}{
-		Title:    "Artists",
-		ExtraCSS: "artists.css",
-		ExtraJS:  "",
-		Artists:  artists,
+		Title:         "Artists",
+		ExtraCSS:      "artists.css",
+		ExtraJS:       "",
+		Artists:       artists,
+		FilterOptions: filterOptions,
 	}
 
 	a.render(w, r, "artists.tmpl", data)
@@ -331,4 +335,51 @@ func (a *App) StaticFiles(w http.ResponseWriter, r *http.Request) {
 
 	// Serve the file (Go's http.ServeFile handles content-type automatically)
 	http.ServeFile(w, r, target)
+}
+
+// --- Filter Handlers ---
+
+// FilterArtists handles JSON API requests for filtered artists
+func (a *App) FilterArtists(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST requests for filter operations
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Parse the filter parameters from the request body
+	var params data.FilterParams
+	if err := json.NewDecoder(r.Body).Decode(&params); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Apply filters to get the filtered artists
+	filteredArtists := a.repo.FilterArtists(params)
+
+	// Return JSON response
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(filteredArtists); err != nil {
+		a.Error(w, r, http.StatusInternalServerError, "Failed to encode response")
+		return
+	}
+}
+
+// FilterOptions returns the available filter options as JSON
+func (a *App) FilterOptions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	filterOptions := a.repo.GetFilterOptions()
+
+	// Return JSON response
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(filterOptions); err != nil {
+		a.Error(w, r, http.StatusInternalServerError, "Failed to encode response")
+		return
+	}
 }

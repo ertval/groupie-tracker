@@ -74,3 +74,30 @@ const (
 	// CacheWarm means caching is on, and images were served from the existing cache.
 	CacheWarm
 )
+
+// == Filter-related data structures ==
+
+// FilterParams represents the filter criteria for artist searches
+type FilterParams struct {
+	// Range filters
+	CreationYearFrom *int `json:"creationYearFrom,omitempty"`
+	CreationYearTo   *int `json:"creationYearTo,omitempty"`
+
+	FirstAlbumFrom *string `json:"firstAlbumFrom,omitempty"`
+	FirstAlbumTo   *string `json:"firstAlbumTo,omitempty"`
+
+	MembersFrom *int `json:"membersFrom,omitempty"`
+	MembersTo   *int `json:"membersTo,omitempty"`
+
+	// Checkbox filters - locations
+	Locations []string `json:"locations,omitempty"`
+}
+
+// FilterOptions represents the available filter options
+type FilterOptions struct {
+	CreationYearMin int      `json:"creationYearMin"`
+	CreationYearMax int      `json:"creationYearMax"`
+	MemberCountMin  int      `json:"memberCountMin"`
+	MemberCountMax  int      `json:"memberCountMax"`
+	Locations       []string `json:"locations"`
+}
