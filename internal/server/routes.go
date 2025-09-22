@@ -6,30 +6,31 @@ import (
 
 // Routes sets up all Routes.
 func (a *App) Routes() *http.ServeMux {
-	mux := http.NewServeMux()
+	router := http.NewServeMux()
 
 	// Static file serving
-	mux.HandleFunc("/static/", a.StaticFiles)
-	mux.HandleFunc("/favicon.ico", a.StaticFiles)
+	router.HandleFunc("GET /static/", a.StaticFiles)
+	router.HandleFunc("GET /favicon.ico", a.StaticFiles)
 
 	// Health check
-	mux.HandleFunc("/health", a.Health)
+	router.HandleFunc("GET /health", a.Health)
 
 	// Dev routes
-	mux.HandleFunc("/dev", a.DevIndex)
-	mux.HandleFunc("/dev/panic", a.DevPanic)
-	mux.HandleFunc("/dev/404", a.Dev404)
-	mux.HandleFunc("/dev/500", a.Dev500)
-	mux.HandleFunc("/dev/tmpl-error", a.Dev500Tmpl)
+	router.HandleFunc("/dev", a.DevIndex)
+	router.HandleFunc("/dev/panic", a.DevPanic)
+	router.HandleFunc("/dev/404", a.Dev404)
+	router.HandleFunc("/dev/500", a.Dev500)
+	router.HandleFunc("/dev/tmpl-error", a.Dev500Tmpl)
 
 	// Web routes
-	mux.HandleFunc("/artists", a.Artists)
-	mux.HandleFunc("/artists/", a.ArtistDetail)
-	mux.HandleFunc("/locations", a.Locations)
-	mux.HandleFunc("/locations/", a.LocationDetail)
+	router.HandleFunc("GET /artists", a.Artists)
+	router.HandleFunc("GET /artists/", a.ArtistDetail)
+	router.HandleFunc("GET /locations", a.Locations)
+	router.HandleFunc("GET /locations/", a.LocationDetail)
 
 	// Home route
-	mux.HandleFunc("/", a.Home)
+	//router.HandleFunc("/", a.Home)
+	router.HandleFunc("GET /", a.Home)
 
-	return mux
+	return router
 }
