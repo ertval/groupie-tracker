@@ -36,8 +36,8 @@ internal/
   │   ├── filters.go         # NEW: Filter logic with dual-range/checkbox support
   │   └── repository_test.go # Repository tests (88.9% coverage)
   └── server/                # HTTP layer (renamed from handlers/)
-      ├── server.go          # App struct with server initialization
-      ├── handlers.go        # All endpoints + JSON filter APIs (79.7% coverage)
+      ├── server.go          # Package-level server initialization with global variables
+      ├── handlers.go        # All endpoints + JSON filter APIs (package-level functions)
       ├── routes.go          # HTTP routing and middleware setup
       ├── middleware.go      # Panic recovery, logging, security headers  
       ├── utils.go           # Template utilities and helper functions
@@ -52,6 +52,7 @@ tests/                      # Audit tests (package issues but functional)
 
 **🏗️ Current Architecture:**
 - **Global config pattern**: `internal/config` package with module-level variables
+- **Package-level server functions**: Removed App struct, using package-level variables (repo, templates)
 - **Single data load**: Repository loads all data once at startup via `LoadData(ctx)`
 - **Thread-safe reads**: All repository methods are read-only after initial load
 - **Template inheritance**: Uses `{{define "base"}}` and `{{template "body" .}}` pattern
@@ -75,6 +76,39 @@ stats := repo.GetStats()  // Precomputed statistics
 // NEW: Filter functionality with dual-range sliders and checkboxes
 filterOptions := repo.GetFilterOptions()  // Min/max bounds for sliders
 filteredArtists := repo.FilterArtists(filterParams)  // Apply filter criteria
+```
+
+### Package-Level Server Pattern (Updated January 2025)
+```go
+// Package-level variables (follows global config pattern)
+var (
+    repo      *data.Repository
+    templates map[string]*template.Template
+)
+
+// Server initialization assigns to package-level variables
+func NewServer() (*http.Server, error) {
+    repo = data.NewRepository()  // Assigns to package-level variable
+    if err := repo.LoadData(ctx); err != nil {
+        return nil, fmt.Errorf("failed to load data: %w", err)
+    }
+    loadTemplates()  // Assigns to package-level templates variable
+    serveMux := withMiddleware(routes())  // Uses package-level functions
+    return &http.Server{Addr: port, Handler: serveMux}, nil
+}
+
+// All handlers are package-level functions using global variables
+func Home(w http.ResponseWriter, r *http.Request) {
+    artists := repo.GetArtists()  // Uses package-level repo
+    render(w, r, "home.tmpl", data)  // Uses package-level templates
+}
+
+func routes() *http.ServeMux {
+    mux := http.NewServeMux()
+    mux.HandleFunc("/", Home)  // References package-level function
+    mux.HandleFunc("/artists", Artists)  // No receiver needed
+    return mux
+}
 ```
 
 ## Filter System Architecture (NEW - January 2025)
@@ -280,7 +314,8 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 - **Thread-safe Operations** - all filter operations work with read-only repository after initial load
 
 **🔧 Current Architecture:**
-- Clean App struct pattern in server package with proper initialization
+- Package-level server functions pattern instead of App struct 
+- Repository and templates stored as global variables following config pattern
 - Filter system as separate filters.go module with dedicated logic
 - JSON API endpoints for client-server filter communication
 - Dual-range slider synchronization preventing invalid min > max values
@@ -299,7 +334,7 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 2. `internal/data/filters.go` (NEW: filter logic and bounds calculation)
 3. `internal/config/config.go` (centralized configuration)
 4. `internal/server/handlers.go` (HTTP layer patterns + filter APIs)
-5. `internal/server/server.go` (startup and App initialization)
+5. `internal/server/server.go` (startup and package-level initialization)
 6. `templates/artists.tmpl` (filter UI components)
 7. `static/js/filters.js` (client-side filter interactions)
 8. Test files for current usage patterns

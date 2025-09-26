@@ -11,30 +11,35 @@ import (
 	"time"
 )
 
-// App holds the application state and handlers.
-type App struct {
-	repo      *data.Repository
-	templates map[string]*template.Template
-}
+// Global server state following the package-level pattern.
+// These variables are initialized once during server startup and
+// accessed by all handler functions throughout the application lifecycle.
+var (
+	repo      *data.Repository              // Data layer with thread-safe read operations
+	templates map[string]*template.Template // Pre-compiled HTML templates for rendering
+)
 
-// NewApp creates a new app with the given repository.
-func NewApp(repo *data.Repository) *App {
-	h := &App{repo: repo}
-	h.loadTemplates()
-	return h
-}
-
-// server configuration is now provided by the internal/server package
-
-// NewServer creates and initializes a new HTTP server.
+// NewServer creates and fully initializes an HTTP server ready for production use.
+//
+// This function performs the complete server bootstrap process:
+//   - Initializes the data repository and loads all API data
+//   - Compiles all HTML templates with custom helper functions
+//   - Configures HTTP timeouts and middleware chain
+//   - Logs startup performance and cache statistics
+//
+// The server follows a global state pattern where the repository and templates
+// are package-level variables accessed by all handler functions.
+//
+// Returns a configured *http.Server ready to call ListenAndServe(), or an error
+// if data loading or template compilation fails.
 func NewServer() (*http.Server, error) {
 
 	start := time.Now()
 
-	// Initialize data repository (reads config internally)
-	repo := data.NewRepository()
+	// Initialize repository - reads config internally, no parameters needed
+	repo = data.NewRepository()
 
-	// Load data from API
+	// Load all data from external API with timeout protection
 	log.Println("Loading initial data...")
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
@@ -44,7 +49,10 @@ func NewServer() (*http.Server, error) {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
-	// Pretty single-line startup summary
+	// Compile all HTML templates once at startup
+	loadTemplates()
+
+	// Log startup summary with cache status and performance metrics
 	stats := repo.GetStats()
 	switch repo.CacheStatus {
 	case data.CacheDisabled:
@@ -55,12 +63,12 @@ func NewServer() (*http.Server, error) {
 		log.Printf("Data loaded successfully with Warm cache - %d artists (Loaded %d images from cache)", stats["total_artists"], stats["cached_images"])
 	}
 
-	// Initialize handlers with routes and middleware
-	serveMux := withMiddleware(NewApp(repo).Routes())
+	// Assemble middleware chain and route handlers
+	serveMux := withMiddleware(createServeMux())
 	port := getPort()
 	// log.Printf("Server is starting on port %s", port)
 
-	// Create HTTP server using values from config
+	// Create production-ready HTTP server with configured timeouts
 	httpServer := &http.Server{
 		Addr:         port,
 		Handler:      serveMux,

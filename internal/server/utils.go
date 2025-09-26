@@ -14,65 +14,98 @@ import (
 	"strings"
 )
 
-// --- Request Validation Helpers ---
+// --- HTTP Request Validation ---
 
-// validateRequestGETPath checks if request is GET method and matches expected path.
-func (a *App) validateRequestGETPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
+// validateRequestGETPath validates that the incoming request uses GET method and matches expected path.
+// This helper ensures proper HTTP method usage and prevents handlers from processing invalid routes.
+// Responds with appropriate error status (405 or 404) if validation fails.
+//
+// Returns true if request is valid, false if error response was sent to client.
+func validateRequestGETPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
 	if r.Method != http.MethodGet {
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return false
 	}
 
 	if r.URL.Path != expectedPath {
-		a.Error(w, r, http.StatusNotFound, "Page not found")
+		Error(w, r, http.StatusNotFound, "Page not found")
 		return false
 	}
 
 	return true
 }
 
-// --- Template Helpers ---
+// --- Template Rendering System ---
 
-// render renders a template with the given data and status code (if provided) managing all errors.
-func (a *App) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
+// render executes an HTML template with the provided data and sends response to client.
+//
+// This is the core template rendering function that handles:
+//   - Template lookup and validation
+//   - Template execution with error recovery
+//   - HTTP status code management
+//   - Graceful fallback to error pages on template failures
+//
+// The function uses a two-phase rendering approach: templates are first executed
+// into a buffer to catch errors before sending any response to the client.
+//
+// Parameters:
+//   - name: template filename (e.g., "home.tmpl")
+//   - data: template data (can be any type)
+//   - status: optional HTTP status code (defaults to 200)
+func render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
 	code := http.StatusOK
 	if len(status) > 0 {
 		code = status[0]
 	}
 
-	tmpl, ok := a.templates[name]
+	tmpl, ok := templates[name]
 	if !ok {
-		// If we are already rendering an error, don't call h.Error again.
+		// Prevent infinite recursion if error template itself is missing
 		if name == "error.tmpl" {
 			log.Printf("FATAL: error.tmpl is missing")
 			http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
 			return
 		}
-		a.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
+		Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
 		return
 	}
 
+	// Use buffer to catch template execution errors before sending response
 	buf := new(bytes.Buffer)
 	if err := tmpl.ExecuteTemplate(buf, "base", data); err != nil {
-		// If we get an error while executing the error template, we need to fallback.
+		// Handle error template execution failure gracefully
 		if name == "error.tmpl" {
 			log.Printf("Error executing error template: %v", err)
 			http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
 			return
 		}
-		a.Error(w, r, http.StatusInternalServerError, err.Error())
+		Error(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
+	// Only send response after successful template execution
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
 	buf.WriteTo(w)
 }
 
-// loadTemplates loads and parses all templates from the templates directory.
-func (a *App) loadTemplates() {
-	a.templates = make(map[string]*template.Template)
+// loadTemplates discovers, compiles, and caches all HTML templates from the templates directory.
+//
+// This function performs template initialization at server startup:
+//   - Registers custom template functions (add, sub, join, upper, title)
+//   - Discovers all .tmpl files in the templates directory
+//   - Compiles each template with the base.tmpl wrapper for template inheritance
+//   - Stores compiled templates in the global templates map
+//
+// The template system uses inheritance where each page template defines "title" and "body" blocks
+// that are injected into the base.tmpl wrapper. Custom functions provide common operations
+// like arithmetic and string manipulation directly in templates.
+//
+// Panics on any error since templates are required for basic server functionality.
+func loadTemplates() {
+	templates = make(map[string]*template.Template)
 
+	// Custom template functions for common operations
 	funcMap := template.FuncMap{
 		"add":   func(a, b int) int { return a + b },
 		"sub":   func(a, b int) int { return a - b },
@@ -96,15 +129,17 @@ func (a *App) loadTemplates() {
 		log.Fatalf("Failed to find base template at %s: %v", baseTmplPath, err)
 	}
 
+	// Discover all template files
 	pages, err := filepath.Glob(filepath.Join(templateDir, "*.tmpl"))
 	if err != nil {
 		log.Fatalf("Failed to glob templates: %v", err)
 	}
 
+	// Compile each template with base template for inheritance
 	for _, page := range pages {
 		name := filepath.Base(page)
 		if name == "base.tmpl" {
-			continue
+			continue // Skip base template as it's included in each page
 		}
 
 		ts, err := template.New(name).Funcs(funcMap).ParseFiles(baseTmplPath, page)
@@ -112,17 +147,24 @@ func (a *App) loadTemplates() {
 			log.Fatalf("Failed to parse template %s: %v", name, err)
 		}
 
-		a.templates[name] = ts
+		templates[name] = ts
 	}
 }
 
-// getPort returns the port to run the server on.
+// getPort determines the HTTP server port from environment or configuration.
+//
+// Checks the PORT environment variable first (for cloud deployments like Heroku),
+// then falls back to the configured default port. Ensures the port has a leading
+// colon prefix required by http.Server.
+//
+// Returns a port string like ":8080" ready for use with http.Server.
 func getPort() string {
 	port := os.Getenv("PORT")
 	if port == "" {
 		return config.DefaultPort
 	}
 
+	// Ensure port has colon prefix for http.Server
 	if !strings.HasPrefix(port, ":") {
 		port = ":" + port
 	}
@@ -130,11 +172,23 @@ func getPort() string {
 	return port
 }
 
-// parseFilterParams extracts filter parameters from HTML form data
-func (a *App) parseFilterParams(r *http.Request) data.ArtistFilterParams {
+// --- Form Data Processing ---
+
+// parseFilterParams extracts and validates artist filter parameters from HTML form submission.
+//
+// Converts form values into structured filter parameters with proper type handling:
+//   - Year ranges: converted to integers with nil for empty values
+//   - Member counts: parsed as integer slice from checkbox selections
+//   - Countries: used directly as string slice from checkbox selections
+//
+// This function handles the common pattern of form data being submitted as strings
+// that need conversion to appropriate Go types for the business logic layer.
+//
+// Returns a populated ArtistFilterParams struct ready for use with repository filtering.
+func parseFilterParams(r *http.Request) data.ArtistFilterParams {
 	var params data.ArtistFilterParams
 
-	// Parse creation year range
+	// Parse creation year range - use pointers to distinguish between 0 and unset
 	if fromStr := r.FormValue("creationYearFrom"); fromStr != "" {
 		if from, err := strconv.Atoi(fromStr); err == nil {
 			params.CreationYearFrom = &from
@@ -158,7 +212,7 @@ func (a *App) parseFilterParams(r *http.Request) data.ArtistFilterParams {
 		}
 	}
 
-	// Parse member counts (multiple checkboxes)
+	// Parse member count selections - multiple checkbox values
 	if memberCounts := r.Form["memberCounts"]; len(memberCounts) > 0 {
 		for _, countStr := range memberCounts {
 			if count, err := strconv.Atoi(countStr); err == nil {
@@ -167,7 +221,7 @@ func (a *App) parseFilterParams(r *http.Request) data.ArtistFilterParams {
 		}
 	}
 
-	// Parse countries (multiple checkboxes)
+	// Parse country selections - multiple checkbox values
 	if countries := r.Form["countries"]; len(countries) > 0 {
 		params.Countries = countries
 	}
@@ -175,11 +229,19 @@ func (a *App) parseFilterParams(r *http.Request) data.ArtistFilterParams {
 	return params
 }
 
-// parseLocationFilterParams extracts location filter parameters from HTML form data
-func (a *App) parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
+// parseLocationFilterParams extracts and validates location filter parameters from HTML form submission.
+//
+// Similar to parseFilterParams but for location-specific filtering criteria:
+//   - Concert count range: number of concerts held at the location
+//   - Artist count range: number of unique artists who performed there
+//   - Concert year range: temporal filtering of concert dates
+//   - Countries: geographical filtering by country names
+//
+// Returns a populated LocationFilterParams struct for location-based queries.
+func parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
 	var params data.LocationFilterParams
 
-	// Parse concert count range
+	// Parse concert count range - how many concerts occurred at this location
 	if fromStr := r.FormValue("concertCountFrom"); fromStr != "" {
 		if from, err := strconv.Atoi(fromStr); err == nil {
 			params.ConcertCountFrom = &from
@@ -191,7 +253,7 @@ func (a *App) parseLocationFilterParams(r *http.Request) data.LocationFilterPara
 		}
 	}
 
-	// Parse artist count range
+	// Parse artist count range - how many unique artists performed here
 	if fromStr := r.FormValue("artistCountFrom"); fromStr != "" {
 		if from, err := strconv.Atoi(fromStr); err == nil {
 			params.ArtistCountFrom = &from
@@ -203,7 +265,7 @@ func (a *App) parseLocationFilterParams(r *http.Request) data.LocationFilterPara
 		}
 	}
 
-	// Parse concert year range
+	// Parse concert year range - temporal filtering
 	if fromStr := r.FormValue("concertYearFrom"); fromStr != "" {
 		if from, err := strconv.Atoi(fromStr); err == nil {
 			params.ConcertYearFrom = &from
@@ -215,7 +277,7 @@ func (a *App) parseLocationFilterParams(r *http.Request) data.LocationFilterPara
 		}
 	}
 
-	// Parse countries (multiple checkboxes)
+	// Parse country selections for geographical filtering
 	if countries := r.Form["countries"]; len(countries) > 0 {
 		params.Countries = countries
 	}

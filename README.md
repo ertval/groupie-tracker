@@ -34,9 +34,9 @@ Groupie Tracker is a Go-based web application that:
 
 ### Key Implementation Files
 - `cmd/cli/main.go` - Streamlined application entry point
-- `internal/server/server.go` - App struct with server initialization  
+- `internal/server/server.go` - Package-level server initialization with global variables
 - `internal/server/routes.go` - HTTP routing and middleware setup
-- `internal/server/handlers.go` - All HTTP endpoints with filter APIs (enhanced)
+- `internal/server/handlers.go` - All HTTP endpoints with filter APIs (package-level functions)
 - `internal/server/middleware.go` - Panic recovery, logging, security headers
 - `internal/config/config.go` - Centralized configuration variables
 - `internal/data/repository.go` - Core data management logic (396 lines)
@@ -97,9 +97,9 @@ internal/
   │   ├── filter_test.go   # NEW: Comprehensive filter testing (18 tests passing)
   │   └── repository_test.go # Repository tests
   └── server/              # HTTP layer (79.7% test coverage)
-      ├── server.go        # App struct with server initialization  
+      ├── server.go        # Package-level server initialization with global variables
       ├── routes.go        # HTTP routing and middleware setup
-      ├── handlers.go      # All HTTP endpoints + filter APIs
+      ├── handlers.go      # All HTTP endpoints + filter APIs (package-level functions)
       ├── middleware.go    # Panic recovery, logging, security headers
       └── server_test.go   # Comprehensive unified server tests
 
@@ -124,6 +124,16 @@ static/                   # Static assets with enhanced styling
 ### 🔄 Detailed Data Flow
 
 #### 1. Application Startup
+```
+NewServer() → LoadData(ctx) → loadTemplates() → routes() → ListenAndServe()
+
+Flow:
+- Initialize package-level repository and templates variables
+- Load all data from Groupie Trackers API 
+- Parse and cache HTML templates from templates/ directory
+- Set up HTTP routes with package-level handler functions
+- Start HTTP server with middleware chain
+```
 
 
 #### 2. Data Loading Pipeline (`internal/data/repository.go`)
@@ -162,7 +172,7 @@ Step 5: loadProcessedData()
 HTTP Request → Router → Handler → Repository → Template → Response
 
 Example: GET /artists/queen
-  ├── routes.go: mux.HandleFunc("/artists/", h.ArtistDetail)
+  ├── routes.go: mux.HandleFunc("/artists/", ArtistDetail)
   ├── handlers.go: ArtistDetail() extracts "queen" from URL path
   ├── repository.go: GetArtistBySlug("queen") returns cached Artist
   ├── handlers.go: Creates inline struct with Artist + metadata
@@ -174,8 +184,10 @@ Example: GET /artists/queen
 
 ### 🔒 Thread Safety & Performance
 - **Single data load**: All data loaded once at startup, no runtime API calls
+- **Package-level variables**: Repository and templates stored as global variables following config pattern
 - **Read-only operations**: Repository methods only read from pre-built maps
 - **Concurrent safe**: Multiple requests can safely access repository data
+- **Simplified architecture**: Removed App struct in favor of package-level functions
 - **Pre-computed indexes**: SEO slugs, statistics, and mappings built at startup
 - **Memory efficient**: Data stored in optimized Go maps and slices
 
