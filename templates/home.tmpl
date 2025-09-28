@@ -30,7 +30,7 @@
             <h2>Featured Artists</h2>
             <div class="artist-grid">
                 {{range $index, $artist := .Artists}}
-                {{if lt $index 6}}
+                {{if lt $index 8}}
                 <div class="artist-card">
                     <a href="/artists/{{$artist.Slug}}">
                         <img src="{{$artist.Image}}" alt="{{$artist.Name}}" class="artist-image">

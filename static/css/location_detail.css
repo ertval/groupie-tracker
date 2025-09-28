@@ -1,17 +1,8 @@
 /* Location detail page styles - enhanced with base.css patterns */
 @import url('base.css');
 
-:root {
-    --card-bg: #ffffff;
-    --border: #e2e8f0;
-    --bg-secondary: #f8fafc;
-    --text-primary: #1a202c;
-    --text-secondary: #6b7280;
-    --accent: #48bb78;
-}
-
 .page.location-detail {
-    padding: 2rem;
+    padding: var(--spacing-xl);
     max-width: 1200px;
     margin: 0 auto;
 }
@@ -243,6 +234,4 @@
     .stat-item .stat-number {
         font-size: 1.5rem;
     }
-}
-    box-shadow: 0 6px 18px rgba(16, 24, 40, 0.04);
 }

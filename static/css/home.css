@@ -1,15 +1,6 @@
 /* Home page styles - enhanced with base.css patterns */
 @import url('base.css');
 
-:root {
-    --card-bg: #ffffff;
-    --border: #e2e8f0;
-    --bg-secondary: #f8fafc;
-    --text-primary: #1a202c;
-    --text-secondary: #6b7280;
-    --accent: #667eea;
-}
-
 .page.home {
     padding: 2rem;
     max-width: 1200px;
@@ -26,7 +17,7 @@
     font-size: 2.5rem;
     font-weight: 700;
     color: var(--text-primary);
-    background: linear-gradient(135deg, var(--accent) 0%, #48bb78 100%);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -42,51 +33,104 @@
     color: var(--text-secondary);
 }
 
+/* Statistics Section */
+.stats-section {
+    margin-bottom: var(--spacing-xl);
+}
+
+.stats-section h2 {
+    text-align: center;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-lg);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-2xl);
+}
+
+.stat-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius-lg);
+    padding: var(--card-padding-lg);
+    text-align: center;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    transition: all var(--transition-normal);
+}
+
+.stat-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--accent);
+}
+
+.stat-card h3 {
+    margin: 0;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--accent);
+    line-height: 1.2;
+}
+
+.stat-card p {
+    margin: var(--spacing-sm) 0 0 0;
+    color: var(--text-secondary);
+    font-weight: 500;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+    letter-spacing: 0.5px;
+}
+
 /* Welcome Section */
 .welcome-section {
     background: var(--card-bg);
-    border-radius: 12px;
-    padding: 2rem;
-    margin-bottom: 2rem;
+    border-radius: var(--border-radius-lg);
+    padding: var(--card-padding-lg);
+    margin-bottom: var(--spacing-xl);
     border: 1px solid var(--border);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow);
 }
 
 .welcome-section h2 {
     color: var(--text-primary);
     font-size: 1.5rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-md);
 }
 
 .welcome-section p {
     color: var(--text-secondary);
     line-height: 1.6;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-md);
 }
 
 /* Quick Links */
 .quick-links {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
-    margin-top: 3rem;
+    gap: var(--spacing-xl);
+    margin-top: calc(var(--spacing-xl) * 1.5);
 }
 
 .quick-link-card {
     background: var(--card-bg);
-    border-radius: 12px;
-    padding: 2rem;
+    border-radius: var(--border-radius-lg);
+    padding: var(--card-padding-lg);
     text-decoration: none;
     color: inherit;
     border: 1px solid var(--border);
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow);
 }
 
 .quick-link-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--shadow-xl);
     border-color: var(--accent);
 }
 
@@ -94,7 +138,7 @@
     color: var(--text-primary);
     font-size: 1.25rem;
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--spacing-sm);
 }
 
 .quick-link-card p {
@@ -105,20 +149,20 @@
 
 /* Search placeholder */
 .search-placeholder {
-    margin: 2rem 0;
+    margin: var(--spacing-xl) 0;
     background: var(--card-bg);
-    border-radius: 12px;
-    padding: 1.5rem;
+    border-radius: var(--border-radius-lg);
+    padding: var(--card-padding);
     border: 1px solid var(--border);
 }
 
 .search-placeholder input {
     width: 100%;
-    padding: 0.75rem 1rem;
+    padding: var(--input-padding);
     border: 2px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--border-radius);
     font-size: 1rem;
-    transition: border-color 0.3s ease;
+    transition: border-color var(--transition-normal);
 }
 
 .search-placeholder input:focus {
@@ -128,10 +172,10 @@
 
 /* Artists sample */
 .artists-sample {
-    margin-top: 2rem;
+    margin-top: var(--spacing-xl);
     background: var(--card-bg);
-    border-radius: 12px;
-    padding: 2rem;
+    border-radius: var(--border-radius-lg);
+    padding: var(--card-padding-lg);
     border: 1px solid var(--border);
 }
 
@@ -139,7 +183,7 @@
     color: var(--text-primary);
     font-size: 1.25rem;
     font-weight: 600;
-    margin-bottom: 1rem;
+    margin-bottom: var(--spacing-md);
 }
 
 .artists-sample ul {
@@ -167,6 +211,98 @@
     color: var(--accent);
 }
 
+/* Artist Grid */
+.artist-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+}
+
+.artist-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius-lg);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    transition: all var(--transition-normal);
+    text-decoration: none;
+}
+
+.artist-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--accent);
+}
+
+.artist-card a {
+    color: inherit;
+    text-decoration: none;
+    display: block;
+    height: 100%;
+}
+
+.artist-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+}
+
+.artist-info {
+    padding: var(--spacing-md);
+}
+
+.artist-info h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.artist-info p {
+    margin: 0 0 var(--spacing-xs) 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.members-count {
+    color: var(--accent);
+    font-weight: 500;
+    margin: 0;
+}
+
+.view-all {
+    text-align: center;
+    margin-top: var(--spacing-xl);
+}
+
+.btn {
+    display: inline-block;
+    padding: var(--btn-padding);
+    background: var(--accent);
+    color: white;
+    text-decoration: none;
+    border-radius: var(--btn-radius);
+    font-weight: 500;
+    transition: background-color var(--transition-fast);
+    border: none;
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.btn:hover {
+    background: var(--accent-hover);
+}
+
+.btn-primary {
+    background: var(--accent);
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .page.home {
@@ -180,5 +316,13 @@
     .quick-links {
         grid-template-columns: 1fr;
         gap: 1rem;
+    }
+    
+    .stats-grid {
+        grid-template-columns: 1fr; /* Stack stats vertically on mobile */
+    }
+    
+    .artist-grid {
+        grid-template-columns: 1fr; /* Single column layout on mobile */
     }
 }

@@ -15,30 +15,27 @@
 
 <body>
     <header class="site-header">
-        <div class="container">
+        <div class="container navbar-container">
             <h1><a href="/">Groupie Tracker</a></h1>
+            
+            <!-- Quick Search Bar in the middle -->
+            <form method="POST" action="/search" class="navbar-search-form">
+                <div class="navbar-search-group">
+                    <input type="text" 
+                           name="q" 
+                           placeholder="Quick search..." 
+                           class="navbar-search-input"
+                           autocomplete="off">
+                    <button type="submit" class="navbar-search-btn">🔍</button>
+                </div>
+            </form>
+            
             <nav class="main-nav">
                 <a href="/">Home</a> •
                 <a href="/artists">Artists</a> •
                 <a href="/locations">Locations</a> •
                 <a href="/search">Search</a>
             </nav>
-        </div>
-        
-        <!-- Quick Search Bar -->
-        <div class="quick-search-container">
-            <div class="container">
-                <form method="POST" action="/search" class="quick-search-form">
-                    <div class="search-input-group">
-                        <input type="text" 
-                               name="q" 
-                               placeholder="Quick search..." 
-                               class="quick-search-input"
-                               autocomplete="off">
-                        <button type="submit" class="quick-search-btn">🔍</button>
-                    </div>
-                </form>
-            </div>
         </div>
     </header>
 

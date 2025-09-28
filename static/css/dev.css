@@ -1,13 +1,6 @@
 /* Dev page placeholder styles - follow base.css guidelines */
 @import url('base.css');
 
-:root {
-    --bg: #f7fafc;
-    --text: #1a202c;
-    --muted: #6b7280;
-    --accent: #ef9a9a;
-}
-
 html, body {
     height: 100%;
     margin: 0;
@@ -19,15 +12,15 @@ html, body {
 .container {
     max-width: 980px;
     margin: 0 auto;
-    padding: 1rem;
+    padding: var(--spacing-md);
 }
 
 .dev-list {
     display: grid;
-    gap: .5rem;
-    padding: 1rem;
-    background: #fff;
-    border-radius: 8px;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-md);
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
 }
 
 .dev-list a {
@@ -36,8 +29,8 @@ html, body {
 }
 
 .placeholder {
-    padding: 2rem;
-    background: #fff;
-    border-radius: 8px;
+    padding: var(--spacing-xl);
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
     box-shadow: 0 6px 18px rgba(16, 24, 40, 0.04);
 }
