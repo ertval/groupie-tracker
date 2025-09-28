@@ -170,6 +170,84 @@ func ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	render(w, r, "artist_detail.tmpl", data)
 }
 
+// Search handles search requests for artists.
+func Search(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "GET, POST")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	// Validate path
+	if r.URL.Path != "/search" {
+		Error(w, r, http.StatusNotFound, "Page not found")
+		return
+	}
+
+	var searchQuery string
+	var appliedFilters data.ArtistFilterParams
+	var searchResults data.SearchResult
+
+	// Handle search submission
+	if r.Method == http.MethodPost {
+		if err := r.ParseForm(); err != nil {
+			Error(w, r, http.StatusBadRequest, "Failed to parse form data")
+			return
+		}
+
+		searchQuery = strings.TrimSpace(r.FormValue("q"))
+		appliedFilters = parseArtistFilterParams(r)
+
+		// Perform search
+		searchParams := data.SearchParams{
+			Query:   searchQuery,
+			Filters: appliedFilters,
+		}
+		searchResults = repo.SearchArtists(searchParams)
+	}
+
+	filterOptions := repo.GetArtistFilterOptions()
+
+	data := struct {
+		Title          string
+		ExtraCSS       string
+		ExtraJS        string
+		Query          string
+		Results        data.SearchResult
+		FilterOptions  data.ArtistFilterOptions
+		AppliedFilters data.ArtistFilterParams
+		IsSearch       bool
+	}{
+		Title:          "Search",
+		ExtraCSS:       "artists.css",
+		ExtraJS:        "",
+		Query:          searchQuery,
+		Results:        searchResults,
+		FilterOptions:  filterOptions,
+		AppliedFilters: appliedFilters,
+		IsSearch:       r.Method == http.MethodPost && searchQuery != "",
+	}
+
+	render(w, r, "search.tmpl", data)
+}
+
+// SearchSuggestions provides JSON API for search suggestions.
+func SearchSuggestions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		return
+	}
+
+	query := r.URL.Query().Get("q")
+	suggestions := repo.GenerateSearchSuggestions(query)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(suggestions); err != nil {
+		Error(w, r, http.StatusInternalServerError, "Failed to encode response")
+	}
+}
+
 // Locations handles the locations listing page.
 func Locations(w http.ResponseWriter, r *http.Request) {
 	// Allow both GET and POST requests

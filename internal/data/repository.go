@@ -672,6 +672,40 @@ func (r *Repository) loadProcessedData(artists []Artist, locations []Location, c
 	}
 }
 
+// --- Test Helper Methods ---
+
+// SetTestData allows tests to populate the repository with test data.
+// This method is only intended for use in test files and bypasses
+// the normal data loading pipeline.
+func (r *Repository) SetTestData(artists []Artist, locations []Location) {
+	r.artists = artists
+	r.locations = locations
+
+	// Build indexes
+	r.artistsByID = make(map[int]Artist)
+	r.artistsBySlug = make(map[string]Artist)
+	for _, artist := range artists {
+		r.artistsByID[artist.ID] = artist
+		r.artistsBySlug[artist.Slug] = artist
+	}
+
+	r.locationsBySlug = make(map[string]Location)
+	for _, location := range locations {
+		r.locationsBySlug[location.Slug] = location
+	}
+
+	// Mock stats
+	r.globalStats = map[string]int{
+		"total_artists":     len(artists),
+		"total_members":     0,
+		"total_locations":   len(locations),
+		"total_concerts":    0,
+		"total_countries":   0,
+		"cached_images":     0,
+		"downloaded_images": 0,
+	}
+}
+
 // --- String Processing Utilities ---
 //
 // These helper functions provide consistent text transformation across the application.

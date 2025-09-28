@@ -3,9 +3,10 @@ package main
 
 import (
 	"fmt"
-	"groupie-tracker/internal/server"
 	"log"
 	"net/http"
+
+	"groupie-tracker/internal/server"
 )
 
 func main() {

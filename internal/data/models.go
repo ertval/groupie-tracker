@@ -223,3 +223,52 @@ type LocationFilterOptions struct {
 	// Available options for checkbox components
 	Countries []string `json:"countries"` // All countries from location names (sorted)
 }
+
+// --- Search Data Structures ---
+//
+// These models define the search functionality that allows users to search across
+// all data types with suggestions and type identification. The search system
+// provides case-insensitive matching across artists, members, locations, and dates.
+
+// SearchSuggestionType represents the type of search result for categorization.
+type SearchSuggestionType string
+
+const (
+	SuggestionTypeArtist     SearchSuggestionType = "artist"      // Artist/band name
+	SuggestionTypeMember     SearchSuggestionType = "member"      // Band member name
+	SuggestionTypeLocation   SearchSuggestionType = "location"    // Concert location
+	SuggestionTypeFirstAlbum SearchSuggestionType = "first-album" // First album date
+	SuggestionTypeCreation   SearchSuggestionType = "creation"    // Band creation date
+)
+
+// SearchSuggestion represents a single search suggestion with type identification.
+//
+// This structure provides the frontend with enough information to display
+// meaningful suggestions with context about what type of data was matched.
+// The URL field enables direct navigation to relevant detail pages.
+type SearchSuggestion struct {
+	Text        string               `json:"text"`        // Display text for the suggestion
+	Type        SearchSuggestionType `json:"type"`        // Type of match for categorization
+	Description string               `json:"description"` // Additional context (e.g., "Queen - artist")
+	URL         string               `json:"url"`         // Direct link to detail page
+	ArtistID    int                  `json:"artistId"`    // Related artist ID for context
+}
+
+// SearchResult represents a comprehensive search result with matched items.
+//
+// Contains all matching artists and the search parameters used. This structure
+// supports both direct search results and integration with existing filter system.
+type SearchResult struct {
+	Artists      []Artist `json:"artists"`      // Artists matching search criteria
+	Query        string   `json:"query"`        // Original search query
+	TotalResults int      `json:"totalResults"` // Number of matching results
+}
+
+// SearchParams represents search query parameters from user input.
+//
+// Supports integration with existing filter system by combining text search
+// with advanced filtering options for more precise results.
+type SearchParams struct {
+	Query   string             `json:"query"`   // Search text input
+	Filters ArtistFilterParams `json:"filters"` // Optional additional filters
+}

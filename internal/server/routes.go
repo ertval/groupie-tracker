@@ -17,6 +17,10 @@ func createServeMux() *http.ServeMux {
 	// Health check endpoint for monitoring
 	router.HandleFunc("/health", Health)
 
+	// Search endpoints
+	router.HandleFunc("/search", Search)
+	router.HandleFunc("/api/suggestions", SearchSuggestions)
+
 	// Development tools (only active in dev mode)
 	router.HandleFunc("/dev", DevIndex)
 	router.HandleFunc("/dev/panic", DevPanic)

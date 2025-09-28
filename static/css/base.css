@@ -24,18 +24,95 @@ body {
 .site-header {
     background: white;
     border-bottom: 1px solid #e6e6e6;
-    padding: 1rem 0
+}
+
+.site-header > .container:first-child {
+    padding: 1rem;
 }
 
 .site-header h1 {
     margin: 0;
-    font-size: 1.25rem
+    font-size: 1.25rem;
+    display: inline-block;
 }
 
-.site-header nav {
+.main-nav {
+    float: right;
     margin-top: .25rem;
     font-size: .9rem;
-    color: var(--muted)
+    color: var(--muted);
+}
+
+.main-nav a {
+    color: var(--muted);
+    text-decoration: none;
+}
+
+.main-nav a:hover {
+    color: var(--accent);
+}
+
+.quick-search-container {
+    background: #f8f9fa;
+    border-bottom: 1px solid #e6e6e6;
+    padding: 0.5rem 0;
+}
+
+.quick-search-form {
+    display: flex;
+    justify-content: center;
+}
+
+.search-input-group {
+    display: flex;
+    max-width: 400px;
+    width: 100%;
+}
+
+.quick-search-input {
+    flex: 1;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-right: none;
+    border-radius: 4px 0 0 4px;
+    font-size: 14px;
+    outline: none;
+}
+
+.quick-search-input:focus {
+    border-color: var(--accent);
+}
+
+.quick-search-btn {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-left: none;
+    border-radius: 0 4px 4px 0;
+    background: white;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.quick-search-btn:hover {
+    background: #f5f5f5;
+}
+
+@media (max-width: 768px) {
+    .site-header h1 {
+        display: block;
+        text-align: center;
+        margin-bottom: 10px;
+    }
+    
+    .main-nav {
+        float: none;
+        text-align: center;
+        margin-top: 0;
+    }
+    
+    .search-input-group {
+        max-width: none;
+    }
 }
 
 .site-footer {

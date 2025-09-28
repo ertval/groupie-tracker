@@ -120,6 +120,27 @@ func loadTemplates() {
 			}
 			return strings.Join(words, " ")
 		},
+		"contains": func(slice interface{}, item interface{}) bool {
+			switch s := slice.(type) {
+			case []int:
+				if i, ok := item.(int); ok {
+					for _, v := range s {
+						if v == i {
+							return true
+						}
+					}
+				}
+			case []string:
+				if str, ok := item.(string); ok {
+					for _, v := range s {
+						if v == str {
+							return true
+						}
+					}
+				}
+			}
+			return false
+		},
 	}
 
 	const templateDir = "templates"

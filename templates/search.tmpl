@@ -1,0 +1,456 @@
+{{define "title"}}Search{{end}}
+
+{{define "body"}}
+<div class="search-page">
+    <!-- Search Form -->
+    <div class="search-section">
+        <h2>Search Artists</h2>
+        <form method="POST" action="/search" class="search-form">
+            <div class="search-input-container">
+                <input type="text" 
+                       name="q" 
+                       value="{{.Query}}" 
+                       placeholder="Search artists, members, locations, dates..." 
+                       class="search-input"
+                       autocomplete="off">
+                <button type="submit" class="search-button">Search</button>
+            </div>
+            <div class="search-suggestions" id="suggestions"></div>
+        </form>
+    </div>
+
+    {{if .IsSearch}}
+    <!-- Search Results -->
+    <div class="results-section">
+        <h3>Search Results {{if .Query}}for "{{.Query}}"{{end}}</h3>
+        
+        {{if .Results.Artists}}
+        <p class="results-count">Found {{.Results.TotalResults}} artist{{if ne .Results.TotalResults 1}}s{{end}}</p>
+        
+        <div class="artists-grid">
+            {{range .Results.Artists}}
+            <div class="artist-card">
+                <a href="/artists/{{.Slug}}" class="artist-link">
+                    <div class="artist-image-container">
+                        <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
+                    </div>
+                    <div class="artist-info">
+                        <h3 class="artist-name">{{.Name}}</h3>
+                        <p class="artist-details">
+                            {{len .Members}} member{{if ne (len .Members) 1}}s{{end}} • 
+                            Created {{.CreationYear}} • 
+                            {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}}
+                        </p>
+                        {{if .Countries}}
+                        <p class="artist-countries">
+                            Performed in: {{join .Countries ", "}}
+                        </p>
+                        {{end}}
+                    </div>
+                </a>
+            </div>
+            {{end}}
+        </div>
+        
+        {{else}}
+        <div class="no-results">
+            <h4>No Results Found</h4>
+            <p>No artists match your search criteria. Try:</p>
+            <ul>
+                <li>Using different keywords</li>
+                <li>Checking spelling</li>
+                <li>Searching for partial names</li>
+                <li>Looking for band members</li>
+                <li>Trying year or location searches</li>
+            </ul>
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+
+    <!-- Advanced Filters -->
+    <details class="filters-section">
+        <summary>Advanced Filters</summary>
+        
+        <form method="POST" action="/search" class="filters-form">
+            <input type="hidden" name="q" value="{{.Query}}">
+            
+            <!-- Year Range Filters -->
+            <div class="filter-group">
+                <h4>Creation Year</h4>
+                <div class="range-inputs">
+                    <label>
+                        From:
+                        <input type="number" 
+                               name="creationYearFrom" 
+                               min="{{.FilterOptions.CreationYearMin}}" 
+                               max="{{.FilterOptions.CreationYearMax}}" 
+                               value="{{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{end}}"
+                               placeholder="{{.FilterOptions.CreationYearMin}}">
+                    </label>
+                    <label>
+                        To:
+                        <input type="number" 
+                               name="creationYearTo" 
+                               min="{{.FilterOptions.CreationYearMin}}" 
+                               max="{{.FilterOptions.CreationYearMax}}" 
+                               value="{{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{end}}"
+                               placeholder="{{.FilterOptions.CreationYearMax}}">
+                    </label>
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h4>First Album Year</h4>
+                <div class="range-inputs">
+                    <label>
+                        From:
+                        <input type="number" 
+                               name="firstAlbumYearFrom" 
+                               min="{{.FilterOptions.FirstAlbumYearMin}}" 
+                               max="{{.FilterOptions.FirstAlbumYearMax}}" 
+                               value="{{if .AppliedFilters.FirstAlbumYearFrom}}{{.AppliedFilters.FirstAlbumYearFrom}}{{end}}"
+                               placeholder="{{.FilterOptions.FirstAlbumYearMin}}">
+                    </label>
+                    <label>
+                        To:
+                        <input type="number" 
+                               name="firstAlbumYearTo" 
+                               min="{{.FilterOptions.FirstAlbumYearMin}}" 
+                               max="{{.FilterOptions.FirstAlbumYearMax}}" 
+                               value="{{if .AppliedFilters.FirstAlbumYearTo}}{{.AppliedFilters.FirstAlbumYearTo}}{{end}}"
+                               placeholder="{{.FilterOptions.FirstAlbumYearMax}}">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Member Count Filter -->
+            <div class="filter-group">
+                <h4>Number of Members</h4>
+                <div class="checkbox-grid">
+                    {{range .FilterOptions.MemberCounts}}
+                    <label class="checkbox-label">
+                        <input type="checkbox" 
+                               name="memberCounts" 
+                               value="{{.}}"
+                               {{if contains $.AppliedFilters.MemberCounts .}}checked{{end}}>
+                        {{.}} member{{if ne . 1}}s{{end}}
+                    </label>
+                    {{end}}
+                </div>
+            </div>
+
+            <!-- Countries Filter -->
+            <div class="filter-group">
+                <h4>Countries</h4>
+                <div class="checkbox-grid countries-grid">
+                    {{range .FilterOptions.Countries}}
+                    <label class="checkbox-label">
+                        <input type="checkbox" 
+                               name="countries" 
+                               value="{{.}}"
+                               {{if contains $.AppliedFilters.Countries .}}checked{{end}}>
+                        {{.}}
+                    </label>
+                    {{end}}
+                </div>
+            </div>
+
+            <div class="filter-actions">
+                <button type="submit" class="filter-apply-btn">Apply Filters</button>
+                <a href="/search{{if .Query}}?q={{.Query}}{{end}}" class="filter-clear-btn">Clear Filters</a>
+            </div>
+        </form>
+    </details>
+
+    <!-- Search Tips -->
+    <div class="search-tips">
+        <h4>Search Tips</h4>
+        <ul>
+            <li><strong>Artist Names:</strong> Search for "Queen", "Phil Collins", etc.</li>
+            <li><strong>Band Members:</strong> Search for "Freddie Mercury", "Brian May", etc.</li>
+            <li><strong>Locations:</strong> Search for "London", "New York", etc.</li>
+            <li><strong>Years:</strong> Search for creation years like "1970" or album dates like "1973"</li>
+            <li><strong>Partial Matches:</strong> "Phil" will find "Phil Collins" and "Philadelphia"</li>
+        </ul>
+    </div>
+</div>
+
+<style>
+.search-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.search-section {
+    margin-bottom: 30px;
+}
+
+.search-form {
+    position: relative;
+}
+
+.search-input-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.search-input {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.search-input:focus {
+    outline: none;
+    border-color: #2563eb;
+}
+
+.search-button {
+    padding: 12px 20px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+.search-button:hover {
+    background: #1d4ed8;
+}
+
+.search-suggestions {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 4px 4px;
+    max-height: 300px;
+    overflow-y: auto;
+    z-index: 1000;
+    display: none;
+}
+
+.results-section {
+    margin-bottom: 30px;
+}
+
+.results-count {
+    margin-bottom: 20px;
+    color: #666;
+}
+
+.artists-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.artist-card {
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    overflow: hidden;
+    transition: box-shadow 0.2s;
+}
+
+.artist-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.artist-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+}
+
+.artist-image-container {
+    position: relative;
+    padding-bottom: 60%;
+    overflow: hidden;
+}
+
+.artist-image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.artist-info {
+    padding: 15px;
+}
+
+.artist-name {
+    margin: 0 0 8px 0;
+    font-size: 1.2em;
+    color: #2563eb;
+}
+
+.artist-details {
+    margin: 0 0 8px 0;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.artist-countries {
+    margin: 0;
+    color: #888;
+    font-size: 0.8em;
+}
+
+.no-results {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.filters-section {
+    margin-bottom: 30px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.filters-section summary {
+    padding: 15px;
+    background: #f5f5f5;
+    cursor: pointer;
+    font-weight: bold;
+}
+
+.filters-form {
+    padding: 20px;
+}
+
+.filter-group {
+    margin-bottom: 25px;
+}
+
+.filter-group h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.range-inputs {
+    display: flex;
+    gap: 15px;
+}
+
+.range-inputs label {
+    flex: 1;
+}
+
+.range-inputs input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-top: 5px;
+}
+
+.checkbox-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 10px;
+}
+
+.countries-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.checkbox-label:hover {
+    background: #f0f0f0;
+}
+
+.filter-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.filter-apply-btn {
+    padding: 10px 20px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.filter-apply-btn:hover {
+    background: #1d4ed8;
+}
+
+.filter-clear-btn {
+    padding: 10px 20px;
+    background: #6b7280;
+    color: white;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+}
+
+.filter-clear-btn:hover {
+    background: #4b5563;
+}
+
+.search-tips {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 4px;
+    margin-top: 30px;
+}
+
+.search-tips h4 {
+    margin: 0 0 15px 0;
+    color: #333;
+}
+
+.search-tips ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.search-tips li {
+    margin-bottom: 8px;
+    color: #666;
+}
+
+@media (max-width: 768px) {
+    .search-input-container {
+        flex-direction: column;
+    }
+    
+    .artists-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .range-inputs {
+        flex-direction: column;
+    }
+    
+    .checkbox-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+{{end}}
