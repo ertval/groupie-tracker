@@ -12,10 +12,15 @@
                        value="{{.Query}}" 
                        placeholder="Search artists, members, locations, dates..." 
                        class="search-input"
+                       list="search-suggestions"
                        autocomplete="off">
+                <datalist id="search-suggestions">
+                    {{range .Suggestions}}
+                    <option value="{{.Text}}" label="{{.Description}}"></option>
+                    {{end}}
+                </datalist>
                 <button type="submit" class="search-button">Search</button>
             </div>
-            <div class="search-suggestions" id="suggestions"></div>
         </form>
     </div>
 

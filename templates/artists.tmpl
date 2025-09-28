@@ -43,26 +43,22 @@
                     <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}" 
                          data-members="{{len .Members}}" data-first-album="{{.FirstAlbum}}"
                          data-locations="{{range .Concerts}}{{.Location}} {{end}}">
-                        <a href="/artists/{{.Slug}}">
+                        <a href="/artists/{{.Slug}}" class="artist-link">
                             <div class="artist-image-container">
                                 <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
                             </div>
                             <div class="artist-info">
-                                <h3>{{.Name}}</h3>
-                                <p class="creation-year">Founded: {{.CreationYear}}</p>
-                                <p class="first-album">First Album: {{.FirstAlbum}}</p>
-                                <p class="members-count">{{len .Members}} members</p>
-                                <p class="concert-count">{{.ConcertCount}} concerts performed</p>
-                                <div class="members-preview">
-                                    {{range $index, $member := .Members}}
-                                    {{if lt $index 3}}
-                                    <span class="member">{{$member}}</span>
-                                    {{end}}
-                                    {{end}}
-                                    {{if gt (len .Members) 3}}
-                                    <span class="more-members">+{{sub (len .Members) 3}} more</span>
-                                    {{end}}
-                                </div>
+                                <h3 class="artist-name">{{.Name}}</h3>
+                                <p class="artist-details">
+                                    {{len .Members}} member{{if ne (len .Members) 1}}s{{end}} • 
+                                    Founded {{.CreationYear}} • 
+                                    {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}}
+                                </p>
+                                {{if .Countries}}
+                                <p class="artist-countries">
+                                    Performed in: {{join .Countries ", "}}
+                                </p>
+                                {{end}}
                             </div>
                         </a>
                     </div>

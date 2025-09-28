@@ -22,6 +22,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 
 	artists := repo.GetArtists()
 	stats := repo.GetStats()
+	suggestions := repo.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title          string
@@ -30,6 +31,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		Artists        []data.Artist
 		TotalMembers   int
 		TotalLocations int
+		Suggestions    []data.SearchSuggestion
 	}{
 		Title:          "Home",
 		ExtraCSS:       "home.css",
@@ -37,6 +39,7 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		Artists:        artists,
 		TotalMembers:   stats["total_members"],
 		TotalLocations: stats["total_locations"],
+		Suggestions:    suggestions,
 	}
 
 	render(w, r, "home.tmpl", data)
@@ -196,6 +199,8 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		}
 
 		searchQuery = strings.TrimSpace(r.FormValue("q"))
+		// Extract search term from datalist format "Name - type" if applicable
+		searchQuery = extractSearchTerm(searchQuery)
 		appliedFilters = parseArtistFilterParams(r)
 
 		// Perform search
@@ -207,6 +212,9 @@ func Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filterOptions := repo.GetArtistFilterOptions()
+	
+	// Generate all search suggestions for datalist
+	allSuggestions := repo.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title          string
@@ -217,6 +225,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		FilterOptions  data.ArtistFilterOptions
 		AppliedFilters data.ArtistFilterParams
 		IsSearch       bool
+		Suggestions    []data.SearchSuggestion
 	}{
 		Title:          "Search",
 		ExtraCSS:       "search.css",
@@ -226,6 +235,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		FilterOptions:  filterOptions,
 		AppliedFilters: appliedFilters,
 		IsSearch:       r.Method == http.MethodPost && searchQuery != "",
+		Suggestions:    allSuggestions,
 	}
 
 	render(w, r, "search.tmpl", data)

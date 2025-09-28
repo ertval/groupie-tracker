@@ -214,19 +214,20 @@
 /* Artist Grid */
 .artist-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: var(--spacing-lg);
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-xl);
     margin-bottom: var(--spacing-xl);
 }
 
 .artist-card {
     background: var(--card-bg);
-    border-radius: var(--border-radius-lg);
+    border-radius: var(--border-radius);
     overflow: hidden;
     border: 1px solid var(--border);
-    box-shadow: var(--shadow);
     transition: all var(--transition-normal);
-    text-decoration: none;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
 }
 
 .artist-card:hover {
@@ -235,41 +236,58 @@
     border-color: var(--accent);
 }
 
-.artist-card a {
-    color: inherit;
+.artist-link {
     text-decoration: none;
+    color: inherit;
     display: block;
     height: 100%;
 }
 
+.artist-image-container {
+    position: relative;
+    width: 100%;
+    height: 250px;
+    overflow: hidden;
+    background: var(--secondary-bg);
+}
+
 .artist-image {
     width: 100%;
-    height: 200px;
+    height: 100%;
     object-fit: cover;
-    display: block;
+    transition: transform var(--transition-normal);
+}
+
+.artist-card:hover .artist-image {
+    transform: scale(1.05);
 }
 
 .artist-info {
-    padding: var(--spacing-md);
+    padding: var(--card-padding);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
-.artist-info h3 {
-    margin: 0 0 var(--spacing-sm) 0;
-    font-size: 1.2rem;
+.artist-name {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: 1.3rem;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text);
+    line-height: 1.3;
 }
 
-.artist-info p {
-    margin: 0 0 var(--spacing-xs) 0;
-    color: var(--text-secondary);
-    font-size: 0.9rem;
+.artist-details {
+    margin: calc(var(--spacing-sm) / 2) 0;
+    font-size: 0.95rem;
+    color: var(--muted);
 }
 
-.members-count {
-    color: var(--accent);
-    font-weight: 500;
-    margin: 0;
+.artist-countries {
+    margin: calc(var(--spacing-sm) / 2) 0 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
 }
 
 .view-all {

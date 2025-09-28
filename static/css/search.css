@@ -79,57 +79,74 @@
 }
 
 .artist-card {
-    border: 1px solid var(--border);
+    background: var(--card-bg);
     border-radius: var(--border-radius);
     overflow: hidden;
-    transition: box-shadow var(--transition-fast);
+    border: 1px solid var(--border);
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
 }
 
 .artist-card:hover {
-    box-shadow: var(--shadow-md);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--accent);
 }
 
 .artist-link {
-    display: block;
     text-decoration: none;
     color: inherit;
+    display: block;
+    height: 100%;
 }
 
 .artist-image-container {
     position: relative;
-    padding-bottom: 60%;
+    width: 100%;
+    height: 250px;
     overflow: hidden;
+    background: var(--secondary-bg);
 }
 
 .artist-image {
-    position: absolute;
-    top: 0;
-    left: 0;
     width: 100%;
     height: 100%;
     object-fit: cover;
+    transition: transform var(--transition-normal);
+}
+
+.artist-card:hover .artist-image {
+    transform: scale(1.05);
 }
 
 .artist-info {
-    padding: 15px;
+    padding: var(--card-padding);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
 }
 
 .artist-name {
-    margin: 0 0 8px 0;
-    font-size: 1.2em;
-    color: var(--accent);
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.3;
 }
 
 .artist-details {
-    margin: 0 0 8px 0;
-    color: var(--text-secondary);
-    font-size: 0.9em;
+    margin: calc(var(--spacing-sm) / 2) 0;
+    font-size: 0.95rem;
+    color: var(--muted);
 }
 
 .artist-countries {
-    margin: 0;
-    color: #888;
-    font-size: 0.8em;
+    margin: calc(var(--spacing-sm) / 2) 0 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
 }
 
 .no-results {

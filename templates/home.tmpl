@@ -32,12 +32,22 @@
                 {{range $index, $artist := .Artists}}
                 {{if lt $index 8}}
                 <div class="artist-card">
-                    <a href="/artists/{{$artist.Slug}}">
-                        <img src="{{$artist.Image}}" alt="{{$artist.Name}}" class="artist-image">
+                    <a href="/artists/{{$artist.Slug}}" class="artist-link">
+                        <div class="artist-image-container">
+                            <img src="{{$artist.Image}}" alt="{{$artist.Name}}" class="artist-image">
+                        </div>
                         <div class="artist-info">
-                            <h3>{{$artist.Name}}</h3>
-                            <p>{{$artist.CreationYear}}</p>
-                            <p class="members-count">{{len $artist.Members}} members</p>
+                            <h3 class="artist-name">{{$artist.Name}}</h3>
+                            <p class="artist-details">
+                                {{len $artist.Members}} member{{if ne (len $artist.Members) 1}}s{{end}} • 
+                                Founded {{$artist.CreationYear}} • 
+                                {{$artist.ConcertCount}} concert{{if ne $artist.ConcertCount 1}}s{{end}}
+                            </p>
+                            {{if $artist.Countries}}
+                            <p class="artist-countries">
+                                Performed in: {{join $artist.Countries ", "}}
+                            </p>
+                            {{end}}
                         </div>
                     </a>
                 </div>

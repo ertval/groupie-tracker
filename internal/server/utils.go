@@ -305,3 +305,22 @@ func parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
 
 	return params
 }
+
+// extractSearchTerm extracts the actual search term from datalist suggestion format.
+// Converts "Artist Name - artist" or "Member Name - member" back to "Artist Name" or "Member Name"
+// for proper search processing. Returns the original string if no pattern is found.
+func extractSearchTerm(input string) string {
+	if input == "" {
+		return input
+	}
+	
+	// Check if input matches datalist format "term - type"
+	if lastDash := strings.LastIndex(input, " - "); lastDash != -1 {
+		term := strings.TrimSpace(input[:lastDash])
+		if term != "" {
+			return term
+		}
+	}
+	
+	return input
+}

@@ -25,7 +25,15 @@
                            name="q" 
                            placeholder="Quick search..." 
                            class="navbar-search-input"
+                           {{if .Suggestions}}list="quick-search-suggestions"{{end}}
                            autocomplete="off">
+                    {{if .Suggestions}}
+                    <datalist id="quick-search-suggestions">
+                        {{range .Suggestions}}
+                        <option value="{{.Text}}" label="{{.Description}}"></option>
+                        {{end}}
+                    </datalist>
+                    {{end}}
                     <button type="submit" class="navbar-search-btn">🔍</button>
                 </div>
             </form>
