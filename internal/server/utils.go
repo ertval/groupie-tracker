@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 )
@@ -140,6 +141,16 @@ func loadTemplates() {
 				}
 			}
 			return false
+		},
+		"hasField": func(obj interface{}, fieldName string) bool {
+			v := reflect.ValueOf(obj)
+			if v.Kind() == reflect.Ptr {
+				v = v.Elem()
+			}
+			if v.Kind() != reflect.Struct {
+				return false
+			}
+			return v.FieldByName(fieldName).IsValid()
 		},
 	}
 
@@ -313,7 +324,7 @@ func extractSearchTerm(input string) string {
 	if input == "" {
 		return input
 	}
-	
+
 	// Check if input matches datalist format "term - type"
 	if lastDash := strings.LastIndex(input, " - "); lastDash != -1 {
 		term := strings.TrimSpace(input[:lastDash])
@@ -321,6 +332,6 @@ func extractSearchTerm(input string) string {
 			return term
 		}
 	}
-	
+
 	return input
 }

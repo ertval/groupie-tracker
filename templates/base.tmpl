@@ -25,15 +25,15 @@
                            name="q" 
                            placeholder="Quick search..." 
                            class="navbar-search-input"
-                           {{if .Suggestions}}list="quick-search-suggestions"{{end}}
+                           {{if hasField . "Suggestions"}}{{if .Suggestions}}list="quick-search-suggestions"{{end}}{{end}}
                            autocomplete="off">
-                    {{if .Suggestions}}
+                    {{if hasField . "Suggestions"}}{{if .Suggestions}}
                     <datalist id="quick-search-suggestions">
                         {{range .Suggestions}}
                         <option value="{{.Text}}" label="{{.Description}}"></option>
                         {{end}}
                     </datalist>
-                    {{end}}
+                    {{end}}{{end}}
                     <button type="submit" class="navbar-search-btn">🔍</button>
                 </div>
             </form>

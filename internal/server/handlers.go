@@ -212,7 +212,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	filterOptions := repo.GetArtistFilterOptions()
-	
+
 	// Generate all search suggestions for datalist
 	allSuggestions := repo.GenerateAllSearchSuggestions()
 
