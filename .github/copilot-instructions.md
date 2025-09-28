@@ -1,7 +1,7 @@
 # Groupie Tracker - AI Coding Agent Instructions
 
 ## Project Overview
-An educational Go web application consuming the Groupie Trackers API to display band/artist information. Built with strict TDD principles, Go standard library only, and audit requirements. **Features comprehensive server-side filtering with HTML forms (no JavaScript dependencies).**
+An educational Go web application consuming the Groupie Trackers API to display band/artist information. Built with strict TDD principles, Go standard library only, and audit requirements. **Features comprehensive server-side filtering and search functionality with HTML forms (no JavaScript dependencies).**
 
 ## Key Constraints & Commands
 
@@ -17,7 +17,7 @@ An educational Go web application consuming the Groupie Trackers API to display 
 go run ./cmd/cli/             # Start server (streamlined entry point, default PORT=8080)
 go test ./internal/...        # Run internal tests (clean, all passing)  
 go test ./tests/...           # Run audit/e2e tests (functional but with package issues)
-go test -cover ./internal/... # Coverage: ~82% overall (data: 88.9%, handlers: 79.7%)
+go test -cover ./internal/... # Coverage: ~85% overall (data: 91.2%, handlers: 79.7%)
 go build -o groupie-tracker ./cmd/cli
 ```
 
@@ -31,12 +31,14 @@ cmd/cli/                     # Streamlined entry point
 internal/
   ├── config/
   │   └── config.go          # Centralized global config (no constructor params)
-  ├── data/                  # Core domain layer with filtering
+  ├── data/                  # Core domain layer with filtering and search
   │   ├── repository.go      # Single data load with thread-safe access
-  │   ├── models.go          # Domain models + FilterParams/FilterOptions  
+  │   ├── models.go          # Domain models + FilterParams/SearchParams  
   │   ├── filters.go         # Server-side filter logic (HTML form processing)
+  │   ├── search.go          # Comprehensive search functionality (TDD-built)
   │   ├── filter_test.go     # Filter unit tests (18 tests)
-  │   └── repository_test.go # Repository tests (88.9% coverage)
+  │   ├── search_test.go     # Search unit tests (30+ tests)
+  │   └── repository_test.go # Repository tests (91.2% coverage)
   └── server/                # HTTP layer (renamed from handlers/)
       ├── server.go          # Package-level server initialization with global variables
       ├── handlers.go        # All endpoints + filter form processing (package-level functions)
@@ -58,6 +60,7 @@ tests/                      # Audit tests (functional but with package issues)
 - **Thread-safe reads**: All repository methods are read-only after initial load
 - **Template inheritance**: Uses `{{define "base"}}` and `{{template "body" .}}` pattern
 - **Server-side filtering**: HTML forms with POST to `/artists` (no JavaScript/AJAX)
+- **Comprehensive search system**: Multi-type search with typed suggestions via `/search` and `/api/suggestions`
 - **In-memory indexes**: SEO slugs, location mappings, filter options precomputed
 
 ### Repository Pattern (September 2025)
@@ -77,6 +80,10 @@ stats := repo.GetStats()  // Precomputed statistics
 // Server-side filtering with HTML form data processing
 filterOptions := repo.GetFilterOptions()  // Min/max bounds for form validation
 filteredArtists := repo.FilterArtists(filterParams)  // Apply filter criteria from form
+
+// Search functionality with typed suggestions
+suggestions := repo.GenerateSearchSuggestions(query)  // Real-time search suggestions
+searchResults := repo.SearchArtists(searchParams)     // Comprehensive search across all data types
 ```
 
 ### Package-Level Server Pattern (Updated September 2025)
@@ -187,6 +194,99 @@ func Artists(w http.ResponseWriter, r *http.Request) {
 </form>
 ```
 
+## Search System Architecture (Server-Side HTML Forms)
+
+### Search Data Structures (`internal/data/models.go`)
+```go
+// Search suggestion types for categorization
+type SearchSuggestionType string
+const (
+    SuggestionTypeArtist     SearchSuggestionType = "artist"      // Artist/band name
+    SuggestionTypeMember     SearchSuggestionType = "member"      // Band member name  
+    SuggestionTypeLocation   SearchSuggestionType = "location"    // Concert location
+    SuggestionTypeFirstAlbum SearchSuggestionType = "first-album" // First album date
+    SuggestionTypeCreation   SearchSuggestionType = "creation"    // Band creation date
+)
+
+// Individual search suggestion with metadata
+type SearchSuggestion struct {
+    Text        string               `json:"text"`        // Display text
+    Type        SearchSuggestionType `json:"type"`        // Category for UI grouping
+    Description string               `json:"description"` // Context ("Freddie Mercury - member of Queen")
+    URL         string               `json:"url"`         // Direct navigation link
+    ArtistID    int                 `json:"artistId"`    // Related artist for context
+}
+
+// Search parameters from HTML form submission
+type SearchParams struct {
+    Query   string            `json:"query"`   // User search input
+    Filters ArtistFilterParams `json:"filters"` // Combined with existing filters
+}
+
+// Complete search results with metadata
+type SearchResult struct {
+    Artists      []Artist `json:"artists"`      // Matching artist records
+    Query        string   `json:"query"`        // Original search query
+    TotalResults int      `json:"totalResults"` // Count for pagination/stats
+}
+```
+
+### Search Logic (`internal/data/search.go`)
+```go
+// Multi-type search across all data categories
+func (r *Repository) SearchArtists(params SearchParams) SearchResult {
+    // Searches artist names, member names, locations, creation years, album dates
+    // Integrates with existing filter system for advanced queries
+    // Returns comprehensive results with metadata
+}
+
+// Real-time search suggestions with type categorization
+func (r *Repository) GenerateSearchSuggestions(query string) []SearchSuggestion {
+    // Case-insensitive matching across all searchable data
+    // Categorizes results by type (artist, member, location, etc.)
+    // Limits to 10 suggestions to prevent UI overwhelming
+    // Deduplicates to avoid showing same content multiple times
+}
+
+// Helper: Case-insensitive search query normalization
+func normalizeSearchQuery(query string) string
+func matchesSearchQuery(artist Artist, query string) bool
+```
+
+### Search Endpoints (`internal/server/handlers.go`)
+```go
+// GET/POST /search - Main search page with form processing  
+func Search(w http.ResponseWriter, r *http.Request) {
+    // Handles search form submission (POST) and displays results
+    // Integrates with filter system for advanced search + filter combinations
+    // No JSON API endpoints - all server-side rendering
+}
+
+// GET /api/suggestions - JSON API for search suggestions
+func SearchSuggestions(w http.ResponseWriter, r *http.Request) {
+    // Returns typed suggestions as JSON for potential AJAX integration
+    // Currently used for testing - main search is server-side only
+}
+```
+
+### Search UI Components (`templates/search.tmpl`)
+```go
+// HTML form with server-side submission
+<form method="POST" action="/search">
+    <input type="text" name="q" placeholder="Search artists, members, locations..." 
+           value="{{.Query}}" autofocus>
+    <button type="submit">Search</button>
+</form>
+
+// Results display with type indicators
+{{range .Results.Artists}}
+<div class="search-result">
+    <h3><a href="/artists/{{.Slug}}">{{.Name}}</a></h3>
+    <p>{{len .Members}} members • {{.CreationYear}} • {{len .Concerts}} concerts</p>
+</div>
+{{end}}
+```
+
 ## Critical Data Flow Patterns
 
 ### Centralized Configuration Pattern
@@ -283,27 +383,33 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 - `GET /artists/{slug}` (artist detail via SEO slug)
 - `GET /locations` (all locations)
 - `GET /locations/{slug}` (location detail)
+- `GET /search` (search page with form)
+- `POST /search` (search form submission - server-side processing)
+- `GET /api/suggestions` (JSON search suggestions API)
 - `GET /health` (JSON health check)
 
 ## Current Status (September 2025)
 
 **✅ Recently Completed:**
+- **Major Search System Implementation** - comprehensive multi-type search with suggestions API, case-insensitive matching across artists, members, locations, and dates
+- **Enhanced Search Integration** - search combines with existing filter system for advanced queries, server-side form processing
 - **Major Filter System Implementation** - server-side form processing for year filtering, checkbox grids for member counts and countries
-- **Restructured Architecture** - moved from cmd/server/ to cmd/cli/, renamed handlers/ to server/, added filters.go
+- **Restructured Architecture** - moved from cmd/server/ to cmd/cli/, renamed handlers/ to server/, added filters.go and search.go
 - **Enhanced Server Layer** - form processing endpoints with proper error handling and validation
-- **Template Enhancement** - artists.tmpl updated with comprehensive filter UI components using native HTML controls
-- **Improved Test Coverage** - repository tests 88.9%, handlers 79.7%, overall ~82%
-- **Thread-safe Operations** - all filter operations work with read-only repository after initial load
+- **Template Enhancement** - artists.tmpl updated with comprehensive filter UI components, search.tmpl with result display
+- **Improved Test Coverage** - repository tests 91.2%, handlers 79.7%, overall ~85% with comprehensive search tests (30+ test cases)
+- **Thread-safe Operations** - all filter and search operations work with read-only repository after initial load
 
 **🔧 Current Architecture:**
 - Package-level server functions pattern instead of App struct 
 - Repository and templates stored as global variables following config pattern
-- Filter system as separate filters.go module with dedicated logic
-- Server-side form processing with POST requests to `/artists`
-- HTML form controls (number inputs, checkboxes) for filtering
-- Template inheritance system enhanced with filter components
+- Filter and search systems as separate modules (filters.go, search.go) with dedicated logic
+- Server-side form processing with POST requests to `/artists` and `/search`
+- HTML form controls (number inputs, checkboxes, text search) for filtering and searching
+- Template inheritance system enhanced with filter and search components
 - SEO-friendly URL slugs (/artists/queen vs /artists/28)
 - Self-contained error handling with graceful template fallbacks
+- JSON API endpoints for search suggestions while maintaining server-side rendering as primary
 
 ## Development Workflow
 
@@ -316,19 +422,23 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 **File Reading Priority:**
 1. `internal/data/repository.go` (core data management)
 2. `internal/data/filters.go` (filter logic and bounds calculation)
-3. `internal/config/config.go` (centralized configuration)
-4. `internal/server/handlers.go` (HTTP layer patterns + filter form processing)
-5. `internal/server/server.go` (startup and package-level initialization)
-6. `templates/artists.tmpl` (filter UI components)
-7. Test files for current usage patterns
+3. `internal/data/search.go` (search functionality and suggestions)
+4. `internal/config/config.go` (centralized configuration)
+5. `internal/server/handlers.go` (HTTP layer patterns + form processing)
+6. `internal/server/server.go` (startup and package-level initialization)
+7. `templates/artists.tmpl` (filter UI components)
+8. `templates/search.tmpl` (search interface and results)
+9. Test files for current usage patterns
 
 **Testing Strategy:**
 - Use `go test ./internal/...` for clean test runs
 - All tests use audit-compliant data (Queen=7 members, Gorillaz="26-03-2001")
 - Test repository methods with mock data where needed  
 - Test filter functionality with various parameter combinations
+- Test search functionality across all data types (artists, members, locations, dates)
 - Override config variables in tests rather than passing parameters
 - Ensure server-side form processing works correctly
 - Test filter UI with different parameter combinations
 - Validate checkbox filter logic with multiple selections
+- Test search suggestions API and query normalization
 - Ensure no regression in audit requirements
