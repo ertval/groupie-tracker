@@ -174,7 +174,7 @@ func getPort() string {
 
 // --- Form Data Processing ---
 
-// parseFilterParams extracts and validates artist filter parameters from HTML form submission.
+// parseArtistFilterParams extracts and validates artist filter parameters from HTML form submission.
 //
 // Converts form values into structured filter parameters with proper type handling:
 //   - Year ranges: converted to integers with nil for empty values
@@ -185,7 +185,7 @@ func getPort() string {
 // that need conversion to appropriate Go types for the business logic layer.
 //
 // Returns a populated ArtistFilterParams struct ready for use with repository filtering.
-func parseFilterParams(r *http.Request) data.ArtistFilterParams {
+func parseArtistFilterParams(r *http.Request) data.ArtistFilterParams {
 	var params data.ArtistFilterParams
 
 	// Parse creation year range - use pointers to distinguish between 0 and unset

@@ -69,7 +69,7 @@ func Artists(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		appliedFilters = parseFilterParams(r)
+		appliedFilters = parseArtistFilterParams(r)
 		artists = repo.FilterArtists(appliedFilters)
 	}
 

@@ -795,7 +795,7 @@ func TestParseFilterParams(t *testing.T) {
 			req := httptest.NewRequest("POST", "/artists", nil)
 			req.Form = tt.formData
 
-			got := parseFilterParams(req)
+			got := parseArtistFilterParams(req)
 
 			// Compare basic fields
 			if !equalIntPtr(got.CreationYearFrom, tt.want.CreationYearFrom) {
