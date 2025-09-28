@@ -219,7 +219,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		IsSearch       bool
 	}{
 		Title:          "Search",
-		ExtraCSS:       "artists.css",
+		ExtraCSS:       "search.css",
 		ExtraJS:        "",
 		Query:          searchQuery,
 		Results:        searchResults,
