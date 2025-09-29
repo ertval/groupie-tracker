@@ -2,24 +2,22 @@
 package main
 
 import (
-	"fmt"
 	"log"
-	"net/http"
 
-	"groupie-tracker/internal/server"
+	"groupie-tracker/internal/data"
 )
 
 func main() {
-	log.Println("Starting Groupie Tracker server...")
-
-	server, err := server.NewServer()
-	if err != nil {
-		log.Fatalf("Failed to create server: %v", err)
+	// Initialize server with data loading and caching
+	if err := data.InitializeServer(); err != nil {
+		log.Fatalf("Failed to initialize server: %v", err)
 	}
 
-	// Start server (blocking)
-	err = server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Server failed to start: %v", fmt.Errorf("server failed to start: %w", err))
+	// Create and start HTTP server
+	server := data.CreateServer()
+	
+	log.Printf("Server starting on %s", server.Addr)
+	if err := server.ListenAndServe(); err != nil {
+		log.Fatalf("Server failed: %v", err)
 	}
 }

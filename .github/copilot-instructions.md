@@ -14,8 +14,8 @@ Go web application consuming the Groupie Trackers API to display band/artist inf
 
 **Quick Commands:**
 ```bash
-go run ./cmd/cli/             # Start server (streamlined entry point, default PORT=8080)
-go test ./internal/data       # Run data tests (current coverage: 69.8%)
+go run ./cmd/cli/             # Start server (streamlined entry point, default PORT=8082)
+go test ./internal/data       # Run data tests (current coverage: 65.5%)
 go test ./internal/...        # Run internal tests (some integration test issues being resolved)
 go test ./tests/...           # Run audit/e2e tests (functional but with package issues)
 go test -cover ./internal/data # Get detailed data package coverage report
@@ -24,7 +24,7 @@ go build -o groupie-tracker ./cmd/cli
 
 ## Current Architecture
 
-### Clean Architecture with Server-Side Processing
+### Dependency Injection with Server Struct
 ```
 cmd/cli/                     # Streamlined entry point with simple main.go
 internal/
@@ -37,8 +37,8 @@ internal/
   │   ├── search.go          # Multi-type search with typed suggestions
   │   └── *_test.go          # Comprehensive test coverage
   └── server/                # HTTP layer
-      ├── server.go          # Package-level initialization with global variables
-      ├── handlers.go        # All endpoints as package-level functions
+      ├── server.go          # Server struct with dependency injection
+      ├── handlers.go        # All endpoints as Server methods  
       ├── routes.go          # HTTP routing and middleware
       ├── middleware.go      # Panic recovery, logging, security
       └── utils.go           # Template utilities and helpers
@@ -49,27 +49,43 @@ tests/                       # Audit compliance tests
 
 ### Critical Architecture Patterns
 
-**Global State Pattern**: Repository and templates stored as package-level variables in server package
+**Dependency Injection Pattern**: Server struct encapsulates all dependencies with cached computations
 ```go
-var (
-    repo      *data.Repository              // Global data access
-    templates map[string]*template.Template // Pre-compiled templates
-)
+type Server struct {
+    repo               *data.Repository            // Direct repository access
+    templates          map[string]*template.Template // Pre-compiled templates
+    suggestions        []data.SearchSuggestion    // Cached search suggestions
+    artistFilterOpts   data.ArtistFilterOptions   // Cached filter options
+    locationFilterOpts data.LocationFilterOptions
+    searchCache        map[string][]data.Artist   // Lightweight query cache
+    httpServer         *http.Server               // HTTP server instance
+    Handler            http.Handler               // Exposed for tests
+}
 ```
 
 **Repository Pattern**: Load once, read many times (thread-safe after LoadData)
 ```go
-repo := data.NewRepository()  // No constructor parameters - reads config internally
-if err := repo.LoadData(ctx); err != nil { /* handle error */ }
-artists := repo.GetArtists()             // Thread-safe read operations
-filteredArtists := repo.FilterArtists(filterParams)  // Server-side filtering
+server := &Server{}
+server.repo = data.NewRepository()  // No constructor parameters - reads config internally
+if err := server.repo.LoadData(ctx); err != nil { /* handle error */ }
+artists := server.repo.GetArtists()             // Thread-safe read operations
+filteredArtists := server.repo.FilterArtists(filterParams)  // Server-side filtering
 ```
 
 **Configuration Pattern**: All config managed through `internal/config` package variables
 ```go
 config.WithCache = false              // Image caching toggle
 config.APIBaseURL = "https://..."     // Override in tests as needed
-config.DefaultPort = ":8080"
+config.DefaultPort = ":8082"          // Default server port
+```
+
+**Performance Optimization Pattern**: Pre-computed caches for expensive operations
+```go
+func (s *Server) initializeCaches() {
+    s.suggestions = s.repo.GenerateAllSearchSuggestions()    // Cache suggestions
+    s.artistFilterOpts = s.repo.GetArtistFilterOptions()     // Cache filter bounds
+    s.searchCache = make(map[string][]data.Artist)           // Query result cache
+}
 ```
 
 ## Server-Side Filter & Search System
@@ -116,12 +132,12 @@ type SearchSuggestion struct {
 
 ### Critical Form Processing Pattern
 ```go
-// POST /artists and POST /search - Server-side form processing
-func Artists(w http.ResponseWriter, r *http.Request) {
+// POST /artists and POST /search - Server-side form processing (Server methods)
+func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         // Parse FilterParams from HTML form data
-        filterParams := parseFilterParams(r)  // Uses r.FormValue() internally
-        filteredArtists := repo.FilterArtists(filterParams)
+        filterParams := s.parseFilterParams(r)  // Uses r.FormValue() internally
+        filteredArtists := s.repo.FilterArtists(filterParams)
         // Render same template with filtered results
     }
     // GET request shows all artists with empty filter form
@@ -167,7 +183,7 @@ data := struct {
 - Uses `{{define "base"}}` wrapper with `{{template "body" .}}` content blocks
 - Template data uses inline struct patterns for type safety
 - Custom functions: `hasField`, `contains`, `add`, `sub`, `join`
-- Templates precompiled at startup, accessed via global `templates` variable
+- Templates precompiled at startup, accessed via Server.templates map
 
 ## Audit Requirements (Test Against These)
 
