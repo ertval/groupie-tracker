@@ -4,22 +4,28 @@
 <div class="page artist-detail">
     <header class="page-header">
         <div class="artist-header">
-            <div class="artist-image-large">
-                <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-image">
-            </div>
-            <div class="artist-basic-info">
-                <h1 class="gradient-text">{{.Artist.Name}}</h1>
-                <div class="artist-meta">
-                    <p><strong>Creation Year:</strong> {{.Artist.CreationYear}}</p>
-                    <p><strong>First Album:</strong> {{.Artist.FirstAlbum}}</p>
-                    <p><strong>Members:</strong> {{len .Artist.Members}}</p>
+            <div class="artist-info-grid">
+                <div class="artist-info-column">
+                    <div class="artist-image-large">
+                        <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-image">
+                    </div>
+                    <div class="artist-basic-info">
+                        <h1 class="gradient-text">{{.Artist.Name}}</h1>
+                        <div class="artist-meta">
+                            <p><strong>Creation Year:</strong> {{.Artist.CreationYear}}</p>
+                            <p><strong>First Album:</strong> {{.Artist.FirstAlbum}}</p>
+                            <p><strong>Members:</strong> {{len .Artist.Members}}</p>
+                        </div>
+                    </div>
                 </div>
-                <div class="artist-members">
-                    <h3>Band Members</h3>
-                    <div class="members-list">
-                        {{range $index, $member := .Artist.Members}}
-                        <span class="member-item">{{.}}</span>{{if lt $index (sub (len $.Artist.Members) 1)}}, {{end}}
-                        {{end}}
+                <div class="artist-members-column">
+                    <div class="artist-members">
+                        <h3>Band Members</h3>
+                        <div class="members-list">
+                            {{range $index, $member := .Artist.Members}}
+                            <span class="member-item">{{.}}</span>{{if lt $index (sub (len $.Artist.Members) 1)}}, {{end}}
+                            {{end}}
+                        </div>
                     </div>
                 </div>
             </div>

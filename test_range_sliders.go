@@ -31,7 +31,7 @@ func main() {
 	if resp.StatusCode == 200 {
 		body, _ := io.ReadAll(resp.Body)
 		bodyStr := string(body)
-		
+
 		// Check if the response contains filter-related content
 		if strings.Contains(bodyStr, "creation year") || strings.Contains(bodyStr, "Creation Year") {
 			fmt.Println("✅ Range slider filter form processing works!")
