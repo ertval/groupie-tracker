@@ -335,7 +335,7 @@
 /* Artists Grid */
 .artists-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
     gap: var(--spacing-xl);
     margin-bottom: calc(var(--spacing-xl) * 1.5);
 }

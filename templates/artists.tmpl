@@ -144,19 +144,19 @@
                 </details>
 
                 <!-- Artists Grid -->
-                <section class=\"artists-grid\" id=\"artists-grid\">
+                <section class="artists-grid" id="artists-grid">
                     {{if .Artists}}
                     {{range .Artists}}
-                    <div class=\"artist-card\" data-year=\"{{.CreationYear}}\" data-name=\"{{.Name}}\" 
-                         data-members=\"{{len .Members}}\" data-first-album=\"{{.FirstAlbum}}\"
-                         data-locations=\"{{range .Concerts}}{{.Location}} {{end}}\">
-                        <a href=\"/artists/{{.Slug}}\" class=\"artist-link\">
-                            <div class=\"artist-image-container\">
-                                <img src=\"{{.Image}}\" alt=\"{{.Name}}\" class=\"artist-image\">
+                    <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}" 
+                         data-members="{{len .Members}}" data-first-album="{{.FirstAlbum}}"
+                         data-locations="{{range .Concerts}}{{.Location}} {{end}}">
+                        <a href="/artists/{{.Slug}}" class="artist-link">
+                            <div class="artist-image-container">
+                                <img src="{{.Image}}" alt="{{.Name}}" class="artist-image">
                             </div>
-                            <div class=\"artist-info\">
-                                <h3 class=\"artist-name\">{{.Name}}</h3>
-                                <p class=\"artist-details\">
+                            <div class="artist-info">
+                                <h3 class="artist-name">{{.Name}}</h3>
+                                <p class="artist-details">
                                     {{len .Members}} member{{if ne (len .Members) 1}}s{{end}} • 
                                     Founded {{.CreationYear}} • 
                                     {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}}
@@ -171,10 +171,10 @@
                     </div>
                     {{end}}
                     {{else}}
-                    <div class=\"no-results\">
+                    <div class="no-results">
                         <h3>No artists found</h3>
                         <p>Try adjusting your search criteria or filters.</p>
-                        <a href=\"/artists\" class=\"btn btn-primary\">Show All Artists</a>
+                        <a href="/artists" class="btn btn-primary">Show All Artists</a>
                     </div>
                     {{end}}
                 </section>
