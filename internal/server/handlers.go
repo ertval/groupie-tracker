@@ -22,24 +22,17 @@ func Home(w http.ResponseWriter, r *http.Request) {
 
 	artists := repo.GetArtists()
 	stats := repo.GetStats()
-	suggestions := repo.GenerateAllSearchSuggestions()
 
 	data := struct {
-		Title          string
-		ExtraCSS       string
-		ExtraJS        string
+		BaseTemplateData
 		Artists        []data.Artist
 		TotalMembers   int
 		TotalLocations int
-		Suggestions    []data.SearchSuggestion
 	}{
-		Title:          "Home",
-		ExtraCSS:       "home.css",
-		ExtraJS:        "",
-		Artists:        artists,
-		TotalMembers:   stats["total_members"],
-		TotalLocations: stats["total_locations"],
-		Suggestions:    suggestions,
+		BaseTemplateData: NewBaseTemplateData("Home", "home.css"),
+		Artists:          artists,
+		TotalMembers:     stats["total_members"],
+		TotalLocations:   stats["total_locations"],
 	}
 
 	render(w, r, "home.tmpl", data)
@@ -47,13 +40,6 @@ func Home(w http.ResponseWriter, r *http.Request) {
 
 // Artists handles the artists listing page.
 func Artists(w http.ResponseWriter, r *http.Request) {
-	// Allow both GET and POST requests
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		w.Header().Set("Allow", "GET, POST")
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Validate path for both GET and POST
 	if r.URL.Path != "/artists" {
 		Error(w, r, http.StatusNotFound, "Page not found")
@@ -82,25 +68,19 @@ func Artists(w http.ResponseWriter, r *http.Request) {
 	})
 
 	data := struct {
-		Title          string
-		ExtraCSS       string
-		ExtraJS        string
+		BaseTemplateData
 		Artists        []data.Artist
 		FilterOptions  data.ArtistFilterOptions
 		AppliedFilters data.ArtistFilterParams
 		IsFiltered     bool
 		TotalArtists   int
-		Suggestions    []data.SearchSuggestion
 	}{
-		Title:          "Artists",
-		ExtraCSS:       "artists.css",
-		ExtraJS:        "",
-		Artists:        artists,
-		FilterOptions:  filterOptions,
-		AppliedFilters: appliedFilters,
-		IsFiltered:     r.Method == http.MethodPost,
-		TotalArtists:   totalArtists,
-		Suggestions:    repo.GenerateAllSearchSuggestions(),
+		BaseTemplateData: NewBaseTemplateData("Artists", "artists.css"),
+		Artists:          artists,
+		FilterOptions:    filterOptions,
+		AppliedFilters:   appliedFilters,
+		IsFiltered:       r.Method == http.MethodPost,
+		TotalArtists:     totalArtists,
 	}
 
 	render(w, r, "artists.tmpl", data)
@@ -108,11 +88,6 @@ func Artists(w http.ResponseWriter, r *http.Request) {
 
 // ArtistDetail handles individual artist pages.
 func ArtistDetail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
 		Error(w, r, http.StatusNotFound, "Page not found")
@@ -145,21 +120,15 @@ func ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title       string
-		ExtraCSS    string
-		ExtraJS     string
-		Artist      data.Artist
-		PrevArtist  *data.Artist
-		NextArtist  *data.Artist
-		Suggestions []data.SearchSuggestion
+		BaseTemplateData
+		Artist     data.Artist
+		PrevArtist *data.Artist
+		NextArtist *data.Artist
 	}{
-		Title:       artist.Name,
-		ExtraCSS:    "artist_detail.css",
-		ExtraJS:     "",
-		Artist:      artist,
-		PrevArtist:  prevArtist,
-		NextArtist:  nextArtist,
-		Suggestions: repo.GenerateAllSearchSuggestions(),
+		BaseTemplateData: NewBaseTemplateData(artist.Name, "artist_detail.css"),
+		Artist:           artist,
+		PrevArtist:       prevArtist,
+		NextArtist:       nextArtist,
 	}
 
 	render(w, r, "artist_detail.tmpl", data)
@@ -167,12 +136,6 @@ func ArtistDetail(w http.ResponseWriter, r *http.Request) {
 
 // Search handles search requests for artists.
 func Search(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		w.Header().Set("Allow", "GET, POST")
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Validate path
 	if r.URL.Path != "/search" {
 		Error(w, r, http.StatusNotFound, "Page not found")
@@ -209,41 +172,32 @@ func Search(w http.ResponseWriter, r *http.Request) {
 	allSuggestions := repo.GenerateAllSearchSuggestions()
 
 	data := struct {
-		Title          string
-		ExtraCSS       string
-		ExtraJS        string
+		BaseTemplateData
 		Query          string
 		Results        data.SearchResult
 		FilterOptions  data.ArtistFilterOptions
 		AppliedFilters data.ArtistFilterParams
 		IsSearch       bool
-		Suggestions    []data.SearchSuggestion
 	}{
-		Title:          "Search",
-		ExtraCSS:       "search.css",
-		ExtraJS:        "",
+		BaseTemplateData: BaseTemplateData{
+			Title:       "Search",
+			ExtraCSS:    "search.css",
+			ExtraJS:     "",
+			Suggestions: allSuggestions,
+		},
 		Query:          searchQuery,
 		Results:        searchResults,
 		FilterOptions:  filterOptions,
 		AppliedFilters: appliedFilters,
 		IsSearch:       r.Method == http.MethodPost && searchQuery != "",
-		Suggestions:    allSuggestions,
 	}
 
 	render(w, r, "search.tmpl", data)
 }
 
 
-	
 // Locations handles the locations listing page.
 func Locations(w http.ResponseWriter, r *http.Request) {
-	// Allow both GET and POST requests
-	if r.Method != http.MethodGet && r.Method != http.MethodPost {
-		w.Header().Set("Allow", "GET, POST")
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	// Validate path for both GET and POST
 	if r.URL.Path != "/locations" {
 		Error(w, r, http.StatusNotFound, "Page not found")
@@ -288,9 +242,7 @@ func Locations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title                 string
-		ExtraCSS              string
-		ExtraJS               string
+		BaseTemplateData
 		Locations             []data.Location
 		LocationFilterOptions data.LocationFilterOptions
 		AppliedFilters        data.LocationFilterParams
@@ -299,11 +251,8 @@ func Locations(w http.ResponseWriter, r *http.Request) {
 		TotalLocations        int
 		TotalCountries        int
 		TotalConcerts         int
-		Suggestions           []data.SearchSuggestion
 	}{
-		Title:                 "Locations",
-		ExtraCSS:              "locations.css",
-		ExtraJS:               "",
+		BaseTemplateData:      NewBaseTemplateData("Locations", "locations.css"),
 		Locations:             locations,
 		LocationFilterOptions: filterOptions,
 		AppliedFilters:        appliedFilters,
@@ -312,7 +261,6 @@ func Locations(w http.ResponseWriter, r *http.Request) {
 		TotalLocations:        totalLocations,
 		TotalCountries:        stats["total_countries"],
 		TotalConcerts:         stats["total_concerts"],
-		Suggestions:           repo.GenerateAllSearchSuggestions(),
 	}
 
 	render(w, r, "locations.tmpl", data)
@@ -320,11 +268,6 @@ func Locations(w http.ResponseWriter, r *http.Request) {
 
 // LocationDetail handles individual location pages.
 func LocationDetail(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	slug := strings.TrimPrefix(r.URL.Path, "/locations/")
 	if slug == "" {
 		Error(w, r, http.StatusNotFound, "Page not found")
@@ -338,23 +281,17 @@ func LocationDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title        string
-		ExtraCSS     string
-		ExtraJS      string
+		BaseTemplateData
 		Location     data.Location
 		Artists      []data.ArtistAtLocation
 		PrevLocation *data.Location `json:"prevLocation,omitempty"`
 		NextLocation *data.Location `json:"nextLocation,omitempty"`
-		Suggestions  []data.SearchSuggestion
 	}{
-		Title:        fmt.Sprintf("%s - Location", location.Name),
-		ExtraCSS:     "location_detail.css",
-		ExtraJS:      "",
-		Location:     location,
-		Artists:      location.Artists,
-		PrevLocation: nil, // Could be implemented later for location navigation
-		NextLocation: nil, // Could be implemented later for location navigation
-		Suggestions:  repo.GenerateAllSearchSuggestions(),
+		BaseTemplateData: NewBaseTemplateData(fmt.Sprintf("%s - Location", location.Name), "location_detail.css"),
+		Location:         location,
+		Artists:          location.Artists,
+		PrevLocation:     nil, // Could be implemented later for location navigation
+		NextLocation:     nil, // Could be implemented later for location navigation
 	}
 
 	render(w, r, "location_detail.tmpl", data)
@@ -362,11 +299,6 @@ func LocationDetail(w http.ResponseWriter, r *http.Request) {
 
 // DevIndex renders a small developer page with quick links.
 func DevIndex(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	links := []struct{ Href, Text string }{
 		{"/dev/panic", "Trigger Panic (/dev/panic)"},
 		{"/dev/404", "Simulate 404 (/dev/404)"},
@@ -376,17 +308,11 @@ func DevIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title       string
-		ExtraCSS    string
-		ExtraJS     string
-		Links       []struct{ Href, Text string }
-		Suggestions []data.SearchSuggestion
+		BaseTemplateData
+		Links []struct{ Href, Text string }
 	}{
-		Title:       "Developer Tools",
-		ExtraCSS:    "dev.css",
-		ExtraJS:     "",
-		Links:       links,
-		Suggestions: repo.GenerateAllSearchSuggestions(),
+		BaseTemplateData: NewBaseTemplateData("Developer Tools", "dev.css"),
+		Links:            links,
 	}
 
 	render(w, r, "dev.tmpl", data)
@@ -395,17 +321,18 @@ func DevIndex(w http.ResponseWriter, r *http.Request) {
 // Error handles all errors (4xx and 5xx) in a centralized way.
 func Error(w http.ResponseWriter, r *http.Request, status int, message string) {
 	data := struct {
-		Title        string
-		ExtraCSS     string
-		ExtraJS      string
+		BaseTemplateData
 		ErrorCode    int
 		RequestedURL string
 		Message      string
 		Timestamp    string
 	}{
-		Title:        fmt.Sprintf("%d %s", status, http.StatusText(status)),
-		ExtraCSS:     "errors.css",
-		ExtraJS:      "",
+		BaseTemplateData: BaseTemplateData{
+			Title:       fmt.Sprintf("%d %s", status, http.StatusText(status)),
+			ExtraCSS:    "errors.css",
+			ExtraJS:     "",
+			Suggestions: nil, // Error pages don't need search suggestions
+		},
 		ErrorCode:    status,
 		RequestedURL: r.URL.Path,
 		Message:      message,
@@ -417,12 +344,6 @@ func Error(w http.ResponseWriter, r *http.Request, status int, message string) {
 
 // Health provides a health check endpoint.
 func Health(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", http.MethodGet)
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
 	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
@@ -431,6 +352,34 @@ func Health(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+// SuggestionsAPI provides search suggestions for autocomplete functionality.
+func SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	
+	// Get all suggestions
+	allSuggestions := repo.GenerateAllSearchSuggestions()
+	
+	// If no query, return empty suggestions
+	if query == "" {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode([]data.SearchSuggestion{})
+		return
+	}
+
+	// Filter suggestions based on query
+	var matchingSuggestions []data.SearchSuggestion
+	queryLower := strings.ToLower(query)
+	
+	for _, suggestion := range allSuggestions {
+		if strings.Contains(strings.ToLower(suggestion.Text), queryLower) {
+			matchingSuggestions = append(matchingSuggestions, suggestion)
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(matchingSuggestions)
 }
 
 // DevPanic is a development endpoint to test panic recovery.
@@ -468,13 +417,6 @@ func Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
 
 func StaticFiles(w http.ResponseWriter, r *http.Request) {
 	const staticDir = "static"
-
-	// Only allow GET and HEAD methods
-	if r.Method != http.MethodGet && r.Method != http.MethodHead {
-		w.Header().Set("Allow", "GET, HEAD")
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
 	// Handle favicon.ico requests
 	if r.URL.Path == "/favicon.ico" {

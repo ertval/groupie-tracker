@@ -15,6 +15,28 @@ import (
 	"strings"
 )
 
+// --- Template Data Structures ---
+
+// BaseTemplateData contains common fields used in all page templates.
+// This eliminates duplication of Title, ExtraCSS, ExtraJS across all handlers.
+type BaseTemplateData struct {
+	Title       string                    // Page title for HTML head and display
+	ExtraCSS    string                    // Additional CSS file to include
+	ExtraJS     string                    // Additional JavaScript file to include  
+	Suggestions []data.SearchSuggestion   // Search suggestions for autocomplete
+}
+
+// NewBaseTemplateData creates a new BaseTemplateData with search suggestions.
+// This provides a consistent way to initialize template data across handlers.
+func NewBaseTemplateData(title, cssFile string) BaseTemplateData {
+	return BaseTemplateData{
+		Title:       title,
+		ExtraCSS:    cssFile,
+		ExtraJS:     "",
+		Suggestions: repo.GenerateAllSearchSuggestions(),
+	}
+}
+
 // --- HTTP Request Validation ---
 
 // validateRequestGETPath validates that the incoming request uses GET method and matches expected path.
@@ -206,6 +228,42 @@ func getPort() string {
 
 // --- Form Data Processing ---
 
+// Generic form parsing utilities to eliminate duplication across form handlers
+
+// parseIntPtr parses an integer form field and returns a pointer to the value.
+// Returns nil for empty or invalid values, which allows distinguishing between 0 and unset.
+func parseIntPtr(r *http.Request, fieldName string) *int {
+	if str := r.FormValue(fieldName); str != "" {
+		if val, err := strconv.Atoi(str); err == nil {
+			return &val
+		}
+	}
+	return nil
+}
+
+// parseIntSlice parses multiple checkbox values into an integer slice.
+// Used for form fields like member counts where multiple selections are allowed.
+func parseIntSlice(r *http.Request, fieldName string) []int {
+	var results []int
+	if values := r.Form[fieldName]; len(values) > 0 {
+		for _, valueStr := range values {
+			if value, err := strconv.Atoi(valueStr); err == nil {
+				results = append(results, value)
+			}
+		}
+	}
+	return results
+}
+
+// parseStringSlice parses multiple form values into a string slice.
+// Used for form fields like countries where multiple selections are allowed.
+func parseStringSlice(r *http.Request, fieldName string) []string {
+	if values := r.Form[fieldName]; len(values) > 0 {
+		return values
+	}
+	return nil
+}
+
 // parseArtistFilterParams extracts and validates artist filter parameters from HTML form submission.
 //
 // Converts form values into structured filter parameters with proper type handling:
@@ -220,43 +278,13 @@ func getPort() string {
 func parseArtistFilterParams(r *http.Request) data.ArtistFilterParams {
 	var params data.ArtistFilterParams
 
-	// Parse creation year range - use pointers to distinguish between 0 and unset
-	if fromStr := r.FormValue("creationYearFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.CreationYearFrom = &from
-		}
-	}
-	if toStr := r.FormValue("creationYearTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.CreationYearTo = &to
-		}
-	}
-
-	// Parse first album year range
-	if fromStr := r.FormValue("firstAlbumYearFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.FirstAlbumYearFrom = &from
-		}
-	}
-	if toStr := r.FormValue("firstAlbumYearTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.FirstAlbumYearTo = &to
-		}
-	}
-
-	// Parse member count selections - multiple checkbox values
-	if memberCounts := r.Form["memberCounts"]; len(memberCounts) > 0 {
-		for _, countStr := range memberCounts {
-			if count, err := strconv.Atoi(countStr); err == nil {
-				params.MemberCounts = append(params.MemberCounts, count)
-			}
-		}
-	}
-
-	// Parse country selections - multiple checkbox values
-	if countries := r.Form["countries"]; len(countries) > 0 {
-		params.Countries = countries
-	}
+	// Use generic utilities to eliminate duplication
+	params.CreationYearFrom = parseIntPtr(r, "creationYearFrom")
+	params.CreationYearTo = parseIntPtr(r, "creationYearTo")
+	params.FirstAlbumYearFrom = parseIntPtr(r, "firstAlbumYearFrom")
+	params.FirstAlbumYearTo = parseIntPtr(r, "firstAlbumYearTo")
+	params.MemberCounts = parseIntSlice(r, "memberCounts")
+	params.Countries = parseStringSlice(r, "countries")
 
 	return params
 }
@@ -273,46 +301,14 @@ func parseArtistFilterParams(r *http.Request) data.ArtistFilterParams {
 func parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
 	var params data.LocationFilterParams
 
-	// Parse concert count range - how many concerts occurred at this location
-	if fromStr := r.FormValue("concertCountFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.ConcertCountFrom = &from
-		}
-	}
-	if toStr := r.FormValue("concertCountTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.ConcertCountTo = &to
-		}
-	}
-
-	// Parse artist count range - how many unique artists performed here
-	if fromStr := r.FormValue("artistCountFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.ArtistCountFrom = &from
-		}
-	}
-	if toStr := r.FormValue("artistCountTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.ArtistCountTo = &to
-		}
-	}
-
-	// Parse concert year range - temporal filtering
-	if fromStr := r.FormValue("concertYearFrom"); fromStr != "" {
-		if from, err := strconv.Atoi(fromStr); err == nil {
-			params.ConcertYearFrom = &from
-		}
-	}
-	if toStr := r.FormValue("concertYearTo"); toStr != "" {
-		if to, err := strconv.Atoi(toStr); err == nil {
-			params.ConcertYearTo = &to
-		}
-	}
-
-	// Parse country selections for geographical filtering
-	if countries := r.Form["countries"]; len(countries) > 0 {
-		params.Countries = countries
-	}
+	// Use generic utilities to eliminate duplication
+	params.ConcertCountFrom = parseIntPtr(r, "concertCountFrom")
+	params.ConcertCountTo = parseIntPtr(r, "concertCountTo")
+	params.ArtistCountFrom = parseIntPtr(r, "artistCountFrom")
+	params.ArtistCountTo = parseIntPtr(r, "artistCountTo")
+	params.ConcertYearFrom = parseIntPtr(r, "concertYearFrom")
+	params.ConcertYearTo = parseIntPtr(r, "concertYearTo")
+	params.Countries = parseStringSlice(r, "countries")
 
 	return params
 }

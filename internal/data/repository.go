@@ -276,39 +276,25 @@ func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error
 
 // processArtists transforms raw API data into enriched Artist domain models.
 //
-// This method performs the core business logic transformation:
-//
-// Data Integration:
-//   - Merges artist records with concert relation data by ID
-//   - Creates structured Concert objects from raw date/location mappings
-//   - Handles missing or incomplete relation data gracefully
-//
-// Enrichment:
-//   - Generates SEO-friendly URL slugs from artist names
-//   - Extracts and normalizes country lists from concert locations
-//   - Computes aggregate statistics (total concerts, countries)
-//   - Creates fast-lookup maps for location-based queries
-//
-// Organization:
-//   - Sorts concerts chronologically for each artist
-//   - Sorts artists alphabetically by name for consistent display
-//   - Establishes navigation links (previous/next artist IDs)
-//
-// The resulting Artist objects are ready for direct use in templates and APIs
-// without additional processing. Country extraction and slug generation follow
-// the same patterns used throughout the application.
+// This method performs the core business logic transformation using focused
+// helper methods that each handle a single responsibility:
+// - transformAPIArtists: converts API data to domain models
+// - addConcertData: enriches artists with concert information
+// - addNavigationLinks: establishes prev/next relationships
 //
 // Returns a complete slice of processed Artist objects sorted by name.
 func (r *Repository) processArtists(apiArtists []APIArtist, apiRelations APIRelation) []Artist {
+	artists := r.transformAPIArtists(apiArtists)
+	artists = r.addConcertData(artists, apiRelations)
+	artists = r.addNavigationLinks(artists)
+	return artists
+}
+
+// transformAPIArtists converts raw API artist data to domain Artist objects.
+// This creates the basic artist structure with core fields but no concert data.
+func (r *Repository) transformAPIArtists(apiArtists []APIArtist) []Artist {
 	artists := make([]Artist, 0, len(apiArtists))
-	relationMap := make(map[int]APIRelationIndex)
 
-	// Index relations by artist ID for efficient lookup
-	for _, rel := range apiRelations.Index {
-		relationMap[rel.ID] = rel
-	}
-
-	// Build artists with concert data
 	for _, apiArtist := range apiArtists {
 		artist := Artist{
 			ID:              apiArtist.ID,
@@ -320,16 +306,35 @@ func (r *Repository) processArtists(apiArtists []APIArtist, apiRelations APIRela
 			Image:           apiArtist.Image,
 			DatesAtLocation: make(map[string][]string),
 		}
+		artists = append(artists, artist)
+	}
 
-		// Add concert data if available
-		if rel, exists := relationMap[apiArtist.ID]; exists {
+	return artists
+}
+
+// addConcertData enriches artists with concert information from API relations.
+// This method handles concert data integration, country extraction, and sorting.
+func (r *Repository) addConcertData(artists []Artist, apiRelations APIRelation) []Artist {
+	// Index relations by artist ID for efficient lookup
+	relationMap := make(map[int]APIRelationIndex)
+	for _, rel := range apiRelations.Index {
+		relationMap[rel.ID] = rel
+	}
+
+	// Add concert data to each artist
+	for i := range artists {
+		artist := &artists[i]
+		
+		if rel, exists := relationMap[artist.ID]; exists {
 			countries := make(map[string]bool)
 
+			// Process each location and its dates
 			for location, dates := range rel.DatesLocations {
 				normalizedLoc := normalizeLocation(location)
 				locationSlug := createSlug(normalizedLoc)
 				artist.DatesAtLocation[locationSlug] = dates
 
+				// Create concert objects
 				for _, date := range dates {
 					artist.Concerts = append(artist.Concerts, Concert{
 						Date:     date,
@@ -337,36 +342,45 @@ func (r *Repository) processArtists(apiArtists []APIArtist, apiRelations APIRela
 					})
 				}
 
-				// Extract countries
-				parts := strings.Split(normalizedLoc, "-")
-				if len(parts) > 1 {
-					country := strings.TrimSpace(parts[len(parts)-1])
-					countries[country] = true
-				}
+				// Extract country from location
+				countries[r.extractCountryFromLocation(normalizedLoc)] = true
 			}
 
-			// Sort concerts by date
+			// Sort concerts chronologically
 			sort.Slice(artist.Concerts, func(i, j int) bool {
 				return artist.Concerts[i].Date < artist.Concerts[j].Date
 			})
 
 			// Set derived fields
 			artist.ConcertCount = len(artist.Concerts)
-			artist.Countries = make([]string, 0, len(countries))
-			for country := range countries {
-				artist.Countries = append(artist.Countries, country)
-			}
-			sort.Strings(artist.Countries)
+			artist.Countries = r.convertCountriesMapToSlice(countries)
 		}
-
-		artists = append(artists, artist)
 	}
 
-	// Sort artists by name and set navigation links
+	// Sort artists by name for consistent display
 	sort.Slice(artists, func(i, j int) bool {
 		return artists[i].Name < artists[j].Name
 	})
 
+	return artists
+}
+
+// convertCountriesMapToSlice converts a map[string]bool to sorted string slice.
+// This creates a consistent ordered list of countries for the artist.
+func (r *Repository) convertCountriesMapToSlice(countriesMap map[string]bool) []string {
+	countries := make([]string, 0, len(countriesMap))
+	for country := range countriesMap {
+		if country != "" { // Skip empty countries
+			countries = append(countries, country)
+		}
+	}
+	sort.Strings(countries)
+	return countries
+}
+
+// addNavigationLinks establishes previous/next relationships between artists.
+// This assumes artists are already sorted in the desired navigation order.
+func (r *Repository) addNavigationLinks(artists []Artist) []Artist {
 	for i := range artists {
 		if i > 0 {
 			artists[i].PrevArtistID = artists[i-1].ID
@@ -375,7 +389,6 @@ func (r *Repository) processArtists(apiArtists []APIArtist, apiRelations APIRela
 			artists[i].NextArtistID = artists[i+1].ID
 		}
 	}
-
 	return artists
 }
 
