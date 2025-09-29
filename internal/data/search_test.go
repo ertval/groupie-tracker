@@ -37,18 +37,18 @@ func createTestSearchData() *Repository {
 		},
 	}
 
-	// Test locations
+	// Test locations - using the actual format from the API (hyphenated)
 	locations := []Location{
 		{
-			Name: "London UK",
+			Name: "london-uk",
 			Slug: "london-uk",
 		},
 		{
-			Name: "New York USA",
+			Name: "new-york-usa",
 			Slug: "new-york-usa",
 		},
 		{
-			Name: "Philadelphia USA",
+			Name: "philadelphia-usa",
 			Slug: "philadelphia-usa",
 		},
 	}
@@ -75,124 +75,103 @@ func createTestSearchData() *Repository {
 	return repo
 }
 
-func TestGenerateSearchSuggestions(t *testing.T) {
-	repo := createTestSearchData()
+func TestArtistLocationSearch(t *testing.T) {
+	// Create test data with proper hyphenated location format
+	artists := []Artist{
+		{
+			ID:           1,
+			Name:         "Queen",
+			Slug:         "queen",
+			Members:      []string{"Freddie Mercury"},
+			CreationYear: 1970,
+			FirstAlbum:   "14-07-1973",
+			Countries:    []string{"UK", "USA"}, // Countries extracted from concert locations
+			Concerts: []Concert{
+				{Date: "01-01-1980", Location: "london-uk"},
+				{Date: "01-01-1981", Location: "new-york-usa"},
+			},
+		},
+		{
+			ID:           2,
+			Name:         "Beatles",
+			Slug:         "beatles",
+			Members:      []string{"John Lennon"},
+			CreationYear: 1960,
+			FirstAlbum:   "01-01-1963",
+			Countries:    []string{"UK"},
+			Concerts: []Concert{
+				{Date: "01-01-1965", Location: "london-uk"},
+			},
+		},
+	}
+
+	locations := []Location{
+		{Name: "london-uk", Slug: "london-uk"},
+		{Name: "new-york-usa", Slug: "new-york-usa"},
+	}
+
+	repo := &Repository{
+		artists:         artists,
+		locations:       locations,
+		artistsByID:     make(map[int]Artist),
+		artistsBySlug:   make(map[string]Artist),
+		locationsBySlug: make(map[string]Location),
+	}
+
+	// Build indexes
+	for _, artist := range artists {
+		repo.artistsByID[artist.ID] = artist
+		repo.artistsBySlug[artist.Slug] = artist
+	}
+	for _, location := range locations {
+		repo.locationsBySlug[location.Slug] = location
+	}
 
 	tests := []struct {
-		name     string
-		query    string
-		expected []SearchSuggestion
+		name          string
+		query         string
+		expectedCount int
+		description   string
 	}{
 		{
-			name:     "Empty query returns empty suggestions",
-			query:    "",
-			expected: []SearchSuggestion{},
+			name:          "Search artists by city - 'london'",
+			query:         "london",
+			expectedCount: 2, // Queen and Beatles both performed in London
+			description:   "Should find artists who performed in the city",
 		},
 		{
-			name:  "Artist name match - case insensitive",
-			query: "queen",
-			expected: []SearchSuggestion{
-				{
-					Text:        "Queen",
-					Type:        SuggestionTypeArtist,
-					Description: "Queen - artist",
-					URL:         "/artists/queen",
-					ArtistID:    1,
-				},
-			},
+			name:          "Search artists by country - 'uk'",
+			query:         "uk",
+			expectedCount: 2, // Queen and Beatles both performed in UK
+			description:   "Should find artists who performed in the country",
 		},
 		{
-			name:  "Member name match - case insensitive",
-			query: "freddie",
-			expected: []SearchSuggestion{
-				{
-					Text:        "Freddie Mercury",
-					Type:        SuggestionTypeMember,
-					Description: "Freddie Mercury - member of Queen",
-					URL:         "/artists/queen",
-					ArtistID:    1,
-				},
-			},
+			name:          "Search artists by combined format - 'london-uk'",
+			query:         "london-uk",
+			expectedCount: 2, // Queen and Beatles both performed in London UK
+			description:   "Should find artists who performed in location with slug-like format",
 		},
 		{
-			name:  "Phil Collins both artist and member plus location",
-			query: "phil",
-			expected: []SearchSuggestion{
-				{
-					Text:        "Phil Collins",
-					Type:        SuggestionTypeArtist,
-					Description: "Phil Collins - artist",
-					URL:         "/artists/phil-collins",
-					ArtistID:    2,
-				},
-				{
-					Text:        "Philadelphia USA",
-					Type:        SuggestionTypeLocation,
-					Description: "Philadelphia USA - location",
-					URL:         "/locations/philadelphia-usa",
-					ArtistID:    0,
-				},
-				{
-					Text:        "Phil Collins",
-					Type:        SuggestionTypeMember,
-					Description: "Phil Collins - member of Phil Collins",
-					URL:         "/artists/phil-collins",
-					ArtistID:    2,
-				},
-			},
-		},
-		{
-			name:  "Location match",
-			query: "london",
-			expected: []SearchSuggestion{
-				{
-					Text:        "London UK",
-					Type:        SuggestionTypeLocation,
-					Description: "London UK - location",
-					URL:         "/locations/london-uk",
-					ArtistID:    0,
-				},
-			},
-		},
-		{
-			name:  "Partial match returns suggestions",
-			query: "qu",
-			expected: []SearchSuggestion{
-				{
-					Text:        "Queen",
-					Type:        SuggestionTypeArtist,
-					Description: "Queen - artist",
-					URL:         "/artists/queen",
-					ArtistID:    1,
-				},
-			},
+			name:          "Search artists by USA locations - 'new york'",
+			query:         "new york",
+			expectedCount: 1, // Only Queen performed in New York
+			description:   "Should find artists who performed in specific city",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			suggestions := repo.GenerateSearchSuggestions(tt.query)
-
-			// Sort suggestions for consistent comparison
-			if len(suggestions) != len(tt.expected) {
-				t.Errorf("GenerateSearchSuggestions() got %d suggestions, expected %d", len(suggestions), len(tt.expected))
-				t.Logf("Got suggestions: %+v", suggestions)
-				t.Logf("Expected suggestions: %+v", tt.expected)
-				return
+			params := SearchParams{
+				Query:   tt.query,
+				Filters: ArtistFilterParams{}, // No additional filters
 			}
 
-			for i, suggestion := range suggestions {
-				if i >= len(tt.expected) {
-					break
-				}
-				expected := tt.expected[i]
-				if suggestion.Text != expected.Text ||
-					suggestion.Type != expected.Type ||
-					suggestion.Description != expected.Description ||
-					suggestion.URL != expected.URL ||
-					suggestion.ArtistID != expected.ArtistID {
-					t.Errorf("GenerateSearchSuggestions() suggestion %d = %+v, expected %+v", i, suggestion, expected)
-				}
+			result := repo.SearchArtists(params)
+
+			if len(result.Artists) != tt.expectedCount {
+				t.Errorf("SearchArtists() for query '%s' got %d artists, expected %d. %s",
+					tt.query, len(result.Artists), tt.expectedCount, tt.description)
+				t.Logf("Found artists: %v", getArtistNames(result.Artists))
 			}
 		})
 	}

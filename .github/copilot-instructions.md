@@ -1,7 +1,7 @@
 # Groupie Tracker - AI Coding Agent Instructions
 
 ## Project Overview
-An educational Go web application consuming the Groupie Trackers API to display band/artist information. Built with strict TDD principles, Go standard library only, and audit requirements. **Features comprehensive server-side filtering and search functionality with HTML forms (no JavaScript dependencies).**
+Go web application consuming the Groupie Trackers API to display band/artist information. Built with strict TDD principles, Go standard library only, and audit requirements. **Features comprehensive server-side filtering and search functionality with HTML forms (no JavaScript dependencies).**
 
 ## Key Constraints & Commands
 
@@ -15,358 +15,158 @@ An educational Go web application consuming the Groupie Trackers API to display 
 **Quick Commands:**
 ```bash
 go run ./cmd/cli/             # Start server (streamlined entry point, default PORT=8080)
-go test ./internal/...        # Run internal tests (clean, all passing)  
+go test ./internal/...        # Run internal tests (current coverage: data 69.7%, server 61.5%)
 go test ./tests/...           # Run audit/e2e tests (functional but with package issues)
-go test -cover ./internal/... # Coverage: ~85% overall (data: 91.2%, handlers: 79.7%)
+go test -cover ./internal/... # Get detailed coverage report
 go build -o groupie-tracker ./cmd/cli
 ```
 
-## Current Architecture (Updated September 2025)
+## Current Architecture
 
-### Clean Architecture with Server-Side Filtering
+### Clean Architecture with Server-Side Processing
 ```
-cmd/cli/                     # Streamlined entry point
-  ├── main.go                # Simple server startup
-  └── e2e_test.go           # End-to-end integration tests
+cmd/cli/                     # Streamlined entry point with simple main.go
 internal/
   ├── config/
-  │   └── config.go          # Centralized global config (no constructor params)
+  │   └── config.go          # Global config variables (no constructors needed)
   ├── data/                  # Core domain layer with filtering and search
-  │   ├── repository.go      # Single data load with thread-safe access
+  │   ├── repository.go      # Single data load with thread-safe read access
   │   ├── models.go          # Domain models + FilterParams/SearchParams  
   │   ├── filters.go         # Server-side filter logic (HTML form processing)
-  │   ├── search.go          # Comprehensive search functionality (TDD-built)
-  │   ├── filter_test.go     # Filter unit tests (18 tests)
-  │   ├── search_test.go     # Search unit tests (30+ tests)
-  │   └── repository_test.go # Repository tests (91.2% coverage)
-  └── server/                # HTTP layer (renamed from handlers/)
-      ├── server.go          # Package-level server initialization with global variables
-      ├── handlers.go        # All endpoints + filter form processing (package-level functions)
-      ├── routes.go          # HTTP routing and middleware setup
-      ├── middleware.go      # Panic recovery, logging, security headers  
-      ├── utils.go           # Template utilities and helper functions
-      └── server_test.go     # Comprehensive handler tests
-templates/                   # Template inheritance with filter UI components
-static/
-  ├── css/                  # Stylesheets including filter controls (no JavaScript)
-  └── img/artists/          # Cached artist images
-tests/                      # Audit tests (functional but with package issues)
+  │   ├── search.go          # Multi-type search with typed suggestions
+  │   └── *_test.go          # Comprehensive test coverage
+  └── server/                # HTTP layer
+      ├── server.go          # Package-level initialization with global variables
+      ├── handlers.go        # All endpoints as package-level functions
+      ├── routes.go          # HTTP routing and middleware
+      ├── middleware.go      # Panic recovery, logging, security
+      └── utils.go           # Template utilities and helpers
+templates/                   # Template inheritance with {{define "base"}} pattern
+static/css/                  # Stylesheets (no JavaScript dependencies)
+tests/                       # Audit compliance tests
 ```
 
-**🏗️ Current Architecture:**
-- **Global config pattern**: `internal/config` package with module-level variables
-- **Package-level server functions**: Removed App struct, using package-level variables (repo, templates)
-- **Single data load**: Repository loads all data once at startup via `LoadData(ctx)`
-- **Thread-safe reads**: All repository methods are read-only after initial load
-- **Template inheritance**: Uses `{{define "base"}}` and `{{template "body" .}}` pattern
-- **Server-side filtering**: HTML forms with POST to `/artists` (no JavaScript/AJAX)
-- **Comprehensive search system**: Multi-type search with typed suggestions via `/search` and `/api/suggestions`
-- **In-memory indexes**: SEO slugs, location mappings, filter options precomputed
+### Critical Architecture Patterns
 
-### Repository Pattern (September 2025)
+**Global State Pattern**: Repository and templates stored as package-level variables in server package
 ```go
-// Repository initialization in server startup (reads internal/config automatically)
-repo := data.NewRepository()  // No constructor parameters needed
-if err := repo.LoadData(ctx); err != nil {
-    log.Fatalf("Failed to load data: %v", err)
-}
-
-// All data access through repository methods (thread-safe reads)
-artists := repo.GetArtists()
-artist, found := repo.GetArtistBySlug("queen")
-locations := repo.GetLocations()
-stats := repo.GetStats()  // Precomputed statistics
-
-// Server-side filtering with HTML form data processing
-filterOptions := repo.GetFilterOptions()  // Min/max bounds for form validation
-filteredArtists := repo.FilterArtists(filterParams)  // Apply filter criteria from form
-
-// Search functionality with typed suggestions
-suggestions := repo.GenerateSearchSuggestions(query)  // Real-time search suggestions
-searchResults := repo.SearchArtists(searchParams)     // Comprehensive search across all data types
-```
-
-### Package-Level Server Pattern (Updated September 2025)
-```go
-// Package-level variables (follows global config pattern)
 var (
-    repo      *data.Repository
-    templates map[string]*template.Template
+    repo      *data.Repository              // Global data access
+    templates map[string]*template.Template // Pre-compiled templates
 )
-
-// Server initialization assigns to package-level variables
-func NewServer() (*http.Server, error) {
-    repo = data.NewRepository()  // Assigns to package-level variable
-    if err := repo.LoadData(ctx); err != nil {
-        return nil, fmt.Errorf("failed to load data: %w", err)
-    }
-    loadTemplates()  // Assigns to package-level templates variable
-    serveMux := withMiddleware(routes())  // Uses package-level functions
-    return &http.Server{Addr: port, Handler: serveMux}, nil
-}
-
-// All handlers are package-level functions using global variables
-func Home(w http.ResponseWriter, r *http.Request) {
-    artists := repo.GetArtists()  // Uses package-level repo
-    render(w, r, "home.tmpl", data)  // Uses package-level templates
-}
-
-func routes() *http.ServeMux {
-    mux := http.NewServeMux()
-    mux.HandleFunc("/", Home)  // References package-level function
-    mux.HandleFunc("/artists", Artists)  // No receiver needed
-    return mux
-}
 ```
 
-## Filter System Architecture (Server-Side HTML Forms)
-
-### Filter Data Structures (`internal/data/models.go`)
+**Repository Pattern**: Load once, read many times (thread-safe after LoadData)
 ```go
-// Filter parameters from HTML form submission
+repo := data.NewRepository()  // No constructor parameters - reads config internally
+if err := repo.LoadData(ctx); err != nil { /* handle error */ }
+artists := repo.GetArtists()             // Thread-safe read operations
+filteredArtists := repo.FilterArtists(filterParams)  // Server-side filtering
+```
+
+**Configuration Pattern**: All config managed through `internal/config` package variables
+```go
+config.WithCache = false              // Image caching toggle
+config.APIBaseURL = "https://..."     // Override in tests as needed
+config.DefaultPort = ":8080"
+```
+
+## Server-Side Filter & Search System
+
+### Filter Data Structures
+```go
+// HTML form parameters from POST /artists
 type FilterParams struct {
-    CreationYearFrom    *int     `json:"creationYearFrom"`     // Number input min
-    CreationYearTo      *int     `json:"creationYearTo"`       // Number input max
-    FirstAlbumYearFrom  *int     `json:"firstAlbumYearFrom"`   // Number input min
-    FirstAlbumYearTo    *int     `json:"firstAlbumYearTo"`     // Number input max  
-    MemberCounts        []int    `json:"memberCounts"`         // Checkbox selections
-    Countries           []string `json:"countries"`            // Checkbox selections
+    CreationYearFrom   *int     // Number input min value
+    CreationYearTo     *int     // Number input max value
+    FirstAlbumYearFrom *int     // Album year range filtering
+    FirstAlbumYearTo   *int
+    MemberCounts       []int    // Checkbox selections [1,2,3,4,5,6,7,8]
+    Countries          []string // Checkbox selections from concert locations
 }
 
-// Pre-computed filter bounds and options
+// Pre-computed bounds for form validation
 type FilterOptions struct {
-    CreationYearMin     int      `json:"creationYearMin"`      // Input min bound
-    CreationYearMax     int      `json:"creationYearMax"`      // Input max bound  
-    FirstAlbumYearMin   int      `json:"firstAlbumYearMin"`    // Input min bound
-    FirstAlbumYearMax   int      `json:"firstAlbumYearMax"`    // Input max bound
-    MemberCounts        []int    `json:"memberCounts"`         // Available options
-    Countries           []string `json:"countries"`            // Available options
+    CreationYearMin   int      // Determines input min attribute
+    CreationYearMax   int      // Determines input max attribute
+    MemberCounts      []int    // Available checkbox options
+    Countries         []string // Available country checkboxes
 }
 ```
 
-### Filter Logic (`internal/data/filters.go`)
+### Search Data Structures
 ```go
-// Main filter method - applies all filter criteria
-func (r *Repository) FilterArtists(params FilterParams) []Artist {
-    // Multi-criteria filtering with range checks and checkbox matching
-    // Implements creation year range, first album year range, member count, countries
-}
-
-// Extract filter bounds from loaded data  
-func (r *Repository) GetFilterOptions() FilterOptions {
-    // Pre-computes min/max values for inputs, unique member counts, unique countries
-}
-
-// Helper: Extract country from location string "City, Country" format
-func extractCountryFromLocation(location string) string
-
-// Helper: Check if artist matches all active filter criteria
-func matchesFilters(artist Artist, params FilterParams) bool
-```
-
-### Filter Form Processing (`internal/server/handlers.go`)
-```go
-// POST/GET /artists - Handle filter form submission and display
-func Artists(w http.ResponseWriter, r *http.Request) {
-    // Parses FilterParams from HTML form data (POST) or shows all artists (GET)
-    // Calls repo.FilterArtists() and renders filtered results in same template
-    // No JSON API endpoints - all server-side rendering
-}
-```
-
-### Filter UI Components (`templates/artists.tmpl`)
-```go
-// HTML form with server-side submission
-<form method="POST" action="/artists">
-    <!-- Number inputs for year ranges -->
-    <input type="number" name="creationYearFrom" 
-           min="{{.FilterOptions.CreationYearMin}}" 
-           max="{{.FilterOptions.CreationYearMax}}" 
-           value="{{if .FilterParams.CreationYearFrom}}{{.FilterParams.CreationYearFrom}}{{end}}">
-    
-    <!-- Checkbox grids for discrete options -->
-    <div class="checkbox-grid">
-        {{range .FilterOptions.MemberCounts}}
-        <input type="checkbox" name="memberCounts" value="{{.}}"
-               {{if contains $.FilterParams.MemberCounts .}}checked{{end}}>
-        {{end}}
-    </div>
-</form>
-```
-
-## Search System Architecture (Server-Side HTML Forms)
-
-### Search Data Structures (`internal/data/models.go`)
-```go
-// Search suggestion types for categorization
 type SearchSuggestionType string
 const (
-    SuggestionTypeArtist     SearchSuggestionType = "artist"      // Artist/band name
-    SuggestionTypeMember     SearchSuggestionType = "member"      // Band member name  
-    SuggestionTypeLocation   SearchSuggestionType = "location"    // Concert location
-    SuggestionTypeFirstAlbum SearchSuggestionType = "first-album" // First album date
-    SuggestionTypeCreation   SearchSuggestionType = "creation"    // Band creation date
+    SuggestionTypeArtist     = "artist"      // Band/artist names
+    SuggestionTypeMember     = "member"      // Band member names
+    SuggestionTypeLocation   = "location"    // Concert locations
+    SuggestionTypeFirstAlbum = "first-album" // Album dates
+    SuggestionTypeCreation   = "creation"    // Formation years
 )
 
-// Individual search suggestion with metadata
 type SearchSuggestion struct {
-    Text        string               `json:"text"`        // Display text
-    Type        SearchSuggestionType `json:"type"`        // Category for UI grouping
-    Description string               `json:"description"` // Context ("Freddie Mercury - member of Queen")
-    URL         string               `json:"url"`         // Direct navigation link
-    ArtistID    int                 `json:"artistId"`    // Related artist for context
-}
-
-// Search parameters from HTML form submission
-type SearchParams struct {
-    Query   string            `json:"query"`   // User search input
-    Filters ArtistFilterParams `json:"filters"` // Combined with existing filters
-}
-
-// Complete search results with metadata
-type SearchResult struct {
-    Artists      []Artist `json:"artists"`      // Matching artist records
-    Query        string   `json:"query"`        // Original search query
-    TotalResults int      `json:"totalResults"` // Count for pagination/stats
+    Text        string               // Display text for UI
+    Type        SearchSuggestionType // Category for grouping
+    Description string               // Context hint
+    URL         string               // Direct navigation link
 }
 ```
 
-### Search Logic (`internal/data/search.go`)
+### Critical Form Processing Pattern
 ```go
-// Multi-type search across all data categories
-func (r *Repository) SearchArtists(params SearchParams) SearchResult {
-    // Searches artist names, member names, locations, creation years, album dates
-    // Integrates with existing filter system for advanced queries
-    // Returns comprehensive results with metadata
+// POST /artists and POST /search - Server-side form processing
+func Artists(w http.ResponseWriter, r *http.Request) {
+    if r.Method == http.MethodPost {
+        // Parse FilterParams from HTML form data
+        filterParams := parseFilterParams(r)  // Uses r.FormValue() internally
+        filteredArtists := repo.FilterArtists(filterParams)
+        // Render same template with filtered results
+    }
+    // GET request shows all artists with empty filter form
 }
-
-// Real-time search suggestions with type categorization
-func (r *Repository) GenerateSearchSuggestions(query string) []SearchSuggestion {
-    // Case-insensitive matching across all searchable data
-    // Categorizes results by type (artist, member, location, etc.)
-    // Limits to 10 suggestions to prevent UI overwhelming
-    // Deduplicates to avoid showing same content multiple times
-}
-
-// Helper: Case-insensitive search query normalization
-func normalizeSearchQuery(query string) string
-func matchesSearchQuery(artist Artist, query string) bool
-```
-
-### Search Endpoints (`internal/server/handlers.go`)
-```go
-// GET/POST /search - Main search page with form processing  
-func Search(w http.ResponseWriter, r *http.Request) {
-    // Handles search form submission (POST) and displays results
-    // Integrates with filter system for advanced search + filter combinations
-    // No JSON API endpoints - all server-side rendering
-}
-
-// GET /api/suggestions - JSON API for search suggestions
-func SearchSuggestions(w http.ResponseWriter, r *http.Request) {
-    // Returns typed suggestions as JSON for potential AJAX integration
-    // Currently used for testing - main search is server-side only
-}
-```
-
-### Search UI Components (`templates/search.tmpl`)
-```go
-// HTML form with server-side submission
-<form method="POST" action="/search">
-    <input type="text" name="q" placeholder="Search artists, members, locations..." 
-           value="{{.Query}}" autofocus>
-    <button type="submit">Search</button>
-</form>
-
-// Results display with type indicators
-{{range .Results.Artists}}
-<div class="search-result">
-    <h3><a href="/artists/{{.Slug}}">{{.Name}}</a></h3>
-    <p>{{len .Members}} members • {{.CreationYear}} • {{len .Concerts}} concerts</p>
-</div>
-{{end}}
 ```
 
 ## Critical Data Flow Patterns
 
-### Centralized Configuration Pattern
+### API Data Normalization
 ```go
-// ALL configuration managed through internal/config package
-config.WithCache = false              // Image caching toggle
-config.APIBaseURL = "https://..."     // API endpoint
-config.APIRequestTimeout = 30*time.Second
-config.DefaultPort = ":8080"
-config.ReadTimeout = 15*time.Second
-
-// Repository reads config internally - no parameters needed
-repo := data.NewRepository()  // Uses config.* variables
+// API endpoint responses require different parsing:
+// /api/artists → direct array: []Artist
+// /api/locations → wrapped: {"index": [...]} - extract .Index field
+// /api/dates → wrapped: {"index": [...]} - extract .Index field  
+// /api/relation → wrapped: {"index": [...]} - extract .Index field
 ```
 
-### API Data Normalization (in `internal/data/repository.go`)
-- `/api/artists` → direct array of Artist structs
-- `/api/locations`, `/api/dates`, `/api/relation` → `{"index": [...]}` format
-- Must extract `.Index` field for locations/dates/relations
-
-### New Entry Point Pattern (`cmd/cli/main.go`)
+### Entry Point Pattern (`cmd/cli/main.go`)
 ```go
-// Simplified startup - server handles all initialization
 func main() {
-    log.Println("Starting Groupie Tracker server...")
-    
     server, err := server.NewServer()  // Creates repo, loads data, sets up handlers
     if err != nil {
         log.Fatalf("Failed to create server: %v", err)
     }
-    
     err = server.ListenAndServe()  // Blocking server start
-    if err != nil && err != http.ErrServerClosed {
-        log.Fatalf("Server failed: %v", err)
-    }
 }
 ```
 
-### Handler Error Template Pattern
+### Error Template Pattern
 ```go
-// Error handlers expect specific struct fields
+// Error handlers expect these specific field names:
 data := struct {
-    Title        string
-    ExtraCSS     string
-    ErrorCode    int       // NOT "Code" 
-    RequestedURL string
-    Message      string
-    Timestamp    string
-}{
-    Title:        "Page Not Found",
-    ExtraCSS:     "errors.css",
-    ErrorCode:    404,
-    RequestedURL: r.URL.Path,
-    Message:      "The page you're looking for doesn't exist.",
-    Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+    Title        string    // Page title
+    ExtraCSS     string    // Additional CSS file
+    ErrorCode    int       // HTTP status (NOT "Code")
+    RequestedURL string    // Original request path  
+    Message      string    // Error description
+    Timestamp    string    // Formatted timestamp
 }
 ```
 
-### Template System (Template Inheritance)
-- Uses `{{define "base"}}` wrapper with `{{template "body" .}}` content injection
-- Each page template defines `{{define "title"}}` and `{{define "body"}}`
-- Template execution: `h.render(w, r, "artist_detail.tmpl", data)`
-- Custom template functions: `add`, `sub`, `join`, plus helpers in handlers.go
+### Template System
+- Uses `{{define "base"}}` wrapper with `{{template "body" .}}` content blocks
 - Template data uses inline struct patterns for type safety
-
-### Current Error Handling Pattern
-```go
-func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string, data any) {
-    // Nil template protection for tests
-    if h.templates[templateName] == nil {
-        h.Error(w, r, 500, "Template not found")
-        return
-    }
-    
-    // Execute template with error fallback to error.tmpl
-    if err := h.templates[templateName].Execute(w, data); err != nil {
-        // Graceful fallback without panic
-    }
-}
-```
+- Custom functions: `hasField`, `contains`, `add`, `sub`, `join`
+- Templates precompiled at startup, accessed via global `templates` variable
 
 ## Audit Requirements (Test Against These)
 
@@ -379,37 +179,14 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 **Required Endpoints:**
 - `GET /` (home page)
 - `GET /artists` (all artists with filter UI)
-- `POST /artists` (filter form submission - server-side processing)
+- `POST /artists` (filter form submission)
 - `GET /artists/{slug}` (artist detail via SEO slug)
 - `GET /locations` (all locations)
 - `GET /locations/{slug}` (location detail)
 - `GET /search` (search page with form)
-- `POST /search` (search form submission - server-side processing)
+- `POST /search` (search form submission)
 - `GET /api/suggestions` (JSON search suggestions API)
 - `GET /health` (JSON health check)
-
-## Current Status (September 2025)
-
-**✅ Recently Completed:**
-- **Major Search System Implementation** - comprehensive multi-type search with suggestions API, case-insensitive matching across artists, members, locations, and dates
-- **Enhanced Search Integration** - search combines with existing filter system for advanced queries, server-side form processing
-- **Major Filter System Implementation** - server-side form processing for year filtering, checkbox grids for member counts and countries
-- **Restructured Architecture** - moved from cmd/server/ to cmd/cli/, renamed handlers/ to server/, added filters.go and search.go
-- **Enhanced Server Layer** - form processing endpoints with proper error handling and validation
-- **Template Enhancement** - artists.tmpl updated with comprehensive filter UI components, search.tmpl with result display
-- **Improved Test Coverage** - repository tests 91.2%, handlers 79.7%, overall ~85% with comprehensive search tests (30+ test cases)
-- **Thread-safe Operations** - all filter and search operations work with read-only repository after initial load
-
-**🔧 Current Architecture:**
-- Package-level server functions pattern instead of App struct 
-- Repository and templates stored as global variables following config pattern
-- Filter and search systems as separate modules (filters.go, search.go) with dedicated logic
-- Server-side form processing with POST requests to `/artists` and `/search`
-- HTML form controls (number inputs, checkboxes, text search) for filtering and searching
-- Template inheritance system enhanced with filter and search components
-- SEO-friendly URL slugs (/artists/queen vs /artists/28)
-- Self-contained error handling with graceful template fallbacks
-- JSON API endpoints for search suggestions while maintaining server-side rendering as primary
 
 ## Development Workflow
 
@@ -438,7 +215,3 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 - Test search functionality across all data types (artists, members, locations, dates)
 - Override config variables in tests rather than passing parameters
 - Ensure server-side form processing works correctly
-- Test filter UI with different parameter combinations
-- Validate checkbox filter logic with multiple selections
-- Test search suggestions API and query normalization
-- Ensure no regression in audit requirements

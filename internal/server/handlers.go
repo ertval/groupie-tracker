@@ -233,23 +233,8 @@ func Search(w http.ResponseWriter, r *http.Request) {
 	render(w, r, "search.tmpl", data)
 }
 
-// SearchSuggestions provides JSON API for search suggestions.
-func SearchSuggestions(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		w.Header().Set("Allow", "GET")
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
 
-	query := r.URL.Query().Get("q")
-	suggestions := repo.GenerateSearchSuggestions(query)
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(suggestions); err != nil {
-		Error(w, r, http.StatusInternalServerError, "Failed to encode response")
-	}
-}
-
+	
 // Locations handles the locations listing page.
 func Locations(w http.ResponseWriter, r *http.Request) {
 	// Allow both GET and POST requests

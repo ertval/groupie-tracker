@@ -19,7 +19,6 @@ func createServeMux() *http.ServeMux {
 
 	// Search endpoints
 	router.HandleFunc("/search", Search)
-	router.HandleFunc("/api/suggestions", SearchSuggestions)
 
 	// Development tools (only active in dev mode)
 	router.HandleFunc("/dev", DevIndex)

@@ -6,128 +6,6 @@ import (
 	"strings"
 )
 
-// GenerateSearchSuggestions creates a list of search suggestions based on user input.
-//
-// This method performs case-insensitive matching across all searchable data types:
-// - Artist names
-// - Band member names
-// - Concert locations
-// - Creation years
-// - First album dates
-//
-// The suggestions are categorized by type to help users understand what they're searching for.
-// Results are limited and sorted by relevance to avoid overwhelming the user interface.
-func (r *Repository) GenerateSearchSuggestions(query string) []SearchSuggestion {
-	query = normalizeSearchQuery(query)
-	if query == "" {
-		return []SearchSuggestion{}
-	}
-
-	var suggestions []SearchSuggestion
-	seenSuggestions := make(map[string]bool) // Avoid duplicate suggestions
-
-	// Search artist names
-	for _, artist := range r.artists {
-		normalizedName := normalizeSearchQuery(artist.Name)
-		if strings.Contains(normalizedName, query) {
-			suggestionKey := "artist:" + artist.Name
-			if !seenSuggestions[suggestionKey] {
-				suggestions = append(suggestions, SearchSuggestion{
-					Text:        artist.Name,
-					Type:        SuggestionTypeArtist,
-					Description: artist.Name + " - artist",
-					URL:         "/artists/" + artist.Slug,
-					ArtistID:    artist.ID,
-				})
-				seenSuggestions[suggestionKey] = true
-			}
-		}
-
-		// Search member names
-		for _, member := range artist.Members {
-			normalizedMember := normalizeSearchQuery(member)
-			if strings.Contains(normalizedMember, query) {
-				suggestionKey := "member:" + member + ":" + artist.Name
-				if !seenSuggestions[suggestionKey] {
-					suggestions = append(suggestions, SearchSuggestion{
-						Text:        member,
-						Type:        SuggestionTypeMember,
-						Description: member + " - member of " + artist.Name,
-						URL:         "/artists/" + artist.Slug,
-						ArtistID:    artist.ID,
-					})
-					seenSuggestions[suggestionKey] = true
-				}
-			}
-		}
-
-		// Search creation years
-		creationYear := strconv.Itoa(artist.CreationYear)
-		if strings.Contains(creationYear, query) {
-			suggestionKey := "creation:" + creationYear
-			if !seenSuggestions[suggestionKey] {
-				suggestions = append(suggestions, SearchSuggestion{
-					Text:        creationYear,
-					Type:        SuggestionTypeCreation,
-					Description: creationYear + " - creation date",
-					URL:         "/artists?creation=" + creationYear,
-					ArtistID:    0,
-				})
-				seenSuggestions[suggestionKey] = true
-			}
-		}
-
-		// Search first album dates
-		if strings.Contains(artist.FirstAlbum, query) {
-			suggestionKey := "album:" + artist.FirstAlbum
-			if !seenSuggestions[suggestionKey] {
-				suggestions = append(suggestions, SearchSuggestion{
-					Text:        artist.FirstAlbum,
-					Type:        SuggestionTypeFirstAlbum,
-					Description: artist.FirstAlbum + " - first album date",
-					URL:         "/artists?album=" + artist.FirstAlbum,
-					ArtistID:    0,
-				})
-				seenSuggestions[suggestionKey] = true
-			}
-		}
-	}
-
-	// Search locations
-	for _, location := range r.locations {
-		normalizedLocation := normalizeSearchQuery(location.Name)
-		if strings.Contains(normalizedLocation, query) {
-			suggestionKey := "location:" + location.Name
-			if !seenSuggestions[suggestionKey] {
-				suggestions = append(suggestions, SearchSuggestion{
-					Text:        location.Name,
-					Type:        SuggestionTypeLocation,
-					Description: location.Name + " - location",
-					URL:         "/locations/" + location.Slug,
-					ArtistID:    0,
-				})
-				seenSuggestions[suggestionKey] = true
-			}
-		}
-	}
-
-	// Sort suggestions by type and text for consistent ordering
-	sort.Slice(suggestions, func(i, j int) bool {
-		if suggestions[i].Type != suggestions[j].Type {
-			return suggestions[i].Type < suggestions[j].Type
-		}
-		return suggestions[i].Text < suggestions[j].Text
-	})
-
-	// Limit suggestions to prevent overwhelming the UI
-	maxSuggestions := 10
-	if len(suggestions) > maxSuggestions {
-		suggestions = suggestions[:maxSuggestions]
-	}
-
-	return suggestions
-}
-
 // SearchArtists performs comprehensive search across all artist data.
 //
 // This method combines text search with optional filtering to provide
@@ -229,6 +107,13 @@ func matchesSearchQuery(artist Artist, normalizedQuery string) bool {
 	// Check countries
 	for _, country := range artist.Countries {
 		if strings.Contains(normalizeSearchQuery(country), normalizedQuery) {
+			return true
+		}
+	}
+
+	// Check concert locations (cities and full location names)
+	for _, concert := range artist.Concerts {
+		if locationMatches(concert.Location, normalizedQuery) {
 			return true
 		}
 	}
@@ -338,4 +223,56 @@ func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
 	})
 
 	return suggestions
+}
+
+// locationMatches checks if a location name matches a search query using various formats.
+//
+// This function handles multiple location search patterns for locations in "city-country" format:
+// - Direct match: "london-uk" matches query "london"
+// - Country match: "london-uk" matches query "uk"
+// - Hyphenated match: "london-uk" matches query "london-uk"
+// - Space match: "london-uk" matches query "london uk" (converts spaces to hyphens)
+// - Partial city match: "new-york-usa" matches query "new york"
+//
+// All matching is case-insensitive to provide user-friendly search experience.
+func locationMatches(locationName, query string) bool {
+	normalizedLocation := normalizeSearchQuery(locationName)
+	normalizedQuery := normalizeSearchQuery(query)
+
+	// Direct substring match (e.g., "london" matches "london-uk")
+	if strings.Contains(normalizedLocation, normalizedQuery) {
+		return true
+	}
+
+	// Convert spaces in query to hyphens for matching (e.g., "london uk" -> "london-uk")
+	hyphenatedQuery := strings.ReplaceAll(normalizedQuery, " ", "-")
+	if normalizedLocation == hyphenatedQuery {
+		return true
+	}
+
+	// Parse location into parts by splitting on hyphens
+	parts := strings.Split(locationName, "-") // Split "london-uk" or "new-york-usa"
+	if len(parts) < 2 {
+		return false // Location doesn't have expected format
+	}
+
+	// Extract country (last part) and city (everything else joined)
+	country := parts[len(parts)-1]
+	city := strings.Join(parts[:len(parts)-1], "-") // "new-york" from "new-york-usa"
+
+	normalizedCity := normalizeSearchQuery(city)
+	normalizedCountry := normalizeSearchQuery(country)
+
+	// Check for individual city or country match
+	if normalizedQuery == normalizedCity || normalizedQuery == normalizedCountry {
+		return true
+	}
+
+	// Check for space-separated city match (e.g., "new york" matches "new-york")
+	cityWithSpaces := strings.ReplaceAll(normalizedCity, "-", " ")
+	if normalizedQuery == cityWithSpaces {
+		return true
+	}
+
+	return false
 }
