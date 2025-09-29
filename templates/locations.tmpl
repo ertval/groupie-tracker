@@ -3,7 +3,7 @@
 {{define "body"}}
 <div class="page locations">
     <header class="page-header">
-        <h1>Concert Locations</h1>
+        <h1 class="gradient-text">Concert Locations</h1>
         {{if .IsFiltered}}
         <p class="muted results-count">Showing {{len .Locations}} filtered locations {{if .FilterDescription}}in {{.FilterDescription}}{{end}} out of {{.TotalLocations}} total locations</p>
         <div class="filter-status">

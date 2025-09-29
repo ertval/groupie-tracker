@@ -229,6 +229,14 @@ body {
     color: white;
 }
 
+/* Gradient text styling */
+.gradient-text {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
 .page-body {
     min-height: calc(100vh - 250px); /* Ensure space for header and footer */
 }
