@@ -19,16 +19,19 @@
         <div class="content-wrapper">
             <!-- Main Content -->
             <div class="main-content">
-                <!-- Top 10 Artists Section -->
+                <!-- Top Artists Section -->
                 {{if not .IsFiltered}}
                 <section class="top-artists">
-                    <h2>Top 10 Artists by Concerts Performed</h2>
-                    <div class="top-artists-list">
+                    <h2>Top Artists by Concerts Performed</h2>
+                    <div class="top-artists-grid">
                         {{range $index, $artist := .TopArtists}}
-                        <div class="top-artist-item">
-                            <span class="rank">{{add $index 1}}</span>
-                            <span class="artist-name"><a href="/artists/{{$artist.Slug}}">{{$artist.Name}}</a></span>
-                            <span class="stats">{{$artist.ConcertCount}} concerts • {{len $artist.Members}} members</span>
+                        <div class="top-artist-card">
+                            <div class="rank">{{add $index 1}}</div>
+                            <div class="artist-name"><a href="/artists/{{$artist.Slug}}">{{$artist.Name}}</a></div>
+                            <div class="artist-stats">
+                                <span class="concert-count">{{$artist.ConcertCount}} concerts</span>
+                                <span class="member-count">{{len $artist.Members}} members</span>
+                            </div>
                         </div>
                         {{end}}
                     </div>

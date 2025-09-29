@@ -48,6 +48,20 @@
     background: var(--accent-hover);
 }
 
+.search-hint {
+    display: block;
+    margin-top: var(--spacing-sm);
+    color: var(--text-secondary);
+    font-style: italic;
+    text-align: center;
+}
+
+.search-input-container:focus-within .search-button {
+    background: var(--accent-hover);
+    transform: scale(1.02);
+    transition: all 0.2s ease;
+}
+
 .search-suggestions {
     position: absolute;
     top: 100%;

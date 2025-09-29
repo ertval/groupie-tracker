@@ -65,6 +65,9 @@ body {
     background: var(--header-bg);
     border-bottom: 1px solid var(--border);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
 }
 
 .site-header > .container:first-child {
@@ -146,6 +149,12 @@ body {
 
 .navbar-search-btn:hover {
     background: var(--accent-hover);
+}
+
+.navbar-search-group:focus-within .navbar-search-btn {
+    background: var(--accent-hover);
+    transform: scale(1.05);
+    transition: all 0.2s ease;
 }
 
 .main-nav {
