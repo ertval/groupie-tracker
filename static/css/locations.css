@@ -6,17 +6,26 @@
 }
 
 .page.locations .page-header {
-    margin-bottom: var(--spacing-xl);
+    text-align: center;
+    margin-bottom: 3rem;
 }
 
 .page.locations .page-header h1 {
-    margin-bottom: var(--spacing-sm);
+    margin: 0 0 1rem 0;
     font-size: 2.5rem;
     font-weight: 700;
+    color: var(--text-primary);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .page.locations .page-header .results-count {
-    margin-bottom: var(--spacing-md);
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 1.1rem;
+    line-height: 1.6;
 }
 
 /* Filter Status Styles */
@@ -172,21 +181,21 @@
 /* Locations Grid */
 .locations-cards {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: var(--spacing-xl);
     margin-top: var(--spacing-xl);
 }
 
-/* Make location cards consistent with artist cards */
+/* Enhanced location cards consistent with artist cards */
 .location-card {
     background: var(--card-bg);
     border-radius: var(--border-radius);
-    overflow: hidden;
     border: 1px solid var(--border);
     transition: all var(--transition-normal);
     box-shadow: var(--shadow);
     display: flex;
     flex-direction: column;
+    min-height: 180px;
 }
 
 .location-card:hover {
@@ -212,7 +221,7 @@
 
 .location-name {
     margin: 0 0 var(--spacing-md) 0;
-    font-size: 1.3rem;
+    font-size: 1.4rem;
     font-weight: 600;
     color: var(--text);
     line-height: 1.3;
@@ -220,59 +229,85 @@
 
 .location-stats {
     margin: calc(var(--spacing-sm) / 2) 0;
-    font-size: 0.95rem;
-    color: var(--muted);
+    font-size: 1rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.concert-count {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.artist-count {
+    color: var(--success);
+    font-weight: 600;
 }
 
 .location-artists {
-    margin: calc(var(--spacing-sm) / 2) 0 0 0;
+    margin: var(--spacing-md) 0 0 0;
     color: var(--muted);
-    font-size: 0.85rem;
-    line-height: 1.4;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    flex: 1;
 }
 
 .location-artists a {
     color: var(--accent);
     text-decoration: none;
+    font-weight: 500;
 }
 
 .location-artists a:hover {
     color: var(--accent-hover);
+    text-decoration: underline;
 }
 
 .artist-with-count {
     display: inline-block;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.3rem;
+    margin-right: 0.5rem;
 }
 
 /* No Results */
 .no-results {
     text-align: center;
     padding: 3rem;
-    color: #6b7280;
+    color: var(--text-secondary);
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
+    margin: var(--spacing-xl) 0;
 }
 
 .no-results h3 {
     margin: 0 0 1rem 0;
-    color: #374151;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 600;
 }
 
 .no-results p {
     margin: 0 0 2rem 0;
+    font-size: 1.1rem;
+    line-height: 1.6;
 }
 
 .no-results .btn {
     display: inline-block;
-    padding: 0.75rem 1.5rem;
-    background: #3b82f6;
+    padding: var(--btn-padding);
+    background: var(--accent);
     color: white;
     text-decoration: none;
-    border-radius: 6px;
+    border-radius: var(--border-radius);
     font-weight: 500;
+    transition: all var(--transition-normal);
 }
 
 .no-results .btn:hover {
-    background: #2563eb;
+    background: var(--accent-hover);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow);
 }
 
 /* Responsive Design */
@@ -290,5 +325,23 @@
 
     .page.locations {
         padding: 1rem;
+    }
+    
+    .locations-cards {
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .locations-cards {
+        grid-template-columns: 1fr;
+    }
+    
+    .location-card {
+        min-height: 160px;
+    }
+    
+    .location-name {
+        font-size: 1.2rem;
     }
 }

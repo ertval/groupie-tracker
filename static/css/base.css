@@ -139,21 +139,22 @@ body {
     padding: 8px 12px;
     border: 2px solid var(--border);
     border-left: none;
-    background: var(--accent);
-    color: white;
+    background: var(--card-bg);
+    color: var(--text);
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
-    transition: background-color 0.2s ease;
+    transition: all 0.2s ease;
 }
 
 .navbar-search-btn:hover {
-    background: var(--accent-hover);
+    background: var(--secondary-bg);
+    color: var(--accent);
 }
 
 .navbar-search-group:focus-within .navbar-search-btn {
-    background: var(--accent-hover);
-    transform: scale(1.05);
+    background: var(--secondary-bg);
+    color: var(--accent);
     transition: all 0.2s ease;
 }
 

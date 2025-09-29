@@ -8,13 +8,19 @@
 }
 
 .search-section {
-    margin-bottom: calc(var(--spacing-xl) * 1.5);
+    text-align: center;
+    margin-bottom: 3rem;
 }
 
 .search-section h2 {
-    font-size: 2rem;
+    margin: 0 0 1rem 0;
+    font-size: 2.5rem;
     font-weight: 700;
-    margin: 0 0 var(--spacing-md) 0;
+    color: var(--text-primary);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .search-form {

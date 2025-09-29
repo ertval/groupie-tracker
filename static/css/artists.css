@@ -9,7 +9,8 @@
 }
 
 .page.artists .page-header {
-    margin-bottom: var(--spacing-xl);
+    text-align: center;
+    margin-bottom: 3rem;
 }
 
 .header-content {
@@ -20,15 +21,21 @@
 }
 
 .page.artists .header-content h1 {
-    margin: 0;
+    margin: 0 0 1rem 0;
     font-size: 2.5rem;
     font-weight: 700;
+    color: var(--text-primary);
+    background: linear-gradient(135deg, var(--accent) 0%, var(--success) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }
 
 .page.artists .header-content .results-count {
     margin: 0;
-    color: var(--muted);
+    color: var(--text-secondary);
     font-size: 1.1rem;
+    line-height: 1.6;
 }
 
 /* Filter Status Styles */
