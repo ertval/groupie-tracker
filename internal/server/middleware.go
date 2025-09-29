@@ -3,6 +3,7 @@ package server
 import (
 	"log"
 	"net/http"
+	"slices"
 	"time"
 )
 
@@ -52,23 +53,17 @@ func withSecureHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// onlyMethod wraps a handler to only allow specific HTTP methods.
+// restrictMethod wraps a handler to only allow specific HTTP methods.
 // This eliminates duplication of method validation across handlers.
 // Updated to use server's Error method for consistent error handling.
-func (s *Server) onlyMethod(handler http.HandlerFunc, methods ...string) http.HandlerFunc {
+func (s *Server) restrictMethod(handler http.HandlerFunc, allowedMethods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		allowed := false
-		for _, method := range methods {
-			if r.Method == method {
-				allowed = true
-				break
-			}
-		}
+		allowed := slices.Contains(allowedMethods, r.Method)
 
 		if !allowed {
 			// Set Allow header with all allowed methods
 			allowHeader := ""
-			for i, method := range methods {
+			for i, method := range allowedMethods {
 				if i > 0 {
 					allowHeader += ", "
 				}

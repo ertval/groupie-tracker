@@ -38,26 +38,6 @@ func (s *Server) NewBaseTemplateData(title, cssFile string) BaseTemplateData {
 	}
 }
 
-// --- HTTP Request Validation ---
-
-// validateRequestGETPath validates that the incoming request uses GET method and matches expected path.
-// This helper ensures proper HTTP method usage and prevents handlers from processing invalid routes.
-// Responds with appropriate error status (405 or 404) if validation fails.
-//
-// Returns true if request is valid, false if error response was sent to client.
-func (s *Server) validateRequestGETPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
-	if r.Method != http.MethodGet {
-		s.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-		return false
-	}
-
-	if r.URL.Path != expectedPath {
-		s.Error(w, r, http.StatusNotFound, "Page not found")
-		return false
-	}
-
-	return true
-}
 
 // --- Template Rendering System ---
 
@@ -336,7 +316,7 @@ func extractSearchTerm(input string) string {
 // addSuggestionsToData adds search suggestions to template data if the data struct has a Suggestions field.
 // This helper allows pages to optionally include search suggestions for the global navbar without
 // requiring all handlers to be modified or causing template errors on pages that don't need suggestions.
-func (s *Server) addSuggestionsToData(data interface{}) interface{} {
+func (s *Server) addSuggestionsToData(data any) any {
 	// Use reflection to check if the data struct has a Suggestions field
 	v := reflect.ValueOf(data)
 	if v.Kind() == reflect.Ptr {

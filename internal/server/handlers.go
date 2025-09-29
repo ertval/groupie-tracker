@@ -16,7 +16,9 @@ import (
 
 // Home handles the home page.
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
-	if !s.validateRequestGETPath(w, r, "/") {
+	// Validate path
+	if r.URL.Path != "/" {
+		s.Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
@@ -91,6 +93,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 
 // ArtistDetail handles individual artist pages.
 func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
+	// Validate path
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
 		s.Error(w, r, http.StatusNotFound, "Page not found")

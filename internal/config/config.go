@@ -14,7 +14,7 @@ var (
 	APIRequestTimeout = 30 * time.Second
 
 	// HTTP server defaults (port and timeouts)
-	DefaultPort  = ":8080"
+	DefaultPort  = ":8082"
 	ReadTimeout  = 15 * time.Second
 	WriteTimeout = 15 * time.Second
 	IdleTimeout  = 60 * time.Second
