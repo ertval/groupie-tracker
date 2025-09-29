@@ -52,21 +52,9 @@ func withSecureHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// methodGuard wraps a handler to only allow specific HTTP methods.
+// onlyMethod wraps a handler to only allow specific HTTP methods.
 // This eliminates duplication of method validation across handlers.
-func methodGuard(method string, handler http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != method {
-			Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
-			return
-		}
-		handler(w, r)
-	}
-}
-
-// methodGuardMultiple wraps a handler to allow multiple specific HTTP methods.
-// Used for handlers that accept both GET and POST (like /artists and /search).
-func methodGuardMultiple(methods []string, handler http.HandlerFunc) http.HandlerFunc {
+func onlyMethod(handler http.HandlerFunc, methods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		allowed := false
 		for _, method := range methods {

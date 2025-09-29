@@ -108,27 +108,6 @@ type Concert struct {
 	Location string // Normalized location name matching Location.Name
 }
 
-// CacheStatus indicates the current state of the artist image caching system.
-//
-// The image cache optimization allows the application to serve artist images locally
-// rather than requesting them from external URLs on every page load. This enum
-// tracks cache effectiveness for monitoring and debugging purposes.
-type CacheStatus int
-
-const (
-	// CacheDisabled means image caching functionality is turned off via configuration.
-	// All artist images are served directly from original URLs without local storage.
-	CacheDisabled CacheStatus = iota
-
-	// CacheCold means caching is enabled and images were downloaded from original URLs.
-	// This occurs on first run or when cache directory is cleared.
-	CacheCold
-
-	// CacheWarm means caching is enabled and images were served from existing local cache.
-	// This is the optimal state indicating cache is working and improving performance.
-	CacheWarm
-)
-
 // --- Filter Data Structures ---
 //
 // These models define the comprehensive filtering system that allows users to narrow

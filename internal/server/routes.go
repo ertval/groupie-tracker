@@ -11,33 +11,33 @@ func createServeMux() *http.ServeMux {
 	router := http.NewServeMux()
 
 	// Static assets: CSS, JS, images, and favicon
-	router.HandleFunc("/static/", methodGuardMultiple([]string{"GET", "HEAD"}, StaticFiles))
-	router.HandleFunc("/favicon.ico", methodGuardMultiple([]string{"GET", "HEAD"}, StaticFiles))
+	router.HandleFunc("/static/", onlyMethod(StaticFiles, "GET", "HEAD"))
+	router.HandleFunc("/favicon.ico", onlyMethod(StaticFiles, "GET", "HEAD"))
 
 	// Health check endpoint for monitoring
-	router.HandleFunc("/health", methodGuard("GET", Health))
+	router.HandleFunc("/health", onlyMethod(Health, "GET"))
 
 	// API endpoints
-	router.HandleFunc("/api/suggestions", methodGuard("GET", SuggestionsAPI))
+	router.HandleFunc("/api/suggestions", onlyMethod(SuggestionsAPI, "GET"))
 
 	// Search endpoints (supports both GET and POST)
-	router.HandleFunc("/search", methodGuardMultiple([]string{"GET", "POST"}, Search))
+	router.HandleFunc("/search", onlyMethod(Search, "GET", "POST"))
 
 	// Development tools (only active in dev mode)
-	router.HandleFunc("/dev", methodGuard("GET", DevIndex))
+	router.HandleFunc("/dev", onlyMethod(DevIndex, "GET"))
 	router.HandleFunc("/dev/panic", DevPanic) // No method guard - allows any method for testing
 	router.HandleFunc("/dev/404", Dev404)
 	router.HandleFunc("/dev/500", Dev500)
 	router.HandleFunc("/dev/tmpl-error", Dev500Tmpl)
 
 	// Main application pages with filter support
-	router.HandleFunc("/artists", methodGuardMultiple([]string{"GET", "POST"}, Artists))
-	router.HandleFunc("/artists/", methodGuard("GET", ArtistDetail))
-	router.HandleFunc("/locations", methodGuardMultiple([]string{"GET", "POST"}, Locations))
-	router.HandleFunc("/locations/", methodGuard("GET", LocationDetail))
+	router.HandleFunc("/artists", onlyMethod(Artists, "GET", "POST"))
+	router.HandleFunc("/artists/", onlyMethod(ArtistDetail, "GET"))
+	router.HandleFunc("/locations", onlyMethod(Locations, "GET", "POST"))
+	router.HandleFunc("/locations/", onlyMethod(LocationDetail, "GET"))
 
 	// Home page (catch-all root handler)
-	router.HandleFunc("/", methodGuard("GET", Home))
+	router.HandleFunc("/", onlyMethod(Home, "GET"))
 
 	return router
 }

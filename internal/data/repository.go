@@ -42,8 +42,8 @@ type Repository struct {
 	apiClient   *http.Client // HTTP client with configured timeout
 	withCache   bool         // Controls whether image caching is enabled
 
-	// CacheStatus indicates the state of the image cache after the most recent data load
-	CacheStatus CacheStatus
+	// Simple cache enabled flag replaces complex CacheStatus enum
+	cacheEnabled bool // True if image caching is enabled and functional
 
 	// Core data collections (loaded once, read-only after initialization)
 	artists         []Artist            // All artists sorted by name
@@ -413,6 +413,11 @@ func (r *Repository) GetAdjacentArtists(currentID int) (prev, next *Artist) {
 	return prev, next
 }
 
+// IsCacheEnabled returns true if image caching is enabled and functional.
+func (r *Repository) IsCacheEnabled() bool {
+	return r.cacheEnabled
+}
+
 // cacheImages handles local image caching optimization for artist photos.
 //
 // When image caching is enabled (config.WithCache = true), this method:
@@ -429,28 +434,28 @@ func (r *Repository) GetAdjacentArtists(currentID int) (prev, next *Artist) {
 //   - Tracks cache hit/miss statistics for monitoring
 //
 // Cache State Tracking:
-//   - Sets CacheStatus based on cache effectiveness
-//   - CacheWarm: All images served from existing cache
-//   - CacheCold: Some or all images required downloading
-//   - CacheDisabled: Caching is turned off
+//   - Sets cacheEnabled flag based on successful cache initialization
+//   - Simplified boolean approach replaces complex status enum
 //
 // The method modifies Artist objects in-place to update image URLs. It gracefully
 // handles download failures by leaving original URLs intact. Cache statistics
 // are used for monitoring and dashboard display.
 //
 // Returns counts of cached and newly downloaded images for statistics.
+// Returns counts of cached and newly downloaded images for statistics.
 func (r *Repository) cacheImages(artists []Artist) (cached, downloaded int) {
 	if !r.withCache {
-		r.CacheStatus = CacheDisabled
+		r.cacheEnabled = false
 		return 0, 0
 	}
 
 	cacheDir := "static/img/artists"
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		r.CacheStatus = CacheCold
+		r.cacheEnabled = false
 		return 0, 0
 	}
 
+	r.cacheEnabled = true
 	for i := range artists {
 		artist := &artists[i]
 		fileName := fmt.Sprintf("%s.jpg", artist.Slug)
@@ -469,12 +474,6 @@ func (r *Repository) cacheImages(artists []Artist) (cached, downloaded int) {
 			artist.Image = localPath
 			downloaded++
 		}
-	}
-
-	if downloaded > 0 {
-		r.CacheStatus = CacheCold
-	} else {
-		r.CacheStatus = CacheWarm
 	}
 
 	return cached, downloaded

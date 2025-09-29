@@ -33,7 +33,6 @@ var (
 // Returns a configured *http.Server ready to call ListenAndServe(), or an error
 // if data loading or template compilation fails.
 func NewServer() (*http.Server, error) {
-
 	start := time.Now()
 
 	// Initialize repository - reads config internally, no parameters needed
@@ -54,19 +53,15 @@ func NewServer() (*http.Server, error) {
 
 	// Log startup summary with cache status and performance metrics
 	stats := repo.GetStats()
-	switch repo.CacheStatus {
-	case data.CacheDisabled:
+	if !repo.IsCacheEnabled() {
 		log.Printf("Data loaded successfully - %d artists (Image caching is disabled, serving from API)", stats["total_artists"])
-	case data.CacheCold:
-		log.Printf("Data loaded successfully with Cold cache - %d artists (Downloaded %d images)", stats["total_artists"], stats["downloaded_images"])
-	case data.CacheWarm:
-		log.Printf("Data loaded successfully with Warm cache - %d artists (Loaded %d images from cache)", stats["total_artists"], stats["cached_images"])
+	} else {
+		log.Printf("Data loaded successfully with cache - %d artists", stats["total_artists"])
 	}
 
 	// Assemble middleware chain and route handlers
 	serveMux := withMiddleware(createServeMux())
 	port := getPort()
-	// log.Printf("Server is starting on port %s", port)
 
 	// Create production-ready HTTP server with configured timeouts
 	httpServer := &http.Server{
