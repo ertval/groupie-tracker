@@ -28,12 +28,12 @@ type BaseTemplateData struct {
 
 // NewBaseTemplateData creates a new BaseTemplateData with search suggestions.
 // This provides a consistent way to initialize template data across handlers.
-func NewBaseTemplateData(title, cssFile string) BaseTemplateData {
+func (s *Server) NewBaseTemplateData(title, cssFile string) BaseTemplateData {
 	return BaseTemplateData{
 		Title:       title,
 		ExtraCSS:    cssFile,
 		ExtraJS:     "",
-		Suggestions: repo.GenerateAllSearchSuggestions(),
+		Suggestions: s.search.GenerateAllSearchSuggestions(),
 	}
 }
 
@@ -44,14 +44,14 @@ func NewBaseTemplateData(title, cssFile string) BaseTemplateData {
 // Responds with appropriate error status (405 or 404) if validation fails.
 //
 // Returns true if request is valid, false if error response was sent to client.
-func validateRequestGETPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
+func (s *Server) validateRequestGETPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
 	if r.Method != http.MethodGet {
-		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		s.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return false
 	}
 
 	if r.URL.Path != expectedPath {
-		Error(w, r, http.StatusNotFound, "Page not found")
+		s.Error(w, r, http.StatusNotFound, "Page not found")
 		return false
 	}
 
@@ -75,13 +75,13 @@ func validateRequestGETPath(w http.ResponseWriter, r *http.Request, expectedPath
 //   - name: template filename (e.g., "home.tmpl")
 //   - data: template data (can be any type)
 //   - status: optional HTTP status code (defaults to 200)
-func render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
+func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
 	code := http.StatusOK
 	if len(status) > 0 {
 		code = status[0]
 	}
 
-	tmpl, ok := templates[name]
+	tmpl, ok := s.templates[name]
 	if !ok {
 		// Prevent infinite recursion if error template itself is missing
 		if name == "error.tmpl" {
@@ -89,7 +89,7 @@ func render(w http.ResponseWriter, r *http.Request, name string, data any, statu
 			http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
 			return
 		}
-		Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
+		s.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
 		return
 	}
 
@@ -102,7 +102,7 @@ func render(w http.ResponseWriter, r *http.Request, name string, data any, statu
 			http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
 			return
 		}
-		Error(w, r, http.StatusInternalServerError, err.Error())
+		s.Error(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -125,8 +125,8 @@ func render(w http.ResponseWriter, r *http.Request, name string, data any, statu
 // like arithmetic and string manipulation directly in templates.
 //
 // Panics on any error since templates are required for basic server functionality.
-func loadTemplates() {
-	templates = make(map[string]*template.Template)
+func (s *Server) loadTemplates() {
+	s.templates = make(map[string]*template.Template)
 
 	// Custom template functions for common operations
 	funcMap := template.FuncMap{
@@ -201,7 +201,7 @@ func loadTemplates() {
 			log.Fatalf("Failed to parse template %s: %v", name, err)
 		}
 
-		templates[name] = ts
+		s.templates[name] = ts
 	}
 }
 
@@ -335,7 +335,7 @@ func extractSearchTerm(input string) string {
 // addSuggestionsToData adds search suggestions to template data if the data struct has a Suggestions field.
 // This helper allows pages to optionally include search suggestions for the global navbar without
 // requiring all handlers to be modified or causing template errors on pages that don't need suggestions.
-func addSuggestionsToData(data interface{}) interface{} {
+func (s *Server) addSuggestionsToData(data interface{}) interface{} {
 	// Use reflection to check if the data struct has a Suggestions field
 	v := reflect.ValueOf(data)
 	if v.Kind() == reflect.Ptr {
@@ -353,7 +353,7 @@ func addSuggestionsToData(data interface{}) interface{} {
 
 	// Only generate suggestions if the field exists and is empty
 	if suggestionsField.IsNil() || suggestionsField.Len() == 0 {
-		suggestions := repo.GenerateAllSearchSuggestions()
+		suggestions := s.search.GenerateAllSearchSuggestions()
 		suggestionsValue := reflect.ValueOf(suggestions)
 		if suggestionsValue.Type().AssignableTo(suggestionsField.Type()) {
 			suggestionsField.Set(suggestionsValue)

@@ -74,7 +74,7 @@ func onlyMethod(handler http.HandlerFunc, methods ...string) http.HandlerFunc {
 				allowHeader += method
 			}
 			w.Header().Set("Allow", allowHeader)
-			Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
 		handler(w, r)

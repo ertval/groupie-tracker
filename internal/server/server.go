@@ -11,15 +11,23 @@ import (
 	"time"
 )
 
-// Global server state following the package-level pattern.
-// These variables are initialized once during server startup and
-// accessed by all handler functions throughout the application lifecycle.
-var (
-	repo      *data.Repository              // Data layer with thread-safe read operations
-	templates map[string]*template.Template // Pre-compiled HTML templates for rendering
-)
+// Server encapsulates all server dependencies using dependency injection
+// and service composition following Interface Segregation Principle.
+type Server struct {
+	// Service dependencies - focused interfaces instead of monolithic repository
+	artists   ArtistService
+	search    SearchService
+	locations LocationService
+	stats     StatsService
+	cache     CacheService
 
-// NewServer creates and fully initializes an HTTP server ready for production use.
+	// Internal dependencies
+	repo       *data.Repository              // Still needed for initialization
+	templates  map[string]*template.Template // Pre-compiled HTML templates for rendering
+	httpServer *http.Server                  // HTTP server instance
+}
+
+// NewServer creates and fully initializes a Server with dependency injection.
 //
 // This function performs the complete server bootstrap process:
 //   - Initializes the data repository and loads all API data
@@ -27,44 +35,54 @@ var (
 //   - Configures HTTP timeouts and middleware chain
 //   - Logs startup performance and cache statistics
 //
-// The server follows a global state pattern where the repository and templates
-// are package-level variables accessed by all handler functions.
+// The server follows dependency injection pattern where dependencies
+// are explicitly managed within the Server struct.
 //
-// Returns a configured *http.Server ready to call ListenAndServe(), or an error
+// Returns a configured *Server ready to call ListenAndServe(), or an error
 // if data loading or template compilation fails.
-func NewServer() (*http.Server, error) {
+func NewServer() (*Server, error) {
 	start := time.Now()
 
+	// Create server instance
+	server := &Server{}
+
 	// Initialize repository - reads config internally, no parameters needed
-	repo = data.NewRepository()
+	server.repo = data.NewRepository()
 
 	// Load all data from external API with timeout protection
 	log.Println("Loading initial data...")
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	err := repo.LoadData(loadCtx)
+	err := server.repo.LoadData(loadCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
+	// Initialize services with repository dependency
+	server.artists = newArtistService(server.repo)
+	server.search = newSearchService(server.repo)
+	server.locations = newLocationService(server.repo)
+	server.stats = newStatsService(server.repo)
+	server.cache = newCacheService(server.repo)
+
 	// Compile all HTML templates once at startup
-	loadTemplates()
+	server.loadTemplates()
 
 	// Log startup summary with cache status and performance metrics
-	stats := repo.GetStats()
-	if !repo.IsCacheEnabled() {
+	stats := server.stats.GetStats()
+	if !server.cache.IsCacheEnabled() {
 		log.Printf("Data loaded successfully - %d artists (Image caching is disabled, serving from API)", stats["total_artists"])
 	} else {
 		log.Printf("Data loaded successfully with cache - %d artists", stats["total_artists"])
 	}
 
 	// Assemble middleware chain and route handlers
-	serveMux := withMiddleware(createServeMux())
+	serveMux := withMiddleware(server.createServeMux())
 	port := getPort()
 
 	// Create production-ready HTTP server with configured timeouts
-	httpServer := &http.Server{
+	server.httpServer = &http.Server{
 		Addr:         port,
 		Handler:      serveMux,
 		ReadTimeout:  config.ReadTimeout,
@@ -74,5 +92,10 @@ func NewServer() (*http.Server, error) {
 
 	log.Printf("🚀 Server Initialized in %v and Ready to Open - %s", time.Since(start), "http://localhost"+port)
 
-	return httpServer, nil
+	return server, nil
+}
+
+// ListenAndServe starts the HTTP server (blocking operation)
+func (s *Server) ListenAndServe() error {
+	return s.httpServer.ListenAndServe()
 }
