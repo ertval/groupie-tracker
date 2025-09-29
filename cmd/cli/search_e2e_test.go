@@ -141,7 +141,7 @@ func TestSearchEndToEnd(t *testing.T) {
 			formData:     url.Values{"q": {""}},
 			expectedCode: http.StatusOK,
 			checkResponse: func(t *testing.T, body string) {
-				// Empty search should return all artists or show an appropriate message  
+				// Empty search should return all artists or show an appropriate message
 				if !strings.Contains(body, "Found") {
 					t.Log("Empty search did not show 'Found' in results, body length:", len(body))
 				}

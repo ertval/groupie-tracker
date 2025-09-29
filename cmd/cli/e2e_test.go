@@ -405,7 +405,7 @@ func TestE2EMethodNotAllowed(t *testing.T) {
 		{"/artists", "PUT"},
 		{"/artists", "DELETE"},
 		{"/artists", "PATCH"},
-		// Locations - GET and POST allowed (POST for filters)  
+		// Locations - GET and POST allowed (POST for filters)
 		{"/locations", "PUT"},
 		{"/locations", "DELETE"},
 		{"/locations", "PATCH"},
