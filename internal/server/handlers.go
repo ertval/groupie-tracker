@@ -81,22 +81,11 @@ func Artists(w http.ResponseWriter, r *http.Request) {
 		return artists[i].ConcertCount > artists[j].ConcertCount
 	})
 
-	// Get top 10 artists by concert count for the top section
-	topArtists := make([]data.Artist, 0, 10)
-	if len(artists) > 0 {
-		limit := 10
-		if len(artists) < 10 {
-			limit = len(artists)
-		}
-		topArtists = artists[:limit]
-	}
-
 	data := struct {
 		Title          string
 		ExtraCSS       string
 		ExtraJS        string
 		Artists        []data.Artist
-		TopArtists     []data.Artist
 		FilterOptions  data.ArtistFilterOptions
 		AppliedFilters data.ArtistFilterParams
 		IsFiltered     bool
@@ -107,7 +96,6 @@ func Artists(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:       "artists.css",
 		ExtraJS:        "",
 		Artists:        artists,
-		TopArtists:     topArtists,
 		FilterOptions:  filterOptions,
 		AppliedFilters: appliedFilters,
 		IsFiltered:     r.Method == http.MethodPost,

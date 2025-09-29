@@ -11,7 +11,7 @@
             <a href="/locations" class="clear-filters-link">Show All Locations</a>
         </div>
         {{else}}
-        <p class="muted">Explore {{len .Locations}} unique concert venues around the world</p>
+        <p class="muted">Explore {{len .Locations}} unique concert venues around the world by Number of Concerts</p>
         {{end}}
     </header>
 
@@ -19,27 +19,7 @@
         <div class="content-wrapper">
             <!-- Main Content -->
             <div class="main-content">
-                {{if not .IsFiltered}}
-                <section class="top-locations">
-                    <h2>Top Locations by Concerts</h2>
-                    <div class="top-locations-grid">
-                        {{range $index, $location := .Locations}}
-                        {{if lt $index 10}}
-                        <div class="top-location-card">
-                            <a href="/locations/{{$location.Slug}}" class="top-location-link">
-                                <div class="rank">{{add $index 1}}</div>
-                                <div class="location-name">{{$location.Name | title}}</div>
-                                <div class="location-stats">
-                                    <span class="concert-count">{{$location.TotalConcerts}} concerts</span> • 
-                                    <span class="artist-count">{{$location.ArtistCount}} artists</span>
-                                </div>
-                            </a>
-                        </div>
-                        {{end}}
-                        {{end}}
-                    </div>
-                </section>
-                {{end}}
+                
 
                 <!-- Filters Section (like search page) -->
                 <details class="filters-section">
@@ -153,17 +133,17 @@
                             <a href="/locations/{{.Slug}}" class="location-card-link">
                                 <div class="location-info">
                                     <h3 class="location-name">{{.Name | title}}</h3>
-                                    <div class="location-meta">
-                                        <p class="location-stats">
-                                            <span class="concert-count">{{.TotalConcerts}} concerts</span> • 
-                                            <span class="artist-count">{{.ArtistCount}} artists</span>
-                                        </p>
-                                        {{if gt (len .Artists) 0}}
-                                        <p class="location-artists muted">
-                                            {{range $i, $artistAtLocation := .Artists}}{{if gt $i 0}}, {{end}}<a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}} ({{$artistAtLocation.ConcertCount}})</a>{{end}}
-                                        </p>
+                                    <p class="location-stats">
+                                        <span class="concert-count">{{.TotalConcerts}} concerts</span> • 
+                                        <span class="artist-count">{{.ArtistCount}} artists</span>
+                                    </p>
+                                    {{if gt (len .Artists) 0}}
+                                    <div class="location-artists muted">
+                                        {{range $i, $artistAtLocation := .Artists}}
+                                        <span class="artist-with-count">{{if gt $i 0}}, {{end}}<a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}}</a> ({{$artistAtLocation.ConcertCount}})</span>
                                         {{end}}
                                     </div>
+                                    {{end}}
                                 </div>
                             </a>
                         </div>

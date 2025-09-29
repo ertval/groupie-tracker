@@ -9,7 +9,6 @@
 
     <main class="page-body">
         <section class="stats-section">
-            <h2>Statistics</h2>
             <div class="stats-grid">
                 <div class="stat-card">
                     <h3>{{len .Artists}}</h3>
@@ -30,7 +29,7 @@
             <h2>Featured Artists</h2>
             <div class="artist-grid">
                 {{range $index, $artist := .Artists}}
-                {{if lt $index 9}}
+                {{if lt $index 8}}
                 <div class="artist-card">
                     <a href="/artists/{{$artist.Slug}}" class="artist-link">
                         <div class="artist-image-container">

@@ -21,25 +21,7 @@
         <div class="content-wrapper">
             <!-- Main Content -->
             <div class="main-content">
-                <!-- Top Artists Section -->
-                {{if not .IsFiltered}}
-                <section class="top-artists">
-                    <div class="top-artists-grid">
-                        {{range $index, $artist := .TopArtists}}
-                        <div class="top-artist-card">
-                            <a href="/artists/{{$artist.Slug}}" class="top-artist-link">
-                                <div class="rank">{{add $index 1}}</div>
-                                <div class="artist-name">{{$artist.Name}}</div>
-                                <div class="artist-stats">
-                                    <span class="concert-count">{{$artist.ConcertCount}} concerts</span> • 
-                                    <span class="member-count">{{len $artist.Members}} members</span>
-                                </div>
-                            </a>
-                        </div>
-                        {{end}}
-                    </div>
-                </section>
-                {{end}}
+                
 
                 <!-- Filters Section (like search page) -->
                 <details class="filters-section">

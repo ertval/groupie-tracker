@@ -167,88 +167,17 @@
     background: #4b5563;
 }
 
-/* Top Locations Section */
-.top-locations h2 {
-    color: var(--text);
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: var(--spacing-lg);
-    text-align: center;
-}
 
-.top-locations-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: var(--spacing-md);
-    margin-bottom: var(--spacing-xl);
-}
-
-.top-location-card {
-    background: var(--secondary-bg);
-    border-radius: var(--border-radius);
-    border: 1px solid var(--border);
-    text-align: center;
-    transition: all var(--transition-normal);
-}
-
-.top-location-card:hover {
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-md);
-    border-color: var(--accent);
-}
-
-.top-location-link {
-    display: block;
-    padding: var(--spacing-md);
-    text-decoration: none;
-    color: inherit;
-    height: 100%;
-}
-
-.top-location-card .rank {
-    display: block;
-    font-size: 2rem;
-    font-weight: 700;
-    color: var(--accent);
-    margin-bottom: var(--spacing-xs);
-}
-
-.top-location-card .location-name {
-    font-weight: 600;
-    margin-bottom: var(--spacing-sm);
-}
-
-.top-location-card .location-name {
-    color: var(--text);
-    text-decoration: none;
-    font-size: 1rem;
-}
-
-.top-location-card .location-name:hover {
-    color: var(--accent);
-}
-
-.location-stats {
-    font-size: 0.85rem;
-    color: var(--muted);
-    display: flex;
-    justify-content: center;
-    gap: var(--spacing-xs);
-}
-
-.location-stats .concert-count,
-.location-stats .artist-count {
-    display: inline-block;
-}
 
 /* Locations Grid */
 .locations-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: var(--spacing-xl);
     margin-top: var(--spacing-xl);
 }
 
+/* Make location cards consistent with artist cards */
 .location-card {
     background: var(--card-bg);
     border-radius: var(--border-radius);
@@ -299,6 +228,7 @@
     margin: calc(var(--spacing-sm) / 2) 0 0 0;
     color: var(--muted);
     font-size: 0.85rem;
+    line-height: 1.4;
 }
 
 .location-artists a {
@@ -310,9 +240,9 @@
     color: var(--accent-hover);
 }
 
-.location-artists a:hover {
-    color: var(--info);
-    text-decoration: underline;
+.artist-with-count {
+    display: inline-block;
+    margin-bottom: 0.25rem;
 }
 
 /* No Results */
