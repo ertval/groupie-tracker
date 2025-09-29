@@ -324,7 +324,7 @@ func (r *Repository) addConcertData(artists []Artist, apiRelations APIRelation) 
 	// Add concert data to each artist
 	for i := range artists {
 		artist := &artists[i]
-		
+
 		if rel, exists := relationMap[artist.ID]; exists {
 			countries := make(map[string]bool)
 

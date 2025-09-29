@@ -75,7 +75,7 @@ func methodGuardMultiple(methods []string, handler http.HandlerFunc) http.Handle
 				break
 			}
 		}
-		
+
 		if !allowed {
 			// Set Allow header with all allowed methods
 			allowHeader := ""

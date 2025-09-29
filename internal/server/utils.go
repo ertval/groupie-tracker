@@ -20,10 +20,10 @@ import (
 // BaseTemplateData contains common fields used in all page templates.
 // This eliminates duplication of Title, ExtraCSS, ExtraJS across all handlers.
 type BaseTemplateData struct {
-	Title       string                    // Page title for HTML head and display
-	ExtraCSS    string                    // Additional CSS file to include
-	ExtraJS     string                    // Additional JavaScript file to include  
-	Suggestions []data.SearchSuggestion   // Search suggestions for autocomplete
+	Title       string                  // Page title for HTML head and display
+	ExtraCSS    string                  // Additional CSS file to include
+	ExtraJS     string                  // Additional JavaScript file to include
+	Suggestions []data.SearchSuggestion // Search suggestions for autocomplete
 }
 
 // NewBaseTemplateData creates a new BaseTemplateData with search suggestions.

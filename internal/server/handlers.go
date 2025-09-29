@@ -195,7 +195,6 @@ func Search(w http.ResponseWriter, r *http.Request) {
 	render(w, r, "search.tmpl", data)
 }
 
-
 // Locations handles the locations listing page.
 func Locations(w http.ResponseWriter, r *http.Request) {
 	// Validate path for both GET and POST
@@ -357,10 +356,10 @@ func Health(w http.ResponseWriter, r *http.Request) {
 // SuggestionsAPI provides search suggestions for autocomplete functionality.
 func SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	
+
 	// Get all suggestions
 	allSuggestions := repo.GenerateAllSearchSuggestions()
-	
+
 	// If no query, return empty suggestions
 	if query == "" {
 		w.Header().Set("Content-Type", "application/json")
@@ -371,7 +370,7 @@ func SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 	// Filter suggestions based on query
 	var matchingSuggestions []data.SearchSuggestion
 	queryLower := strings.ToLower(query)
-	
+
 	for _, suggestion := range allSuggestions {
 		if strings.Contains(strings.ToLower(suggestion.Text), queryLower) {
 			matchingSuggestions = append(matchingSuggestions, suggestion)
