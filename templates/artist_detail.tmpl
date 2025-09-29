@@ -20,7 +20,7 @@
                     <h3>Band Members</h3>
                     <div class="members-list">
                         {{range $index, $member := .Artist.Members}}
-                        <span class="member-item">{{.}}</span>{{if lt $index (sub (len $.Artist.Members) 1)}}, {{end}}
+                        <span class="member-name">{{.}}</span>{{if lt $index (sub (len $.Artist.Members) 1)}}, {{end}}
                         {{end}}
                     </div>
                 </div>
@@ -30,33 +30,7 @@
 
     <main class="page-body">
 
-        {{if .Artist.Concerts}}
-        <section class="concert-info">
-            <h2>Concert Locations & Dates</h2>
-            <div class="concerts-container">
-                {{range $slug, $dates := .Artist.DatesAtLocation}}
-                <div class="location-section">
-                    <h3 class="location-name">
-                        <a href="/locations/{{$slug}}" class="location-link">{{$slug | title}}</a>
-                    </h3>
-                    <div class="dates-list">
-                        {{range $dates}}
-                        <span class="concert-date">{{.}}</span>
-                        {{end}}
-                    </div>
-                </div>
-                {{end}}
-            </div>
-        </section>
-        {{else}}
-        <section class="no-concerts">
-            <h2>Concert Information</h2>
-            <p class="muted">No concert information available for this artist.</p>
-        </section>
-        {{end}}
-
         <section class="artist-stats">
-            <h2>Statistics</h2>
             <div class="stats-grid">
                 <div class="stat-item">
                     <span class="stat-number">{{len .Artist.Members}}</span>
@@ -78,6 +52,32 @@
                 </div>
             </div>
         </section>
+
+        {{if .Artist.Concerts}}
+        <section class="concert-info">
+            <div class="concerts-grid">
+                {{range $slug, $dates := .Artist.DatesAtLocation}}
+                <a href="/locations/{{$slug}}" class="concert-card-link">
+                    <div class="concert-card">
+                        <h3 class="location-name">
+                            {{$slug | title}}
+                            <div class="dates-list">
+                                {{range $dates}}
+                                <span class="concert-date">{{.}}</span>
+                                {{end}}
+                            </div>
+                        </h3>
+                    </div>
+                </a>
+                {{end}}
+            </div>
+        </section>
+        {{else}}
+        <section class="no-concerts">
+            <h2>Concert Information</h2>
+            <p class="muted">No concert information available for this artist.</p>
+        </section>
+        {{end}}
 
         <div class="navigation-links">
             <div class="artist-nav-buttons">

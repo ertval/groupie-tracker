@@ -93,41 +93,9 @@
     line-height: 1.6;
 }
 
-.member-item {
+.member-name {
     display: inline;
-}
-
-/* Members section */
-.artist-members {
-    background: var(--card-bg);
-    border-radius: var(--border-radius-lg);
-    padding: var(--card-padding-lg);
-    margin-bottom: var(--spacing-xl);
-    border: 1px solid var(--border);
-    box-shadow: var(--shadow);
-}
-
-.artist-members h2 {
-    color: var(--text-primary);
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: var(--spacing-md);
-}
-
-.members-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--spacing-xs);
-    font-size: 1.1rem;
-    color: var(--text);
-}
-
-.member-item {
-    display: inline-block;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background: var(--secondary-bg);
-    border-radius: var(--border-radius-sm);
-    border: 1px solid var(--border);
+    font-weight: 500;
 }
 
 /* Concerts section */
@@ -147,35 +115,46 @@
     margin-bottom: var(--spacing-md);
 }
 
-.location-section {
-    margin-bottom: var(--spacing-md);
-    padding: var(--spacing-md);
+/* Concert cards grid layout */
+.concerts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.concert-card-link {
+    text-decoration: none;
+    display: block;
+    color: inherit;
+}
+
+.concert-card {
+    background: var(--secondary-bg);
     border: 1px solid var(--border);
     border-radius: var(--border-radius);
-    background: var(--secondary-bg);
+    padding: var(--spacing-md);
+    transition: transform var(--transition-fast) ease, box-shadow var(--transition-fast) ease, border-color var(--transition-fast) ease;
+}
+
+.concert-card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent);
 }
 
 .location-name {
-    margin: 0 0 var(--spacing-sm) 0;
-    font-size: 1.2rem;
+    margin: 0;
+    font-size: 1.1rem;
     font-weight: 600;
-}
-
-.location-link {
-    color: var(--accent);
-    text-decoration: none;
-    transition: color var(--transition-fast);
-}
-
-.location-link:hover {
-    color: var(--accent-hover);
-    text-decoration: underline;
+    display: flex;
+    flex-direction: column;
 }
 
 .dates-list {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
+    margin-top: var(--spacing-xs);
 }
 
 .concert-date {

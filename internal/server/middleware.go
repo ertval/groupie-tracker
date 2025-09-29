@@ -54,7 +54,8 @@ func withSecureHeaders(next http.Handler) http.Handler {
 
 // onlyMethod wraps a handler to only allow specific HTTP methods.
 // This eliminates duplication of method validation across handlers.
-func onlyMethod(handler http.HandlerFunc, methods ...string) http.HandlerFunc {
+// Updated to use server's Error method for consistent error handling.
+func (s *Server) onlyMethod(handler http.HandlerFunc, methods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		allowed := false
 		for _, method := range methods {
@@ -74,7 +75,7 @@ func onlyMethod(handler http.HandlerFunc, methods ...string) http.HandlerFunc {
 				allowHeader += method
 			}
 			w.Header().Set("Allow", allowHeader)
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			s.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 			return
 		}
 		handler(w, r)
