@@ -34,10 +34,9 @@ func (s *Server) NewBaseTemplateData(title, cssFile string) BaseTemplateData {
 		Title:       title,
 		ExtraCSS:    cssFile,
 		ExtraJS:     "",
-		Suggestions: s.search.GenerateAllSearchSuggestions(),
+		Suggestions: s.suggestions, // Use cached suggestions
 	}
 }
-
 
 // --- Template Rendering System ---
 
@@ -334,7 +333,7 @@ func (s *Server) addSuggestionsToData(data any) any {
 
 	// Only generate suggestions if the field exists and is empty
 	if suggestionsField.IsNil() || suggestionsField.Len() == 0 {
-		suggestions := s.search.GenerateAllSearchSuggestions()
+		suggestions := s.suggestions // Use cached suggestions
 		suggestionsValue := reflect.ValueOf(suggestions)
 		if suggestionsValue.Type().AssignableTo(suggestionsField.Type()) {
 			suggestionsField.Set(suggestionsValue)

@@ -22,8 +22,8 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists := s.artists.GetArtists()
-	stats := s.stats.GetStats()
+	artists := s.repo.GetArtists()
+	stats := s.repo.GetStats()
 
 	// Get 8 random artists for homepage display
 	artists = getRandomArtists(artists, 8)
@@ -51,8 +51,8 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists := s.artists.GetArtists()
-	filterOptions := s.artists.GetArtistFilterOptions()
+	artists := s.repo.GetArtists()
+	filterOptions := s.artistFilterOpts // Use cached filter options
 	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 
@@ -64,7 +64,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		}
 
 		appliedFilters = parseArtistFilterParams(r)
-		artists = s.artists.FilterArtists(appliedFilters)
+		artists = s.repo.FilterArtists(appliedFilters)
 	}
 
 	// Sort artists by concert count (descending) for main display
@@ -101,10 +101,10 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try slug first, then ID
-	artist, found := s.artists.GetArtistBySlug(path)
+	artist, found := s.repo.GetArtistBySlug(path)
 	if !found {
 		if id, err := strconv.Atoi(path); err == nil {
-			artist, found = s.artists.GetArtistByID(id)
+			artist, found = s.repo.GetArtistByID(id)
 		}
 		if !found {
 			s.Error(w, r, http.StatusNotFound, "Artist not found")
@@ -113,7 +113,7 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get navigation artists using on-demand lookup
-	prevArtist, nextArtist := s.artists.GetAdjacentArtists(artist.ID)
+	prevArtist, nextArtist := s.repo.GetAdjacentArtists(artist.ID)
 
 	data := struct {
 		BaseTemplateData
@@ -159,13 +159,13 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 			Query:   searchQuery,
 			Filters: appliedFilters,
 		}
-		searchResults = s.search.SearchArtists(searchParams)
+		searchResults = s.repo.SearchArtists(searchParams)
 	}
 
-	filterOptions := s.artists.GetArtistFilterOptions()
+	filterOptions := s.artistFilterOpts // Use cached filter options
 
 	// Generate all search suggestions for datalist
-	allSuggestions := s.search.GenerateAllSearchSuggestions()
+	allSuggestions := s.suggestions // Use cached suggestions
 
 	data := struct {
 		BaseTemplateData
@@ -199,11 +199,11 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	locations := s.locations.GetLocations()
+	locations := s.repo.GetLocations()
 	filterOptions := s.repo.GetLocationFilterOptions()
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
-	stats := s.stats.GetStats()
+	stats := s.repo.GetStats()
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
@@ -269,7 +269,7 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	location, found := s.locations.GetLocationBySlug(slug)
+	location, found := s.repo.GetLocationBySlug(slug)
 	if !found {
 		s.Error(w, r, http.StatusNotFound, "Location not found")
 		return
@@ -342,7 +342,7 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     s.stats.GetStats(),
+		"stats":     s.repo.GetStats(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -354,7 +354,7 @@ func (s *Server) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 
 	// Get all suggestions
-	allSuggestions := s.search.GenerateAllSearchSuggestions()
+	allSuggestions := s.suggestions // Use cached suggestions
 
 	// If no query, return empty suggestions
 	if query == "" {

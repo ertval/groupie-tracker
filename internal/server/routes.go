@@ -18,7 +18,7 @@ func (s *Server) createServeMux() *http.ServeMux {
 	router.HandleFunc("/health", s.restrictMethod(s.Health, "GET"))
 
 	// API endpoints
-	//router.HandleFunc("/api/suggestions", s.restrictMethod(s.SuggestionsAPI, "GET"))
+	router.HandleFunc("/api/suggestions", s.restrictMethod(s.SuggestionsAPI, "GET"))
 
 	// Search endpoints (supports both GET and POST)
 	router.HandleFunc("/search", s.restrictMethod(s.Search, "GET", "POST"))

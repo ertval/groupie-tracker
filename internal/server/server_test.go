@@ -83,25 +83,19 @@ func createTestServer(t *testing.T) *Server {
 	return server
 }
 
-// TestNewServer tests server initialization with dependency injection
+// TestNewServer tests server initialization with direct repository access
 func TestNewServer(t *testing.T) {
 	server := createTestServer(t)
 
-	// Verify server has all required services
-	if server.artists == nil {
-		t.Error("Expected ArtistService to be initialized")
+	// Verify server has required components
+	if server.repo == nil {
+		t.Error("Expected repository to be initialized")
 	}
-	if server.search == nil {
-		t.Error("Expected SearchService to be initialized")
+	if server.suggestions == nil {
+		t.Error("Expected cached suggestions to be initialized")
 	}
-	if server.locations == nil {
-		t.Error("Expected LocationService to be initialized")
-	}
-	if server.stats == nil {
-		t.Error("Expected StatsService to be initialized")
-	}
-	if server.cache == nil {
-		t.Error("Expected CacheService to be initialized")
+	if len(server.suggestions) == 0 {
+		t.Error("Expected cached suggestions to contain data")
 	}
 	if server.templates == nil {
 		t.Error("Expected templates to be initialized")
@@ -111,13 +105,13 @@ func TestNewServer(t *testing.T) {
 	}
 
 	// Verify server has loaded data
-	artists := server.artists.GetArtists()
+	artists := server.repo.GetArtists()
 	if len(artists) == 0 {
 		t.Error("Expected artists to be loaded")
 	}
 
 	// Verify stats are available
-	stats := server.stats.GetStats()
+	stats := server.repo.GetStats()
 	if stats["total_artists"] == 0 {
 		t.Error("Expected stats to be computed")
 	}
@@ -288,61 +282,58 @@ func TestRouting(t *testing.T) {
 	}
 }
 
-// TestServiceInterfaces tests that services work through interfaces
-func TestServiceInterfaces(t *testing.T) {
+// TestDirectRepositoryAccess tests that server works with direct repository access
+func TestDirectRepositoryAccess(t *testing.T) {
 	server := createTestServer(t)
 
-	// Test ArtistService interface
-	artists := server.artists.GetArtists()
+	// Test direct repository access for artists
+	artists := server.repo.GetArtists()
 	if len(artists) == 0 {
-		t.Error("ArtistService should return artists")
+		t.Error("Repository should return artists")
 	}
 
-	// Test SearchService interface
-	suggestions := server.search.GenerateAllSearchSuggestions()
+	// Test cached suggestions
+	suggestions := server.suggestions
 	if len(suggestions) == 0 {
-		t.Error("SearchService should return suggestions")
+		t.Error("Cached suggestions should be available")
 	}
 
-	// Test LocationService interface
-	locations := server.locations.GetLocations()
+	// Test direct repository access for locations
+	locations := server.repo.GetLocations()
 	if len(locations) == 0 {
-		t.Error("LocationService should return locations")
+		t.Error("Repository should return locations")
 	}
 
-	// Test StatsService interface
-	stats := server.stats.GetStats()
+	// Test direct repository access for stats
+	stats := server.repo.GetStats()
 	if stats["total_artists"] == 0 {
-		t.Error("StatsService should return stats")
+		t.Error("Repository should return stats")
 	}
 
-	// Test CacheService interface
-	cacheEnabled := server.cache.IsCacheEnabled()
+	// Test direct repository access for cache status
+	cacheEnabled := server.repo.IsCacheEnabled()
 	if cacheEnabled {
-		t.Error("CacheService should report cache as disabled in tests")
+		t.Error("Repository should report cache as disabled in tests")
 	}
 }
 
-// TestNoDependencyInjectionAntiPatterns tests that we don't have global state
-func TestNoDependencyInjectionAntiPatterns(t *testing.T) {
-	// This test ensures we properly use dependency injection
+// TestNoServiceLayerAntiPatterns tests that we don't have unnecessary service layers
+func TestNoServiceLayerAntiPatterns(t *testing.T) {
+	// This test ensures we use direct repository access instead of service facades
 	server1 := createTestServer(t)
 	// Create second server in a separate test to avoid directory issues
 
-	// Servers should use dependency injection pattern
-	if server1.artists == nil {
-		t.Error("Server should have injected artist service")
+	// Server should use direct repository access pattern
+	if server1.repo == nil {
+		t.Error("Server should have direct repository access")
 	}
-	if server1.search == nil {
-		t.Error("Server should have injected search service")
+	if server1.suggestions == nil {
+		t.Error("Server should have cached suggestions")
 	}
-	if server1.locations == nil {
-		t.Error("Server should have injected location service")
+	if len(server1.suggestions) == 0 {
+		t.Error("Server should have populated cached suggestions")
 	}
-	if server1.stats == nil {
-		t.Error("Server should have injected stats service")
-	}
-	if server1.cache == nil {
-		t.Error("Server should have injected cache service")
+	if server1.templates == nil {
+		t.Error("Server should have compiled templates")
 	}
 }

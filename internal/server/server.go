@@ -11,20 +11,22 @@ import (
 	"time"
 )
 
-// Server encapsulates all server dependencies using dependency injection
-// and service composition following Interface Segregation Principle.
+// Server encapsulates all server dependencies with direct repository access
+// and cached expensive computations for optimal performance.
 type Server struct {
-	// Service dependencies - focused interfaces instead of monolithic repository
-	artists   ArtistService
-	search    SearchService
-	locations LocationService
-	stats     StatsService
-	cache     CacheService
+	// Direct repository access (eliminates service layer facade)
+	repo *data.Repository
 
-	// Internal dependencies
-	repo       *data.Repository              // Still needed for initialization
-	templates  map[string]*template.Template // Pre-compiled HTML templates for rendering
-	httpServer *http.Server                  // HTTP server instance
+	// Pre-compiled templates for rendering
+	templates map[string]*template.Template
+
+	// Cached expensive computations (computed once at startup)
+	suggestions        []data.SearchSuggestion    // All search suggestions cached
+	artistFilterOpts   data.ArtistFilterOptions   // Artist filter options cached
+	locationFilterOpts data.LocationFilterOptions // Location filter options cached
+
+	// HTTP server instance
+	httpServer *http.Server
 	// Handler is the http.Handler used by the server. It is exported to allow
 	// external packages (tests) to create test servers using the same handler
 	// without needing to start a full network listener.
@@ -63,19 +65,15 @@ func NewServer() (*Server, error) {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
-	// Initialize services with repository dependency
-	server.artists = newArtistService(server.repo)
-	server.search = newSearchService(server.repo)
-	server.locations = newLocationService(server.repo)
-	server.stats = newStatsService(server.repo)
-	server.cache = newCacheService(server.repo)
+	// Initialize expensive computations cache
+	server.initializeCaches()
 
 	// Compile all HTML templates once at startup
 	server.loadTemplates()
 
 	// Log startup summary with cache status and performance metrics
-	stats := server.stats.GetStats()
-	if !server.cache.IsCacheEnabled() {
+	stats := server.repo.GetStats()
+	if !server.repo.IsCacheEnabled() {
 		log.Printf("Data loaded successfully - %d artists (Image caching is disabled, serving from API)", stats["total_artists"])
 	} else {
 		log.Printf("Data loaded successfully with cache - %d artists", stats["total_artists"])
@@ -105,4 +103,16 @@ func NewServer() (*Server, error) {
 // ListenAndServe starts the HTTP server (blocking operation)
 func (s *Server) ListenAndServe() error {
 	return s.httpServer.ListenAndServe()
+}
+
+// initializeCaches pre-computes expensive operations and stores them for O(1) access
+func (s *Server) initializeCaches() {
+	// Cache all search suggestions (expensive to generate on each request)
+	s.suggestions = s.repo.GenerateAllSearchSuggestions()
+
+	// Cache filter options (expensive to compute min/max ranges)
+	s.artistFilterOpts = s.repo.GetArtistFilterOptions()
+
+	// Note: LocationFilterOptions doesn't exist yet but will be added in Phase 2
+	// s.locationFilterOpts = s.repo.GetLocationFilterOptions()
 }
