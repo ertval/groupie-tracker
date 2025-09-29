@@ -86,7 +86,7 @@ func TestRepository_LoadData_Success(t *testing.T) {
 	if nextArtist == nil || nextArtist.ID != queen.ID {
 		t.Error("expected AC/DC's next artist to be Queen")
 	}
-	
+
 	prevArtist, nextArtist = repo.GetAdjacentArtists(queen.ID)
 	if prevArtist == nil || prevArtist.ID != acdc.ID {
 		t.Error("expected Queen's previous artist to be AC/DC")
@@ -376,7 +376,7 @@ func TestRepository_EdgeCaseData(t *testing.T) {
 	// Check navigation works with edge cases
 	firstPrev, firstNext := repo.GetAdjacentArtists(artists[0].ID)
 	lastPrev, lastNext := repo.GetAdjacentArtists(artists[len(artists)-1].ID)
-	
+
 	if firstPrev != nil {
 		t.Error("first artist should not have a previous artist")
 	}
