@@ -73,13 +73,13 @@ type Location struct {
 
 // AppStats provides type-safe application statistics.
 type AppStats struct {
-	TotalArtists       int `json:"total_artists"`
-	TotalLocations     int `json:"total_locations"`
-	TotalConcerts      int `json:"total_concerts"`
-	EarliestYear       int `json:"earliest_year"`
-	LatestYear         int `json:"latest_year"`
-	CachedImages       int `json:"cached_images"`
-	DownloadedImages   int `json:"downloaded_images"`
+	TotalArtists     int `json:"total_artists"`
+	TotalLocations   int `json:"total_locations"`
+	TotalConcerts    int `json:"total_concerts"`
+	EarliestYear     int `json:"earliest_year"`
+	LatestYear       int `json:"latest_year"`
+	CachedImages     int `json:"cached_images"`
+	DownloadedImages int `json:"downloaded_images"`
 }
 
 // --- Simplified Data Store ---
@@ -295,7 +295,7 @@ func createLocations(artists []Artist) []Location {
 						loc.LatestYear = concert.Year
 					}
 				}
-				
+
 				// Add artist if not already present
 				artistExists := false
 				for _, existingArtist := range loc.Artists {
@@ -308,7 +308,7 @@ func createLocations(artists []Artist) []Location {
 					loc.Artists = append(loc.Artists, artist.Name)
 					loc.ArtistCount++
 				}
-				
+
 				loc.Concerts = append(loc.Concerts, concert)
 			} else {
 				// Create new location
@@ -320,12 +320,12 @@ func createLocations(artists []Artist) []Location {
 					TotalConcerts: 1,
 					Concerts:      []Concert{concert},
 				}
-				
+
 				if concert.Year > 0 {
 					location.EarliestYear = concert.Year
 					location.LatestYear = concert.Year
 				}
-				
+
 				locationMap[concert.Location] = location
 			}
 		}
@@ -353,7 +353,7 @@ func calculateStats(artists []Artist, locations []Location) AppStats {
 
 	for _, artist := range artists {
 		stats.TotalConcerts += artist.ConcertCount
-		
+
 		// Track earliest/latest years from concerts
 		for _, concert := range artist.Concerts {
 			if concert.Year > 0 {
@@ -376,14 +376,14 @@ func calculateStats(artists []Artist, locations []Location) AppStats {
 func generateSlug(s string) string {
 	// Convert to lowercase
 	slug := strings.ToLower(s)
-	
+
 	// Replace spaces and special characters with hyphens
 	reg := regexp.MustCompile(`[^a-z0-9]+`)
 	slug = reg.ReplaceAllString(slug, "-")
-	
+
 	// Remove leading/trailing hyphens
 	slug = strings.Trim(slug, "-")
-	
+
 	return slug
 }
 
@@ -440,7 +440,7 @@ func parseYear(yearStr string) int {
 	if len(yearStr) != 4 {
 		return 0
 	}
-	
+
 	year := 0
 	for _, ch := range yearStr {
 		if ch < '0' || ch > '9' {
@@ -448,7 +448,7 @@ func parseYear(yearStr string) int {
 		}
 		year = year*10 + int(ch-'0')
 	}
-	
+
 	if year > 1900 && year < 3000 {
 		return year
 	}

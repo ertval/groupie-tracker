@@ -4,12 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html/template"
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -18,7 +15,6 @@ import (
 // Strategic caching variables for expensive operations
 var (
 	dataStore   *DataStore
-	templates   map[string]*template.Template
 	suggestions []SearchSuggestion
 )
 
@@ -52,7 +48,7 @@ func InitializeServer() error {
 	// Initialize strategic caches
 	log.Println("Initializing caches...")
 	suggestions = GenerateSearchSuggestions(dataStore.Artists)
-	
+
 	if err := loadTemplates(); err != nil {
 		return fmt.Errorf("failed to load templates: %w", err)
 	}
@@ -153,14 +149,14 @@ func artistsHandler(w http.ResponseWriter, r *http.Request) {
 	filterOptions := GetFilterOptions(dataStore.Artists)
 
 	data := struct {
-		Title         string
-		ExtraCSS      string
-		Suggestions   []SearchSuggestion
-		Artists       []Artist
-		FilterOptions FilterOptions
+		Title          string
+		ExtraCSS       string
+		Suggestions    []SearchSuggestion
+		Artists        []Artist
+		FilterOptions  FilterOptions
 		AppliedFilters Filters
-		IsFiltered    bool
-		TotalArtists  int
+		IsFiltered     bool
+		TotalArtists   int
 	}{
 		Title:          "Artists",
 		ExtraCSS:       "artists.css",
@@ -199,12 +195,12 @@ func artistDetailHandler(w http.ResponseWriter, r *http.Request) {
 	prevArtist, nextArtist := getAdjacentArtists(artist.ID)
 
 	data := struct {
-		Title      string
-		ExtraCSS   string
+		Title       string
+		ExtraCSS    string
 		Suggestions []SearchSuggestion
-		Artist     Artist
-		PrevArtist *Artist
-		NextArtist *Artist
+		Artist      Artist
+		PrevArtist  *Artist
+		NextArtist  *Artist
 	}{
 		Title:       artist.Name,
 		ExtraCSS:    "artist_detail.css",
@@ -322,7 +318,7 @@ func locationDetailHandler(w http.ResponseWriter, r *http.Request) {
 // suggestionsAPIHandler provides JSON search suggestions.
 func suggestionsAPIHandler(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
-	
+
 	filteredSuggestions := suggestions
 	if query != "" {
 		filteredSuggestions = FilterSuggestions(suggestions, query)

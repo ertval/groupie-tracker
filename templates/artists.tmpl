@@ -38,26 +38,26 @@
                                 </div>
                                 <div class="range-inputs">
                                     <label>
-                                        From: {{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}}
+                                        From: {{if .AppliedFilters.CreationYearMin}}{{.AppliedFilters.CreationYearMin}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}}
                                         <input type="range" 
-                                               name="creationYearFrom" 
+                                               name="creation_year_min" 
                                                min="{{.FilterOptions.CreationYearMin}}" 
                                                max="{{.FilterOptions.CreationYearMax}}"
-                                               value="{{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}}"
+                                               value="{{if .AppliedFilters.CreationYearMin}}{{.AppliedFilters.CreationYearMin}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}}"
                                                class="range-slider range-from">
                                     </label>
                                     <label>
-                                        To: {{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}
+                                        To: {{if .AppliedFilters.CreationYearMax}}{{.AppliedFilters.CreationYearMax}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}
                                         <input type="range" 
-                                               name="creationYearTo" 
+                                               name="creation_year_max" 
                                                min="{{.FilterOptions.CreationYearMin}}" 
                                                max="{{.FilterOptions.CreationYearMax}}"
-                                               value="{{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}"
+                                               value="{{if .AppliedFilters.CreationYearMax}}{{.AppliedFilters.CreationYearMax}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}"
                                                class="range-slider range-to">
                                     </label>
                                 </div>
                                 <div class="range-values">
-                                    <small>Current: {{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}} - {{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}</small>
+                                    <small>Current: {{if .AppliedFilters.CreationYearMin}}{{.AppliedFilters.CreationYearMin}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}} - {{if .AppliedFilters.CreationYearMax}}{{.AppliedFilters.CreationYearMax}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}</small>
                                 </div>
                             </div>
                         </div>
@@ -69,19 +69,19 @@
                                 <label>
                                     From:
                                     <input type="number" 
-                                           name="firstAlbumYearFrom" 
+                                           name="first_album_year_min" 
                                            min="{{.FilterOptions.FirstAlbumYearMin}}" 
                                            max="{{.FilterOptions.FirstAlbumYearMax}}"
-                                           value="{{if .AppliedFilters.FirstAlbumYearFrom}}{{.AppliedFilters.FirstAlbumYearFrom}}{{end}}"
+                                           value="{{if .AppliedFilters.FirstAlbumYearMin}}{{.AppliedFilters.FirstAlbumYearMin}}{{end}}"
                                            placeholder="{{.FilterOptions.FirstAlbumYearMin}}">
                                 </label>
                                 <label>
                                     To:
                                     <input type="number" 
-                                           name="firstAlbumYearTo" 
+                                           name="first_album_year_max" 
                                            min="{{.FilterOptions.FirstAlbumYearMin}}" 
                                            max="{{.FilterOptions.FirstAlbumYearMax}}"
-                                           value="{{if .AppliedFilters.FirstAlbumYearTo}}{{.AppliedFilters.FirstAlbumYearTo}}{{end}}"
+                                           value="{{if .AppliedFilters.FirstAlbumYearMax}}{{.AppliedFilters.FirstAlbumYearMax}}{{end}}"
                                            placeholder="{{.FilterOptions.FirstAlbumYearMax}}">
                                 </label>
                             </div>
@@ -94,7 +94,7 @@
                                 {{range .FilterOptions.MemberCounts}}
                                 <label class="checkbox-label">
                                     <input type="checkbox" 
-                                           name="memberCounts" 
+                                           name="member_counts" 
                                            value="{{.}}"
                                            {{if contains $.AppliedFilters.MemberCounts .}}checked{{end}}>
                                     {{.}} member{{if ne . 1}}s{{end}}

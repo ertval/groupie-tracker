@@ -4,7 +4,7 @@ package main
 import (
 	"log"
 
-	"groupie-tracker/internal/data"
+	data "groupie-tracker/internal"
 )
 
 func main() {
@@ -15,7 +15,7 @@ func main() {
 
 	// Create and start HTTP server
 	server := data.CreateServer()
-	
+
 	log.Printf("Server starting on %s", server.Addr)
 	if err := server.ListenAndServe(); err != nil {
 		log.Fatalf("Server failed: %v", err)

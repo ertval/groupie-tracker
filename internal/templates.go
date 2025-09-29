@@ -11,6 +11,9 @@ import (
 
 // --- Template Management ---
 
+// Global template cache
+var templates map[string]*template.Template
+
 // loadTemplates compiles all HTML templates with custom helper functions.
 func loadTemplates() error {
 	templates = make(map[string]*template.Template)
@@ -20,7 +23,7 @@ func loadTemplates() error {
 		"join":      strings.Join,
 		"len":       templateLen,
 		"pluralize": pluralize,
-		"contains":  strings.Contains,
+		"contains":  templateContains,
 		"add":       add,
 		"sub":       sub,
 		"hasField":  hasField,
@@ -43,7 +46,7 @@ func loadTemplates() error {
 	// Load each template with base template
 	for _, templateFile := range templateFiles {
 		templateName := filepath.Base(templateFile)
-		
+
 		tmpl, err := template.New(templateName).Funcs(funcMap).ParseFiles(
 			"templates/base.tmpl",
 			templateFile,
@@ -67,7 +70,7 @@ func renderTemplate(w http.ResponseWriter, r *http.Request, templateName string,
 	}
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	
+
 	if err := tmpl.ExecuteTemplate(w, "base", data); err != nil {
 		http.Error(w, "Template rendering error", http.StatusInternalServerError)
 		return
@@ -92,6 +95,29 @@ func templateLen(v interface{}) int {
 	default:
 		return 0
 	}
+}
+
+// templateContains checks if a slice contains a specific value for template use.
+func templateContains(slice interface{}, item interface{}) bool {
+	switch s := slice.(type) {
+	case []string:
+		if str, ok := item.(string); ok {
+			for _, v := range s {
+				if v == str {
+					return true
+				}
+			}
+		}
+	case []int:
+		if num, ok := item.(int); ok {
+			for _, v := range s {
+				if v == num {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }
 
 // pluralize returns singular or plural form based on count.
@@ -122,7 +148,7 @@ func hasField(obj interface{}, fieldName string) bool {
 func toTitleCase(s string) string {
 	// Replace hyphens with spaces
 	s = strings.ReplaceAll(s, "-", " ")
-	
+
 	// Split into words and capitalize each
 	words := strings.Fields(s)
 	for i, word := range words {
@@ -130,7 +156,7 @@ func toTitleCase(s string) string {
 			words[i] = strings.ToUpper(word[:1]) + strings.ToLower(word[1:])
 		}
 	}
-	
+
 	return strings.Join(words, " ")
 }
 
@@ -163,7 +189,7 @@ func withLogging(next http.Handler) http.Handler {
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		duration := time.Since(start)
-		
+
 		// Simple access log
 		fmt.Printf("%s %s %v\n", r.Method, r.URL.Path, duration)
 	})
@@ -177,7 +203,7 @@ func withSecurity(next http.Handler) http.Handler {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("X-XSS-Protection", "1; mode=block")
 		w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

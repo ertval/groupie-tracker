@@ -10,12 +10,12 @@ import (
 
 // Filters represents filter parameters with simple zero values instead of pointers.
 type Filters struct {
-	CreationYearMin int      `form:"creation_year_min" json:"creation_year_min"`
-	CreationYearMax int      `form:"creation_year_max" json:"creation_year_max"`
-	FirstAlbumYearMin int    `form:"first_album_year_min" json:"first_album_year_min"`
-	FirstAlbumYearMax int    `form:"first_album_year_max" json:"first_album_year_max"`
-	MemberCounts    []int    `form:"member_counts" json:"member_counts"`
-	Countries       []string `form:"countries" json:"countries"`
+	CreationYearMin   int      `form:"creation_year_min" json:"creation_year_min"`
+	CreationYearMax   int      `form:"creation_year_max" json:"creation_year_max"`
+	FirstAlbumYearMin int      `form:"first_album_year_min" json:"first_album_year_min"`
+	FirstAlbumYearMax int      `form:"first_album_year_max" json:"first_album_year_max"`
+	MemberCounts      []int    `form:"member_counts" json:"member_counts"`
+	Countries         []string `form:"countries" json:"countries"`
 }
 
 // FilterOptions provides the available filter bounds and options.
