@@ -6,6 +6,18 @@ import (
 	"strings"
 )
 
+// newSearchSuggestion creates a SearchSuggestion with normalized text for efficient filtering
+func newSearchSuggestion(text, suggestionType, description, url string, artistID int) SearchSuggestion {
+	return SearchSuggestion{
+		Text:           text,
+		Type:           SearchSuggestionType(suggestionType),
+		Description:    description,
+		URL:            url,
+		ArtistID:       artistID,
+		normalizedText: strings.ToLower(text),
+	}
+}
+
 // SearchArtists performs comprehensive search across all artist data.
 //
 // This method combines text search with optional filtering to provide
@@ -146,13 +158,13 @@ func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
 		// Add artist name suggestion
 		artistKey := "artist:" + artist.Name
 		if !seenSuggestions[artistKey] {
-			suggestions = append(suggestions, SearchSuggestion{
-				Text:        artist.Name + " - artist",
-				Type:        SuggestionTypeArtist,
-				Description: artist.Name + " - artist",
-				URL:         "/artists/" + artist.Slug,
-				ArtistID:    artist.ID,
-			})
+			suggestions = append(suggestions, newSearchSuggestion(
+				artist.Name+" - artist",
+				string(SuggestionTypeArtist),
+				artist.Name+" - artist",
+				"/artists/"+artist.Slug,
+				artist.ID,
+			))
 			seenSuggestions[artistKey] = true
 		}
 
@@ -160,13 +172,13 @@ func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
 		for _, member := range artist.Members {
 			memberKey := "member:" + member
 			if !seenSuggestions[memberKey] {
-				suggestions = append(suggestions, SearchSuggestion{
-					Text:        member + " - member",
-					Type:        SuggestionTypeMember,
-					Description: member + " - member of " + artist.Name,
-					URL:         "/artists/" + artist.Slug,
-					ArtistID:    artist.ID,
-				})
+				suggestions = append(suggestions, newSearchSuggestion(
+					member+" - member",
+					string(SuggestionTypeMember),
+					member+" - member of "+artist.Name,
+					"/artists/"+artist.Slug,
+					artist.ID,
+				))
 				seenSuggestions[memberKey] = true
 			}
 		}
@@ -175,13 +187,13 @@ func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
 		for location := range artist.DatesAtLocation {
 			locationKey := "location:" + location
 			if !seenSuggestions[locationKey] {
-				suggestions = append(suggestions, SearchSuggestion{
-					Text:        location + " - location",
-					Type:        SuggestionTypeLocation,
-					Description: location + " - concert location",
-					URL:         "/search?q=" + location,
-					ArtistID:    0, // Not specific to one artist
-				})
+				suggestions = append(suggestions, newSearchSuggestion(
+					location+" - location",
+					string(SuggestionTypeLocation),
+					location+" - concert location",
+					"/search?q="+location,
+					0, // Not specific to one artist
+				))
 				seenSuggestions[locationKey] = true
 			}
 		}
@@ -190,26 +202,26 @@ func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
 		creationYearStr := strconv.Itoa(artist.CreationYear)
 		yearKey := "creation:" + creationYearStr
 		if !seenSuggestions[yearKey] {
-			suggestions = append(suggestions, SearchSuggestion{
-				Text:        creationYearStr + " - creation year",
-				Type:        SuggestionTypeCreation,
-				Description: "Artists created in " + creationYearStr,
-				URL:         "/search?q=" + creationYearStr,
-				ArtistID:    0,
-			})
+			suggestions = append(suggestions, newSearchSuggestion(
+				creationYearStr+" - creation year",
+				string(SuggestionTypeCreation),
+				"Artists created in "+creationYearStr,
+				"/search?q="+creationYearStr,
+				0,
+			))
 			seenSuggestions[yearKey] = true
 		}
 
 		// Add first album date suggestion
 		albumKey := "album:" + artist.FirstAlbum
 		if !seenSuggestions[albumKey] {
-			suggestions = append(suggestions, SearchSuggestion{
-				Text:        artist.FirstAlbum + " - first album",
-				Type:        SuggestionTypeFirstAlbum,
-				Description: "Albums released on " + artist.FirstAlbum,
-				URL:         "/search?q=" + artist.FirstAlbum,
-				ArtistID:    0,
-			})
+			suggestions = append(suggestions, newSearchSuggestion(
+				artist.FirstAlbum+" - first album",
+				string(SuggestionTypeFirstAlbum),
+				"Albums released on "+artist.FirstAlbum,
+				"/search?q="+artist.FirstAlbum,
+				0,
+			))
 			seenSuggestions[albumKey] = true
 		}
 	}
@@ -275,4 +287,66 @@ func locationMatches(locationName, query string) bool {
 	}
 
 	return false
+}
+
+// FilterSuggestionsOptimized provides optimized suggestion filtering with prioritization and limits.
+//
+// This function implements several performance optimizations:
+// 1. Uses pre-computed normalized text to avoid repeated string.ToLower() calls
+// 2. Implements match prioritization (exact > prefix > contains)
+// 3. Limits results to prevent overwhelming the UI
+// 4. Stops early when enough results are found
+func FilterSuggestionsOptimized(suggestions []SearchSuggestion, query string, maxResults int) []SearchSuggestion {
+	if query == "" || len(suggestions) == 0 {
+		return []SearchSuggestion{}
+	}
+
+	if maxResults <= 0 {
+		maxResults = 20 // Default reasonable limit
+	}
+
+	queryLower := strings.ToLower(strings.TrimSpace(query))
+
+	// Three tiers of matches for prioritization
+	var exactMatches []SearchSuggestion
+	var prefixMatches []SearchSuggestion
+	var containsMatches []SearchSuggestion
+
+	totalFound := 0
+
+	for _, suggestion := range suggestions {
+		if totalFound >= maxResults {
+			break // Early termination once we have enough results
+		}
+
+		// Use pre-computed normalized text for efficient comparison
+		normalizedText := suggestion.normalizedText
+
+		if normalizedText == queryLower {
+			// Exact match - highest priority
+			exactMatches = append(exactMatches, suggestion)
+			totalFound++
+		} else if strings.HasPrefix(normalizedText, queryLower) {
+			// Prefix match - medium priority
+			prefixMatches = append(prefixMatches, suggestion)
+			totalFound++
+		} else if strings.Contains(normalizedText, queryLower) {
+			// Contains match - lowest priority
+			containsMatches = append(containsMatches, suggestion)
+			totalFound++
+		}
+	}
+
+	// Combine results in priority order
+	var results []SearchSuggestion
+	results = append(results, exactMatches...)
+	results = append(results, prefixMatches...)
+	results = append(results, containsMatches...)
+
+	// Ensure we don't exceed the limit
+	if len(results) > maxResults {
+		results = results[:maxResults]
+	}
+
+	return results
 }

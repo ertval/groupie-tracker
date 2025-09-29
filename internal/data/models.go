@@ -229,6 +229,8 @@ type SearchSuggestion struct {
 	Description string               `json:"description"` // Additional context (e.g., "Queen - artist")
 	URL         string               `json:"url"`         // Direct link to detail page
 	ArtistID    int                  `json:"artistId"`    // Related artist ID for context
+	// Optimization fields for faster searching (not serialized to JSON)
+	normalizedText string `json:"-"` // Lowercase version for efficient matching
 }
 
 // SearchResult represents a comprehensive search result with matched items.
@@ -248,4 +250,33 @@ type SearchResult struct {
 type SearchParams struct {
 	Query   string             `json:"query"`   // Search text input
 	Filters ArtistFilterParams `json:"filters"` // Optional additional filters
+}
+
+// AppStats represents application-wide statistics with type-safe fields.
+//
+// This structure provides a type-safe alternative to the map[string]int approach,
+// enabling compile-time validation and better API documentation. All fields
+// represent counts computed during data loading or runtime.
+type AppStats struct {
+	TotalArtists     int `json:"total_artists"`     // Number of artists in the dataset
+	TotalMembers     int `json:"total_members"`     // Sum of all band members across all artists
+	TotalLocations   int `json:"total_locations"`   // Number of unique concert venues
+	TotalConcerts    int `json:"total_concerts"`    // Total number of concert events
+	TotalCountries   int `json:"total_countries"`   // Number of unique countries with concerts
+	CachedImages     int `json:"cached_images"`     // Number of artist images served from local cache
+	DownloadedImages int `json:"downloaded_images"` // Number of artist images downloaded this session
+}
+
+// ToMap converts the type-safe stats structure to the legacy map format.
+// This method provides backward compatibility while maintaining type safety internally.
+func (s AppStats) ToMap() map[string]int {
+	return map[string]int{
+		"total_artists":     s.TotalArtists,
+		"total_members":     s.TotalMembers,
+		"total_locations":   s.TotalLocations,
+		"total_concerts":    s.TotalConcerts,
+		"total_countries":   s.TotalCountries,
+		"cached_images":     s.CachedImages,
+		"downloaded_images": s.DownloadedImages,
+	}
 }

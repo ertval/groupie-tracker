@@ -16,9 +16,8 @@ import (
 
 // Home handles the home page.
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
-	// Validate path
-	if r.URL.Path != "/" {
-		s.Error(w, r, http.StatusNotFound, "Page not found")
+	// Validate path using centralized utility
+	if !s.validateExactPath(w, r, "/") {
 		return
 	}
 
@@ -51,9 +50,8 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 
 // Artists handles the artists listing page.
 func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
-	// Validate path for both GET and POST
-	if r.URL.Path != "/artists" {
-		s.Error(w, r, http.StatusNotFound, "Page not found")
+	// Validate path for both GET and POST using centralized utility
+	if !s.validateExactPath(w, r, "/artists") {
 		return
 	}
 
@@ -64,8 +62,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
-		if err := r.ParseForm(); err != nil {
-			s.Error(w, r, http.StatusBadRequest, "Failed to parse form data")
+		if !s.parseFormOrError(w, r) {
 			return
 		}
 
@@ -108,7 +105,7 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	// Validate path
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
-		s.Error(w, r, http.StatusNotFound, "Page not found")
+		s.NotFoundError(w, r, "")
 		return
 	}
 
@@ -119,7 +116,7 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 			artist, found = s.repo.GetArtistByID(id)
 		}
 		if !found {
-			s.Error(w, r, http.StatusNotFound, "Artist not found")
+			s.NotFoundError(w, r, "Artist not found")
 			return
 		}
 	}
@@ -150,9 +147,8 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 
 // Search handles search requests for artists.
 func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
-	// Validate path
-	if r.URL.Path != "/search" {
-		s.Error(w, r, http.StatusNotFound, "Page not found")
+	// Validate path using centralized utility
+	if !s.validateExactPath(w, r, "/search") {
 		return
 	}
 
@@ -162,8 +158,7 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 
 	// Handle search submission
 	if r.Method == http.MethodPost {
-		if err := r.ParseForm(); err != nil {
-			s.Error(w, r, http.StatusBadRequest, "Failed to parse form data")
+		if !s.parseFormOrError(w, r) {
 			return
 		}
 
@@ -172,12 +167,38 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 		searchQuery = extractSearchTerm(searchQuery)
 		appliedFilters = parseArtistFilterParams(r)
 
-		// Perform search
-		searchParams := data.SearchParams{
-			Query:   searchQuery,
-			Filters: appliedFilters,
+		// Check cache first (only for simple searches without complex filters)
+		normalizedQuery := strings.ToLower(strings.TrimSpace(searchQuery))
+		cacheKey := normalizedQuery
+
+		var cachedResults []data.Artist
+		var cacheHit bool
+
+		// Only use cache for simple searches (no filters applied)
+		if isEmptyArtistFilters(appliedFilters) && normalizedQuery != "" {
+			cachedResults, cacheHit = s.getCachedSearchResults(cacheKey)
 		}
-		searchResults = s.repo.SearchArtists(searchParams)
+
+		if cacheHit {
+			// Use cached results
+			searchResults = data.SearchResult{
+				Artists:      cachedResults,
+				Query:        searchQuery,
+				TotalResults: len(cachedResults),
+			}
+		} else {
+			// Perform search
+			searchParams := data.SearchParams{
+				Query:   searchQuery,
+				Filters: appliedFilters,
+			}
+			searchResults = s.repo.SearchArtists(searchParams)
+
+			// Cache simple search results (no filters)
+			if isEmptyArtistFilters(appliedFilters) && normalizedQuery != "" {
+				s.setCachedSearchResults(cacheKey, searchResults.Artists)
+			}
+		}
 	}
 
 	filterOptions := s.artistFilterOpts // Use cached filter options
@@ -212,9 +233,8 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 
 // Locations handles the locations listing page.
 func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
-	// Validate path for both GET and POST
-	if r.URL.Path != "/locations" {
-		s.Error(w, r, http.StatusNotFound, "Page not found")
+	// Validate path for both GET and POST using centralized utility
+	if !s.validateExactPath(w, r, "/locations") {
 		return
 	}
 
@@ -226,8 +246,7 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
-		if err := r.ParseForm(); err != nil {
-			s.Error(w, r, http.StatusBadRequest, "Failed to parse form data")
+		if !s.parseFormOrError(w, r) {
 			return
 		}
 
@@ -290,13 +309,13 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 	slug := strings.TrimPrefix(r.URL.Path, "/locations/")
 	if slug == "" {
-		s.Error(w, r, http.StatusNotFound, "Page not found")
+		s.NotFoundError(w, r, "")
 		return
 	}
 
 	location, found := s.repo.GetLocationBySlug(slug)
 	if !found {
-		s.Error(w, r, http.StatusNotFound, "Location not found")
+		s.NotFoundError(w, r, "Location not found")
 		return
 	}
 
@@ -391,25 +410,9 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 func (s *Server) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 
-	// Get all suggestions
-	allSuggestions := s.suggestions // Use cached suggestions
-
-	// If no query, return empty suggestions
-	if query == "" {
-		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode([]data.SearchSuggestion{})
-		return
-	}
-
-	// Filter suggestions based on query
-	var matchingSuggestions []data.SearchSuggestion
-	queryLower := strings.ToLower(query)
-
-	for _, suggestion := range allSuggestions {
-		if strings.Contains(strings.ToLower(suggestion.Text), queryLower) {
-			matchingSuggestions = append(matchingSuggestions, suggestion)
-		}
-	}
+	// Use optimized filtering with reasonable limits
+	const maxSuggestions = 15 // Limit to avoid overwhelming the UI
+	matchingSuggestions := data.FilterSuggestionsOptimized(s.suggestions, query, maxSuggestions)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(matchingSuggestions)
@@ -455,7 +458,7 @@ func (s *Server) StaticFiles(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/favicon.ico" {
 		target := filepath.Join(staticDir, "favicon.ico")
 		if fi, err := os.Stat(target); err != nil || fi.IsDir() {
-			s.Error(w, r, http.StatusNotFound, "Favicon not found")
+			s.NotFoundError(w, r, "Favicon not found")
 			return
 		}
 		http.ServeFile(w, r, target)
@@ -464,24 +467,75 @@ func (s *Server) StaticFiles(w http.ResponseWriter, r *http.Request) {
 
 	// Only allow /static/ prefix
 	if !strings.HasPrefix(r.URL.Path, "/static/") {
-		s.Error(w, r, http.StatusNotFound, "Not found")
+		s.NotFoundError(w, r, "")
 		return
 	}
 
 	// Extract relative path and prevent directory traversal
 	rel := strings.TrimPrefix(r.URL.Path, "/static/")
 	if rel == "" || strings.Contains(rel, "..") || strings.HasPrefix(rel, "/") {
-		s.Error(w, r, http.StatusNotFound, "Not found")
+		s.NotFoundError(w, r, "")
 		return
 	}
 
 	// Build target path and verify it's a regular file
 	target := filepath.Join(staticDir, rel)
 	if fi, err := os.Stat(target); err != nil || fi.IsDir() {
-		s.Error(w, r, http.StatusNotFound, "Not found")
+		s.NotFoundError(w, r, "")
 		return
 	}
 
 	// Serve the file (Go's http.ServeFile handles content-type automatically)
 	http.ServeFile(w, r, target)
+}
+
+// isEmptyArtistFilters checks if artist filter parameters are empty/unset.
+// Used to determine if search results can be cached (only cache simple searches).
+func isEmptyArtistFilters(filters data.ArtistFilterParams) bool {
+	return filters.CreationYearFrom == nil &&
+		filters.CreationYearTo == nil &&
+		filters.FirstAlbumYearFrom == nil &&
+		filters.FirstAlbumYearTo == nil &&
+		len(filters.MemberCounts) == 0 &&
+		len(filters.Countries) == 0
+}
+
+// --- Centralized Error Handling Utilities ---
+
+// Common error handling utilities to reduce repetition and ensure consistency.
+
+// NotFoundError sends a standardized 404 error response.
+func (s *Server) NotFoundError(w http.ResponseWriter, r *http.Request, message string) {
+	if message == "" {
+		message = "Page not found"
+	}
+	s.Error(w, r, http.StatusNotFound, message)
+}
+
+// BadRequestError sends a standardized 400 error response.
+func (s *Server) BadRequestError(w http.ResponseWriter, r *http.Request, message string) {
+	if message == "" {
+		message = "Bad request"
+	}
+	s.Error(w, r, http.StatusBadRequest, message)
+}
+
+// validateExactPath checks if the request path matches exactly, returns true if valid.
+// If invalid, automatically sends a 404 error and returns false.
+func (s *Server) validateExactPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
+	if r.URL.Path != expectedPath {
+		s.NotFoundError(w, r, "")
+		return false
+	}
+	return true
+}
+
+// parseFormOrError attempts to parse form data, returning true on success.
+// If parsing fails, automatically sends a 400 error and returns false.
+func (s *Server) parseFormOrError(w http.ResponseWriter, r *http.Request) bool {
+	if err := r.ParseForm(); err != nil {
+		s.BadRequestError(w, r, "Failed to parse form data")
+		return false
+	}
+	return true
 }

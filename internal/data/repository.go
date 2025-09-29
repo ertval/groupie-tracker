@@ -51,7 +51,8 @@ type Repository struct {
 	artistsBySlug   map[string]Artist   // Fast artist lookup by URL slug
 	locations       []Location          // All locations sorted by concert count (descending)
 	locationsBySlug map[string]Location // Fast location lookup by URL slug
-	globalStats     map[string]int      // Pre-computed application statistics
+	globalStats     map[string]int      // Pre-computed application statistics (legacy)
+	appStats        AppStats            // Type-safe application statistics
 }
 
 // NewRepository creates a new repository instance configured from the global config package.
@@ -203,6 +204,15 @@ func (r *Repository) GetLocationBySlug(slug string) (Location, bool) {
 // The cache-related statistics help track image optimization effectiveness.
 func (r *Repository) GetStats() map[string]int {
 	return r.globalStats
+}
+
+// GetAppStats returns type-safe application statistics.
+//
+// This method provides the same statistical information as GetStats() but
+// with compile-time type safety and better API documentation. Prefer using
+// this method for new code while maintaining GetStats() for backward compatibility.
+func (r *Repository) GetAppStats() AppStats {
+	return r.appStats
 }
 
 // --- Private Data Processing Pipeline ---
@@ -498,7 +508,7 @@ func (r *Repository) downloadImage(url, path string) bool {
 		return false
 	}
 
-	resp, err := http.Get(url)
+	resp, err := r.apiClient.Get(url)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		if resp != nil {
 			resp.Body.Close()
@@ -683,15 +693,17 @@ func (r *Repository) loadProcessedData(artists []Artist, locations []Location, c
 	}
 
 	// Store global stats including cache statistics
-	r.globalStats = map[string]int{
-		"total_artists":     len(artists),
-		"total_members":     totalMembers,
-		"total_locations":   len(locations),
-		"total_concerts":    totalConcerts,
-		"total_countries":   len(countries),
-		"cached_images":     cachedCount,
-		"downloaded_images": downloadedCount,
+	r.appStats = AppStats{
+		TotalArtists:     len(artists),
+		TotalMembers:     totalMembers,
+		TotalLocations:   len(locations),
+		TotalConcerts:    totalConcerts,
+		TotalCountries:   len(countries),
+		CachedImages:     cachedCount,
+		DownloadedImages: downloadedCount,
 	}
+	// Maintain legacy map format for backward compatibility
+	r.globalStats = r.appStats.ToMap()
 }
 
 // --- Test Helper Methods ---
@@ -716,16 +728,18 @@ func (r *Repository) SetTestData(artists []Artist, locations []Location) {
 		r.locationsBySlug[location.Slug] = location
 	}
 
-	// Mock stats
-	r.globalStats = map[string]int{
-		"total_artists":     len(artists),
-		"total_members":     0,
-		"total_locations":   len(locations),
-		"total_concerts":    0,
-		"total_countries":   0,
-		"cached_images":     0,
-		"downloaded_images": 0,
+	// Mock stats (type-safe version)
+	r.appStats = AppStats{
+		TotalArtists:     len(artists),
+		TotalMembers:     0,
+		TotalLocations:   len(locations),
+		TotalConcerts:    0,
+		TotalCountries:   0,
+		CachedImages:     0,
+		DownloadedImages: 0,
 	}
+	// Maintain legacy map format for backward compatibility
+	r.globalStats = r.appStats.ToMap()
 }
 
 // --- String Processing Utilities ---

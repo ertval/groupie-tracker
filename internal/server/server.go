@@ -25,6 +25,10 @@ type Server struct {
 	artistFilterOpts   data.ArtistFilterOptions   // Artist filter options cached
 	locationFilterOpts data.LocationFilterOptions // Location filter options cached
 
+	// Lightweight search query cache (for frequent searches)
+	searchCache map[string][]data.Artist // Key: normalized query, Value: search results
+	cacheSize   int                      // Maximum number of cached queries
+
 	// HTTP server instance
 	httpServer *http.Server
 	// Handler is the http.Handler used by the server. It is exported to allow
@@ -113,4 +117,38 @@ func (s *Server) initializeCaches() {
 	// Cache filter options (expensive to compute min/max ranges)
 	s.artistFilterOpts = s.repo.GetArtistFilterOptions()
 	s.locationFilterOpts = s.repo.GetLocationFilterOptions()
+
+	// Initialize search query cache (lightweight LRU-style cache)
+	s.searchCache = make(map[string][]data.Artist)
+	s.cacheSize = 50 // Reasonable cache size for frequent searches
+}
+
+// getCachedSearchResults retrieves cached search results for a normalized query.
+// Returns cached results and true if found, nil and false if not cached.
+func (s *Server) getCachedSearchResults(normalizedQuery string) ([]data.Artist, bool) {
+	if results, found := s.searchCache[normalizedQuery]; found {
+		return results, true
+	}
+	return nil, false
+}
+
+// setCachedSearchResults stores search results in cache with simple eviction.
+// Uses a basic LRU-style eviction when cache reaches capacity.
+func (s *Server) setCachedSearchResults(normalizedQuery string, results []data.Artist) {
+	// Simple cache eviction: if at capacity, clear cache (could be more sophisticated)
+	if len(s.searchCache) >= s.cacheSize {
+		// Clear half the cache to make room (simple eviction strategy)
+		newCache := make(map[string][]data.Artist, s.cacheSize)
+		count := 0
+		for key, value := range s.searchCache {
+			if count >= s.cacheSize/2 {
+				break
+			}
+			newCache[key] = value
+			count++
+		}
+		s.searchCache = newCache
+	}
+
+	s.searchCache[normalizedQuery] = results
 }
