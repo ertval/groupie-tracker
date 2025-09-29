@@ -10,14 +10,15 @@ Go web application consuming the Groupie Trackers API to display band/artist inf
 - **Test-Driven Development** — Write `*_test.go` files before implementation  
 - **No JavaScript dependencies** — All filtering via server-side HTML forms with POST requests
 - **No server crashes** — All handlers have panic recovery and proper error handling
-- **Go 1.24+ required** — Uses modern Go features
+- **Go 1.24.3 required** — Uses modern Go features
 
 **Quick Commands:**
 ```bash
 go run ./cmd/cli/             # Start server (streamlined entry point, default PORT=8080)
-go test ./internal/...        # Run internal tests (current coverage: data 69.7%, server 61.5%)
+go test ./internal/data       # Run data tests (current coverage: 69.8%)
+go test ./internal/...        # Run internal tests (some integration test issues being resolved)
 go test ./tests/...           # Run audit/e2e tests (functional but with package issues)
-go test -cover ./internal/... # Get detailed coverage report
+go test -cover ./internal/data # Get detailed data package coverage report
 go build -o groupie-tracker ./cmd/cli
 ```
 
