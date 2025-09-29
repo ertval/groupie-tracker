@@ -170,19 +170,16 @@ func (r *Repository) matchesArtistFilters(artist Artist, params ArtistFilterPara
 	// Country filter - check if artist has concerts in any of the specified countries
 	if len(params.Countries) > 0 {
 		hasMatchingCountry := false
-		artistCountries := make(map[string]bool)
 
-		// Extract countries from artist's concert locations
-		for _, concert := range artist.Concerts {
-			country := r.extractCountryFromLocation(concert.Location)
-			if country != "" {
-				artistCountries[country] = true
-			}
+		// Build allowed set once per filter call for O(1) lookups
+		allowed := make(map[string]struct{}, len(params.Countries))
+		for _, country := range params.Countries {
+			allowed[country] = struct{}{}
 		}
 
-		// Check if any artist country matches filter countries
-		for _, filterCountry := range params.Countries {
-			if artistCountries[filterCountry] {
+		// Check against pre-computed artist.Countries slice
+		for _, country := range artist.Countries {
+			if _, ok := allowed[country]; ok {
 				hasMatchingCountry = true
 				break
 			}
@@ -251,9 +248,8 @@ func (r *Repository) GetArtistFilterOptions() ArtistFilterOptions {
 		memberCount := len(artist.Members)
 		memberCountSet[memberCount] = true
 
-		// Collect unique countries from concert locations
-		for _, concert := range artist.Concerts {
-			country := r.extractCountryFromLocation(concert.Location)
+		// Collect unique countries from pre-computed Countries field
+		for _, country := range artist.Countries {
 			if country != "" {
 				countrySet[country] = true
 			}

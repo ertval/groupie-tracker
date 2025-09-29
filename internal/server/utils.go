@@ -11,32 +11,11 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 )
 
 // --- Template Data Structures ---
-
-// BaseTemplateData contains common fields used in all page templates.
-// This eliminates duplication of Title, ExtraCSS, ExtraJS across all handlers.
-type BaseTemplateData struct {
-	Title       string                  // Page title for HTML head and display
-	ExtraCSS    string                  // Additional CSS file to include
-	ExtraJS     string                  // Additional JavaScript file to include
-	Suggestions []data.SearchSuggestion // Search suggestions for autocomplete
-}
-
-// NewBaseTemplateData creates a new BaseTemplateData with search suggestions.
-// This provides a consistent way to initialize template data across handlers.
-func (s *Server) NewBaseTemplateData(title, cssFile string) BaseTemplateData {
-	return BaseTemplateData{
-		Title:       title,
-		ExtraCSS:    cssFile,
-		ExtraJS:     "",
-		Suggestions: s.suggestions, // Use cached suggestions
-	}
-}
 
 // --- Template Rendering System ---
 
@@ -143,16 +122,6 @@ func (s *Server) loadTemplates() {
 				}
 			}
 			return false
-		},
-		"hasField": func(obj interface{}, fieldName string) bool {
-			v := reflect.ValueOf(obj)
-			if v.Kind() == reflect.Ptr {
-				v = v.Elem()
-			}
-			if v.Kind() != reflect.Struct {
-				return false
-			}
-			return v.FieldByName(fieldName).IsValid()
 		},
 	}
 
@@ -310,37 +279,6 @@ func extractSearchTerm(input string) string {
 	}
 
 	return input
-}
-
-// addSuggestionsToData adds search suggestions to template data if the data struct has a Suggestions field.
-// This helper allows pages to optionally include search suggestions for the global navbar without
-// requiring all handlers to be modified or causing template errors on pages that don't need suggestions.
-func (s *Server) addSuggestionsToData(data any) any {
-	// Use reflection to check if the data struct has a Suggestions field
-	v := reflect.ValueOf(data)
-	if v.Kind() == reflect.Ptr {
-		v = v.Elem()
-	}
-	if v.Kind() != reflect.Struct {
-		return data
-	}
-
-	suggestionsField := v.FieldByName("Suggestions")
-	if !suggestionsField.IsValid() || !suggestionsField.CanSet() {
-		// No Suggestions field or not settable, return original data
-		return data
-	}
-
-	// Only generate suggestions if the field exists and is empty
-	if suggestionsField.IsNil() || suggestionsField.Len() == 0 {
-		suggestions := s.suggestions // Use cached suggestions
-		suggestionsValue := reflect.ValueOf(suggestions)
-		if suggestionsValue.Type().AssignableTo(suggestionsField.Type()) {
-			suggestionsField.Set(suggestionsValue)
-		}
-	}
-
-	return data
 }
 
 // --- Data Manipulation Utilities ---

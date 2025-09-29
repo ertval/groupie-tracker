@@ -547,8 +547,13 @@ func (r *Repository) downloadImage(url, path string) bool {
 //
 // Returns a slice of Location objects sorted by concert volume (descending).
 func (r *Repository) createLocations(artists []Artist) []Location {
-	locationMap := make(map[string]*Location)
+	// Build lookup map once - O(n) instead of O(n²)
+	artistMap := make(map[int]Artist, len(artists))
+	for _, artist := range artists {
+		artistMap[artist.ID] = artist
+	}
 
+	locationMap := make(map[string]*Location)
 	// Track concert count per artist per location
 	artistConcertCount := make(map[string]map[int]int)
 
@@ -590,8 +595,8 @@ func (r *Repository) createLocations(artists []Artist) []Location {
 		artistsAtLocation := make([]ArtistAtLocation, 0, len(artistCounts))
 
 		for artistID, concertCount := range artistCounts {
-			// Find the artist by ID
-			if artist, found := r.findArtistByID(artists, artistID); found {
+			// Use O(1) map lookup instead of O(n) linear search
+			if artist, found := artistMap[artistID]; found {
 				artistsAtLocation = append(artistsAtLocation, ArtistAtLocation{
 					Artist:       artist,
 					ConcertCount: concertCount,
@@ -622,22 +627,6 @@ func (r *Repository) createLocations(artists []Artist) []Location {
 	})
 
 	return locations
-}
-
-// findArtistByID performs linear search to locate an artist by ID within a slice.
-//
-// This helper method is used during location creation when cross-referencing
-// artist IDs from concert data with the full artist objects. The method uses
-// simple iteration since it's only called during initial data processing.
-//
-// Returns the complete Artist object and a boolean indicating if the ID was found.
-func (r *Repository) findArtistByID(artists []Artist, id int) (Artist, bool) {
-	for _, artist := range artists {
-		if artist.ID == id {
-			return artist, true
-		}
-	}
-	return Artist{}, false
 }
 
 // loadProcessedData stores all processed data in repository indexes and computes global statistics.

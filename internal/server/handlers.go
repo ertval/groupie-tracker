@@ -29,15 +29,21 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	artists = getRandomArtists(artists, 8)
 
 	data := struct {
-		BaseTemplateData
+		Title          string
+		ExtraCSS       string
+		ExtraJS        string
+		Suggestions    []data.SearchSuggestion
 		Artists        []data.Artist
 		TotalMembers   int
 		TotalLocations int
 	}{
-		BaseTemplateData: s.NewBaseTemplateData("Home", "home.css"),
-		Artists:          artists,
-		TotalMembers:     stats["total_members"],
-		TotalLocations:   stats["total_locations"],
+		Title:          "Home",
+		ExtraCSS:       "home.css",
+		ExtraJS:        "",
+		Suggestions:    s.suggestions, // Use cached suggestions
+		Artists:        artists,
+		TotalMembers:   stats["total_members"],
+		TotalLocations: stats["total_locations"],
 	}
 
 	s.render(w, r, "home.tmpl", data)
@@ -73,19 +79,25 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 	})
 
 	data := struct {
-		BaseTemplateData
+		Title          string
+		ExtraCSS       string
+		ExtraJS        string
+		Suggestions    []data.SearchSuggestion
 		Artists        []data.Artist
 		FilterOptions  data.ArtistFilterOptions
 		AppliedFilters data.ArtistFilterParams
 		IsFiltered     bool
 		TotalArtists   int
 	}{
-		BaseTemplateData: s.NewBaseTemplateData("Artists", "artists.css"),
-		Artists:          artists,
-		FilterOptions:    filterOptions,
-		AppliedFilters:   appliedFilters,
-		IsFiltered:       r.Method == http.MethodPost,
-		TotalArtists:     totalArtists,
+		Title:          "Artists",
+		ExtraCSS:       "artists.css",
+		ExtraJS:        "",
+		Suggestions:    s.suggestions, // Use cached suggestions
+		Artists:        artists,
+		FilterOptions:  filterOptions,
+		AppliedFilters: appliedFilters,
+		IsFiltered:     r.Method == http.MethodPost,
+		TotalArtists:   totalArtists,
 	}
 
 	s.render(w, r, "artists.tmpl", data)
@@ -116,15 +128,21 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	prevArtist, nextArtist := s.repo.GetAdjacentArtists(artist.ID)
 
 	data := struct {
-		BaseTemplateData
-		Artist     data.Artist
-		PrevArtist *data.Artist
-		NextArtist *data.Artist
+		Title       string
+		ExtraCSS    string
+		ExtraJS     string
+		Suggestions []data.SearchSuggestion
+		Artist      data.Artist
+		PrevArtist  *data.Artist
+		NextArtist  *data.Artist
 	}{
-		BaseTemplateData: s.NewBaseTemplateData(artist.Name, "artist_detail.css"),
-		Artist:           artist,
-		PrevArtist:       prevArtist,
-		NextArtist:       nextArtist,
+		Title:       artist.Name,
+		ExtraCSS:    "artist_detail.css",
+		ExtraJS:     "",
+		Suggestions: s.suggestions, // Use cached suggestions
+		Artist:      artist,
+		PrevArtist:  prevArtist,
+		NextArtist:  nextArtist,
 	}
 
 	s.render(w, r, "artist_detail.tmpl", data)
@@ -168,19 +186,20 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 	allSuggestions := s.suggestions // Use cached suggestions
 
 	data := struct {
-		BaseTemplateData
+		Title          string
+		ExtraCSS       string
+		ExtraJS        string
+		Suggestions    []data.SearchSuggestion
 		Query          string
 		Results        data.SearchResult
 		FilterOptions  data.ArtistFilterOptions
 		AppliedFilters data.ArtistFilterParams
 		IsSearch       bool
 	}{
-		BaseTemplateData: BaseTemplateData{
-			Title:       "Search",
-			ExtraCSS:    "search.css",
-			ExtraJS:     "",
-			Suggestions: allSuggestions,
-		},
+		Title:          "Search",
+		ExtraCSS:       "search.css",
+		ExtraJS:        "",
+		Suggestions:    allSuggestions, // Use cached suggestions
 		Query:          searchQuery,
 		Results:        searchResults,
 		FilterOptions:  filterOptions,
@@ -200,7 +219,7 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	locations := s.repo.GetLocations()
-	filterOptions := s.repo.GetLocationFilterOptions()
+	filterOptions := s.locationFilterOpts // Use cached filter options
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
 	stats := s.repo.GetStats()
@@ -237,7 +256,10 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		BaseTemplateData
+		Title                 string
+		ExtraCSS              string
+		ExtraJS               string
+		Suggestions           []data.SearchSuggestion
 		Locations             []data.Location
 		LocationFilterOptions data.LocationFilterOptions
 		AppliedFilters        data.LocationFilterParams
@@ -247,7 +269,10 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		TotalCountries        int
 		TotalConcerts         int
 	}{
-		BaseTemplateData:      s.NewBaseTemplateData("Locations", "locations.css"),
+		Title:                 "Locations",
+		ExtraCSS:              "locations.css",
+		ExtraJS:               "",
+		Suggestions:           s.suggestions, // Use cached suggestions
 		Locations:             locations,
 		LocationFilterOptions: filterOptions,
 		AppliedFilters:        appliedFilters,
@@ -276,17 +301,23 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		BaseTemplateData
+		Title        string
+		ExtraCSS     string
+		ExtraJS      string
+		Suggestions  []data.SearchSuggestion
 		Location     data.Location
 		Artists      []data.ArtistAtLocation
 		PrevLocation *data.Location `json:"prevLocation,omitempty"`
 		NextLocation *data.Location `json:"nextLocation,omitempty"`
 	}{
-		BaseTemplateData: s.NewBaseTemplateData(fmt.Sprintf("%s - Location", location.Name), "location_detail.css"),
-		Location:         location,
-		Artists:          location.Artists,
-		PrevLocation:     nil, // Could be implemented later for location navigation
-		NextLocation:     nil, // Could be implemented later for location navigation
+		Title:        fmt.Sprintf("%s - Location", location.Name),
+		ExtraCSS:     "location_detail.css",
+		ExtraJS:      "",
+		Suggestions:  s.suggestions, // Use cached suggestions
+		Location:     location,
+		Artists:      location.Artists,
+		PrevLocation: nil, // Could be implemented later for location navigation
+		NextLocation: nil, // Could be implemented later for location navigation
 	}
 
 	s.render(w, r, "location_detail.tmpl", data)
@@ -303,11 +334,17 @@ func (s *Server) DevIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		BaseTemplateData
-		Links []struct{ Href, Text string }
+		Title       string
+		ExtraCSS    string
+		ExtraJS     string
+		Suggestions []data.SearchSuggestion
+		Links       []struct{ Href, Text string }
 	}{
-		BaseTemplateData: s.NewBaseTemplateData("Developer Tools", "dev.css"),
-		Links:            links,
+		Title:       "Developer Tools",
+		ExtraCSS:    "dev.css",
+		ExtraJS:     "",
+		Suggestions: s.suggestions, // Use cached suggestions
+		Links:       links,
 	}
 
 	s.render(w, r, "dev.tmpl", data)
@@ -316,18 +353,19 @@ func (s *Server) DevIndex(w http.ResponseWriter, r *http.Request) {
 // Error handles all errors (4xx and 5xx) in a centralized way.
 func (s *Server) Error(w http.ResponseWriter, r *http.Request, status int, message string) {
 	data := struct {
-		BaseTemplateData
+		Title        string
+		ExtraCSS     string
+		ExtraJS      string
+		Suggestions  []data.SearchSuggestion
 		ErrorCode    int
 		RequestedURL string
 		Message      string
 		Timestamp    string
 	}{
-		BaseTemplateData: BaseTemplateData{
-			Title:       fmt.Sprintf("%d %s", status, http.StatusText(status)),
-			ExtraCSS:    "errors.css",
-			ExtraJS:     "",
-			Suggestions: nil, // Error pages don't need search suggestions
-		},
+		Title:        fmt.Sprintf("%d %s", status, http.StatusText(status)),
+		ExtraCSS:     "errors.css",
+		ExtraJS:      "",
+		Suggestions:  nil, // Error pages don't need search suggestions
 		ErrorCode:    status,
 		RequestedURL: r.URL.Path,
 		Message:      message,

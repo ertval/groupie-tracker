@@ -112,7 +112,5 @@ func (s *Server) initializeCaches() {
 
 	// Cache filter options (expensive to compute min/max ranges)
 	s.artistFilterOpts = s.repo.GetArtistFilterOptions()
-
-	// Note: LocationFilterOptions doesn't exist yet but will be added in Phase 2
-	// s.locationFilterOpts = s.repo.GetLocationFilterOptions()
+	s.locationFilterOpts = s.repo.GetLocationFilterOptions()
 }
