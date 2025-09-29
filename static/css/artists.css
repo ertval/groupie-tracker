@@ -193,7 +193,7 @@
 
 .top-artists-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    grid-template-columns: repeat(5, 1fr);
     gap: var(--spacing-md);
     margin-bottom: 0;
 }
@@ -237,19 +237,16 @@
 }
 
 .artist-stats {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-xs);
     font-size: 0.85rem;
     color: var(--muted);
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-xs);
 }
 
 .artist-stats .concert-count,
 .artist-stats .member-count {
     display: inline-block;
-    padding: var(--spacing-xs) var(--spacing-sm);
-    background: var(--bg);
-    border-radius: var(--border-radius-sm);
 }
 
 /* Artists Grid */

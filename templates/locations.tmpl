@@ -36,17 +36,120 @@
                 </section>
                 {{end}}
 
+                <!-- Filters Section (like search page) -->
+                <details class="filters-section">
+                    <summary>Advanced Filters</summary>
+                    
+                    <form method="POST" action="/locations" class="filters-form">
+                        <!-- Concert Count Range -->
+                        <div class="filter-group">
+                            <h4>Concert Count</h4>
+                            <div class="range-inputs">
+                                <label>
+                                    From:
+                                    <input type="number" 
+                                           name="concertCountFrom" 
+                                           min="{{.LocationFilterOptions.ConcertCountMin}}" 
+                                           max="{{.LocationFilterOptions.ConcertCountMax}}"
+                                           value="{{if .AppliedFilters.ConcertCountFrom}}{{.AppliedFilters.ConcertCountFrom}}{{end}}"
+                                           placeholder="{{.LocationFilterOptions.ConcertCountMin}}">
+                                </label>
+                                <label>
+                                    To:
+                                    <input type="number" 
+                                           name="concertCountTo" 
+                                           min="{{.LocationFilterOptions.ConcertCountMin}}" 
+                                           max="{{.LocationFilterOptions.ConcertCountMax}}"
+                                           value="{{if .AppliedFilters.ConcertCountTo}}{{.AppliedFilters.ConcertCountTo}}{{end}}"
+                                           placeholder="{{.LocationFilterOptions.ConcertCountMax}}">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Artist Count Range -->
+                        <div class="filter-group">
+                            <h4>Artist Count</h4>
+                            <div class="range-inputs">
+                                <label>
+                                    From:
+                                    <input type="number" 
+                                           name="artistCountFrom" 
+                                           min="{{.LocationFilterOptions.ArtistCountMin}}" 
+                                           max="{{.LocationFilterOptions.ArtistCountMax}}"
+                                           value="{{if .AppliedFilters.ArtistCountFrom}}{{.AppliedFilters.ArtistCountFrom}}{{end}}"
+                                           placeholder="{{.LocationFilterOptions.ArtistCountMin}}">
+                                </label>
+                                <label>
+                                    To:
+                                    <input type="number" 
+                                           name="artistCountTo" 
+                                           min="{{.LocationFilterOptions.ArtistCountMin}}" 
+                                           max="{{.LocationFilterOptions.ArtistCountMax}}"
+                                           value="{{if .AppliedFilters.ArtistCountTo}}{{.AppliedFilters.ArtistCountTo}}{{end}}"
+                                           placeholder="{{.LocationFilterOptions.ArtistCountMax}}">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Concert Year Range -->
+                        <div class="filter-group">
+                            <h4>Concert Years</h4>
+                            <div class="range-inputs">
+                                <label>
+                                    From:
+                                    <input type="number" 
+                                           name="concertYearFrom" 
+                                           min="{{.LocationFilterOptions.ConcertYearMin}}" 
+                                           max="{{.LocationFilterOptions.ConcertYearMax}}"
+                                           value="{{if .AppliedFilters.ConcertYearFrom}}{{.AppliedFilters.ConcertYearFrom}}{{end}}"
+                                           placeholder="{{.LocationFilterOptions.ConcertYearMin}}">
+                                </label>
+                                <label>
+                                    To:
+                                    <input type="number" 
+                                           name="concertYearTo" 
+                                           min="{{.LocationFilterOptions.ConcertYearMin}}" 
+                                           max="{{.LocationFilterOptions.ConcertYearMax}}"
+                                           value="{{if .AppliedFilters.ConcertYearTo}}{{.AppliedFilters.ConcertYearTo}}{{end}}"
+                                           placeholder="{{.LocationFilterOptions.ConcertYearMax}}">
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Country Checkboxes Filter -->
+                        <div class="filter-group">
+                            <h4>Countries</h4>
+                            <div class="checkbox-grid countries-grid">
+                                {{range .LocationFilterOptions.Countries}}
+                                <label class="checkbox-label">
+                                    <input type="checkbox" 
+                                           name="countries" 
+                                           value="{{.}}"
+                                           {{if contains $.AppliedFilters.Countries .}}checked{{end}}>
+                                    {{.}}
+                                </label>
+                                {{end}}
+                            </div>
+                        </div>
+
+                        <div class="filter-actions">
+                            <button type="submit" class="filter-apply-btn">Apply Filters</button>
+                            <a href="/locations" class="filter-clear-btn">Clear Filters</a>
+                        </div>
+                    </form>
+                </details>
+
                 <section class="locations-grid">
                     <h2>{{if .IsFiltered}}Filtered Locations{{if .FilterDescription}} in {{.FilterDescription}}{{end}}{{else}}All Locations{{end}} (Sorted by Popularity)</h2>
-                    <div class="locations-list">
-                        {{if .Locations}}
+                    {{if .Locations}}
+                    <div class="locations-cards">
                         {{range .Locations}}
-                        <div class="location-card" data-location="{{.Name}}">
+                        <div class="location-card">
                             <a href="/locations/{{.Slug}}" class="location-card-link">
                                 <div class="location-info">
                                     <h3 class="location-name">{{.Name | title}}</h3>
                                     <div class="location-meta">
-                                        <p class="location-stats-inline">
+                                        <p class="location-stats">
                                             <span class="concert-count">{{.TotalConcerts}} concerts</span> • 
                                             <span class="artist-count">{{.ArtistCount}} artists</span>
                                         </p>
@@ -60,121 +163,16 @@
                             </a>
                         </div>
                         {{end}}
-                        {{else}}
-                        <div class="no-results">
-                            <h3>No locations found</h3>
-                            <p>Try adjusting your search criteria or filters.</p>
-                            <a href="/locations" class="btn btn-primary">Show All Locations</a>
-                        </div>
-                        {{end}}
                     </div>
+                    {{else}}
+                    <div class="no-results">
+                        <h3>No locations found</h3>
+                        <p>Try adjusting your search criteria or filters.</p>
+                        <a href="/locations" class="btn btn-primary">Show All Locations</a>
+                    </div>
+                    {{end}}
                 </section>
             </div>
-
-            <!-- Filter Sidebar -->
-            <aside class="filters-sidebar">
-                <div class="filters-section">
-                    <details class="filter-toggle" open>
-                        <summary class="filter-summary">
-                            <span class="filter-icon">⚙️</span>
-                            <span class="filter-text">Filters</span>
-                        </summary>
-
-                        <div class="filters-panel">
-                            <form method="POST" action="/locations" class="filter-form">
-                                <!-- Concert Count Range -->
-                                <div class="filter-group">
-                                    <label class="filter-label">Concert Count ({{.LocationFilterOptions.ConcertCountMin}} - {{.LocationFilterOptions.ConcertCountMax}})</label>
-                                    <div class="range-group">
-                                        <div class="range-inputs">
-                                            <input type="number" 
-                                                   name="concertCountFrom" 
-                                                   min="{{.LocationFilterOptions.ConcertCountMin}}" 
-                                                   max="{{.LocationFilterOptions.ConcertCountMax}}"
-                                                   value="{{if .AppliedFilters.ConcertCountFrom}}{{.AppliedFilters.ConcertCountFrom}}{{else}}{{.LocationFilterOptions.ConcertCountMin}}{{end}}"
-                                                   placeholder="From" class="range-input">
-                                            <span class="range-separator">to</span>
-                                            <input type="number" 
-                                                   name="concertCountTo" 
-                                                   min="{{.LocationFilterOptions.ConcertCountMin}}" 
-                                                   max="{{.LocationFilterOptions.ConcertCountMax}}"
-                                                   value="{{if .AppliedFilters.ConcertCountTo}}{{.AppliedFilters.ConcertCountTo}}{{else}}{{.LocationFilterOptions.ConcertCountMax}}{{end}}"
-                                                   placeholder="To" class="range-input">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Artist Count Range -->
-                                <div class="filter-group">
-                                    <label class="filter-label">Artist Count ({{.LocationFilterOptions.ArtistCountMin}} - {{.LocationFilterOptions.ArtistCountMax}})</label>
-                                    <div class="range-group">
-                                        <div class="range-inputs">
-                                            <input type="number" 
-                                                   name="artistCountFrom" 
-                                                   min="{{.LocationFilterOptions.ArtistCountMin}}" 
-                                                   max="{{.LocationFilterOptions.ArtistCountMax}}"
-                                                   value="{{if .AppliedFilters.ArtistCountFrom}}{{.AppliedFilters.ArtistCountFrom}}{{else}}{{.LocationFilterOptions.ArtistCountMin}}{{end}}"
-                                                   placeholder="From" class="range-input">
-                                            <span class="range-separator">to</span>
-                                            <input type="number" 
-                                                   name="artistCountTo" 
-                                                   min="{{.LocationFilterOptions.ArtistCountMin}}" 
-                                                   max="{{.LocationFilterOptions.ArtistCountMax}}"
-                                                   value="{{if .AppliedFilters.ArtistCountTo}}{{.AppliedFilters.ArtistCountTo}}{{else}}{{.LocationFilterOptions.ArtistCountMax}}{{end}}"
-                                                   placeholder="To" class="range-input">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Concert Year Range -->
-                                <div class="filter-group">
-                                    <label class="filter-label">Concert Years ({{.LocationFilterOptions.ConcertYearMin}} - {{.LocationFilterOptions.ConcertYearMax}})</label>
-                                    <div class="range-group">
-                                        <div class="range-inputs">
-                                            <input type="number" 
-                                                   name="concertYearFrom" 
-                                                   min="{{.LocationFilterOptions.ConcertYearMin}}" 
-                                                   max="{{.LocationFilterOptions.ConcertYearMax}}"
-                                                   value="{{if .AppliedFilters.ConcertYearFrom}}{{.AppliedFilters.ConcertYearFrom}}{{else}}{{.LocationFilterOptions.ConcertYearMin}}{{end}}"
-                                                   placeholder="From" class="range-input">
-                                            <span class="range-separator">to</span>
-                                            <input type="number" 
-                                                   name="concertYearTo" 
-                                                   min="{{.LocationFilterOptions.ConcertYearMin}}" 
-                                                   max="{{.LocationFilterOptions.ConcertYearMax}}"
-                                                   value="{{if .AppliedFilters.ConcertYearTo}}{{.AppliedFilters.ConcertYearTo}}{{else}}{{.LocationFilterOptions.ConcertYearMax}}{{end}}"
-                                                   placeholder="To" class="range-input">
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <!-- Country Checkboxes Filter -->
-                                <div class="filter-group">
-                                    <label class="filter-label">Countries</label>
-                                    <div class="checkbox-group">
-                                        {{range $country := .LocationFilterOptions.Countries}}
-                                        <div class="checkbox-item">
-                                            <input type="checkbox" 
-                                                   id="loc-country-{{$country}}" 
-                                                   name="countries" 
-                                                   value="{{$country}}"
-                                                   {{range $.AppliedFilters.Countries}}{{if eq . $country}}checked{{end}}{{end}}>
-                                            <label for="loc-country-{{$country}}">{{$country}}</label>
-                                        </div>
-                                        {{end}}
-                                    </div>
-                                </div>
-
-                                <!-- Filter Actions -->
-                                <div class="filter-actions">
-                                    <button type="submit" class="btn btn-primary">Apply Filters</button>
-                                    <a href="/locations" class="btn btn-secondary">Clear All</a>
-                                </div>
-                            </form>
-                        </div>
-                    </details>
-                </div>
-            </aside>
         </div>
     </main>
 </div>

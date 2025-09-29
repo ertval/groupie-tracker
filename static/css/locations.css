@@ -48,240 +48,119 @@
 
 /* Content Layout */
 .content-wrapper {
-    display: grid;
-    grid-template-columns: 1fr 280px;
+    display: flex;
+    flex-direction: column;
     gap: var(--spacing-xl);
     align-items: start;
 }
 
 .main-content {
+    width: 100%;
     min-width: 0;
 }
 
-/* Filter Sidebar */
-.filters-sidebar {
-    position: sticky;
-    top: var(--spacing-xl);
-    background: var(--secondary-bg);
-    border-radius: var(--border-radius);
-    padding: var(--card-padding);
-    border: 1px solid var(--border);
-    height: fit-content;
-    max-height: calc(100vh - 4rem);
-    overflow-y: auto;
-}
-
+/* Filters Section (like search page) */
 .filters-section {
+    margin-bottom: calc(var(--spacing-xl) * 1.5);
+    border: 1px solid var(--border);
+    border-radius: var(--border-radius-sm);
     width: 100%;
 }
 
-/* Filter Toggle */
-.filter-toggle {
-    border: none;
-    background: none;
-}
-
-.filter-toggle[open] > .filter-summary::after {
-    transform: rotate(180deg);
-}
-
-.filter-summary {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
+.filters-section summary {
+    padding: 15px;
+    background: var(--secondary-bg);
     cursor: pointer;
-    font-weight: 600;
-    font-size: 1.1rem;
-    color: var(--text-primary);
-    padding: var(--spacing-sm) 0;
-    list-style: none;
-    border-bottom: 2px solid var(--border);
-    margin-bottom: var(--spacing-xl);
+    font-weight: bold;
 }
 
-.filter-summary::after {
-    content: '▼';
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    margin-left: auto;
-    transition: transform var(--transition-fast);
-}
-
-.filter-summary::-webkit-details-marker {
-    display: none;
-}
-
-/* Filter Panel */
-.filters-panel {
-    animation: slideDown var(--transition-fast) ease-out;
-}
-
-@keyframes slideDown {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-/* Filter Form */
-.filter-form {
-    display: flex;
-    flex-direction: column;
-    gap: var(--card-padding);
+.filters-form {
+    padding: var(--spacing-xl);
 }
 
 .filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
+    margin-bottom: calc(var(--spacing-xl) * 1.5);
 }
 
-.filter-label {
-    font-weight: 600;
+.filter-group h4 {
+    margin: 0 0 var(--spacing-md) 0;
     color: var(--text);
-    font-size: 0.9rem;
-    margin-bottom: var(--spacing-sm);
-}
-
-/* Range Filters */
-.range-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
 }
 
 .range-inputs {
     display: flex;
-    align-items: center;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-lg);
 }
 
-.range-input {
+.range-inputs label {
     flex: 1;
-    padding: 0.5rem;
+}
+
+.range-inputs input {
+    width: 100%;
+    padding: 8px;
     border: 1px solid var(--border);
     border-radius: var(--border-radius-sm);
-    font-size: 0.875rem;
-}
-
-.range-input:focus {
-    outline: none;
-    border-color: var(--info);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
-}
-
-.range-separator {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
-    font-weight: 500;
-    white-space: nowrap;
-}
-
-/* Checkbox Filters */
-.checkbox-group {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    max-height: 200px;
-    overflow-y: auto;
-    padding: var(--spacing-sm);
-    border: 1px solid var(--border);
-    border-radius: var(--btn-radius);
-    background: var(--card-bg);
+    margin-top: 5px;
 }
 
 .checkbox-grid {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-sm);
-    max-height: 200px;
-    overflow-y: auto;
-    padding: var(--spacing-sm);
-    border: 1px solid var(--border);
-    border-radius: var(--btn-radius);
-    background: var(--card-bg);
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: var(--spacing-md);
 }
 
-.checkbox-item {
+.countries-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.checkbox-label {
     display: flex;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: calc(var(--spacing-sm) / 2);
-}
-
-.checkbox-item input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    accent-color: var(--info);
-}
-
-.checkbox-item label {
-    font-size: 0.875rem;
-    color: var(--text);
     cursor: pointer;
-    flex-grow: 1;
-}
-
-.checkbox-item:hover {
-    background: var(--secondary-bg);
+    padding: var(--spacing-sm);
     border-radius: var(--border-radius-sm);
+    transition: background-color var(--transition-fast);
 }
 
-/* Filter Actions */
+.checkbox-label:hover {
+    background: var(--secondary-bg);
+}
+
 .filter-actions {
     display: flex;
     gap: var(--spacing-md);
-    padding-top: var(--spacing-sm);
-    border-top: 1px solid var(--border);
+    margin-top: var(--spacing-xl);
 }
 
-.filter-actions .btn {
-    flex: 1;
-    text-align: center;
-    padding: var(--btn-padding);
-    border-radius: var(--btn-radius);
-    font-weight: 500;
-    font-size: 0.875rem;
-    text-decoration: none;
-    cursor: pointer;
-    border: 1px solid;
-    transition: all var(--transition-fast);
-}
-
-.filter-actions .btn-primary {
-    background: var(--info);
-    color: white;
-    border-color: var(--info);
-}
-
-.filter-actions .btn-primary:hover {
+.filter-apply-btn {
+    padding: 10px 20px;
     background: var(--accent);
-    border-color: var(--accent);
+    color: white;
+    border: none;
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
 }
 
-.filter-actions .btn-secondary {
-    background: var(--card-bg);
-    color: var(--text-secondary);
-    border-color: var(--border);
+.filter-apply-btn:hover {
+    background: var(--accent-hover);
 }
 
-.filter-actions .btn-secondary:hover {
-    background: var(--secondary-bg);
-    color: var(--text);
-    border-color: var(--text-secondary);
+.filter-clear-btn {
+    padding: 10px 20px;
+    background: var(--text-secondary);
+    color: white;
+    text-decoration: none;
+    border-radius: var(--border-radius-sm);
+    transition: background-color var(--transition-fast);
 }
 
-/* Location Lists and Cards */
-.locations-list {
-    display: flex;
-    flex-direction: column;
-    gap: var(--spacing-md);
+.filter-clear-btn:hover {
+    background: #4b5563;
 }
 
+/* Top Locations List */
 .top-locations-list {
     display: flex;
     flex-direction: column;
@@ -326,54 +205,73 @@
     font-size: 0.875rem;
 }
 
-.location-card {
-    border: 1px solid var(--border);
-    border-radius: var(--border-radius);
-    background: var(--card-bg);
-    transition: all var(--transition-fast);
-    overflow: hidden;
+/* Locations Grid */
+.locations-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-xl);
+    margin-top: var(--spacing-xl);
 }
 
-.location-card-link {
-    display: block;
-    padding: var(--card-padding);
-    text-decoration: none;
-    color: inherit;
-    height: 100%;
+.location-card {
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+    transition: all var(--transition-normal);
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
 }
 
 .location-card:hover {
-    border-color: var(--border);
-    box-shadow: var(--shadow);
-    transform: translateY(-1px);
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-xl);
+    border-color: var(--accent);
 }
 
-.location-card .location-name {
-    margin: 0 0 var(--spacing-sm) 0;
-    font-size: 1.25rem;
+.location-card-link {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+    height: 100%;
+}
+
+.location-info {
+    padding: var(--card-padding);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+}
+
+.location-name {
+    margin: 0 0 var(--spacing-md) 0;
+    font-size: 1.3rem;
     font-weight: 600;
-    color: var(--text-primary);
-}
-
-.location-card:hover .location-name {
-    color: var(--info);
-}
-
-.location-stats-inline {
-    margin: 0 0 var(--spacing-sm) 0;
-    font-weight: 500;
     color: var(--text);
+    line-height: 1.3;
+}
+
+.location-stats {
+    margin: calc(var(--spacing-sm) / 2) 0;
+    font-size: 0.95rem;
+    color: var(--muted);
 }
 
 .location-artists {
-    margin: 0;
-    font-size: 0.875rem;
-    line-height: 1.4;
+    margin: calc(var(--spacing-sm) / 2) 0 0 0;
+    color: var(--muted);
+    font-size: 0.85rem;
 }
 
 .location-artists a {
-    color: var(--text-secondary);
+    color: var(--accent);
     text-decoration: none;
+}
+
+.location-artists a:hover {
+    color: var(--accent-hover);
 }
 
 .location-artists a:hover {

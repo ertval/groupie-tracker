@@ -3,16 +3,18 @@
 {{define "body"}}
 <div class="page artists">
     <header class="page-header">
-        <h1 class="gradient-text">All Artists</h1>
-        {{if .IsFiltered}}
-        <p class="muted results-count">Showing {{len .Artists}} filtered results out of {{.TotalArtists}} total artists</p>
-        <div class="filter-status">
-            <span class="filter-badge">Filtered</span>
-            <a href="/artists" class="clear-filters-link">Show All Artists</a>
+        <div class="header-content">
+            <h1 class="gradient-text">All Artists</h1>
+            {{if .IsFiltered}}
+            <p class="muted results-count">Showing {{len .Artists}} filtered results out of {{.TotalArtists}} total artists</p>
+            <div class="filter-status">
+                <span class="filter-badge">Filtered</span>
+                <a href="/artists" class="clear-filters-link">Show All Artists</a>
+            </div>
+            {{else}}
+            <p class="muted results-count">Browse through our collection of {{len .Artists}} artists</p>
+            {{end}}
         </div>
-        {{else}}
-        <p class="muted results-count">Browse through our collection of {{len .Artists}} artists</p>
-        {{end}}
     </header>
 
     <main class="page-body">
@@ -29,7 +31,7 @@
                             <div class="rank">{{add $index 1}}</div>
                             <div class="artist-name"><a href="/artists/{{$artist.Slug}}">{{$artist.Name}}</a></div>
                             <div class="artist-stats">
-                                <span class="concert-count">{{$artist.ConcertCount}} concerts</span>
+                                <span class="concert-count">{{$artist.ConcertCount}} concerts</span> • 
                                 <span class="member-count">{{len $artist.Members}} members</span>
                             </div>
                         </div>
@@ -134,7 +136,6 @@
 
                 <!-- Artists Grid -->
                 <section class="artists-grid" id="artists-grid">
-                    <h2>{{if .IsFiltered}}Filtered{{else}}All{{end}} Artists (Sorted by Concert Count)</h2>
                     {{if .Artists}}
                     {{range .Artists}}
                     <div class="artist-card" data-year="{{.CreationYear}}" data-name="{{.Name}}" 
