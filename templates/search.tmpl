@@ -83,26 +83,35 @@
             
             <!-- Year Range Filters -->
             <div class="filter-group">
-                <h4>Creation Year</h4>
-                <div class="range-inputs">
-                    <label>
-                        From:
-                        <input type="number" 
-                               name="creationYearFrom" 
-                               min="{{.FilterOptions.CreationYearMin}}" 
-                               max="{{.FilterOptions.CreationYearMax}}" 
-                               value="{{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{end}}"
-                               placeholder="{{.FilterOptions.CreationYearMin}}">
-                    </label>
-                    <label>
-                        To:
-                        <input type="number" 
-                               name="creationYearTo" 
-                               min="{{.FilterOptions.CreationYearMin}}" 
-                               max="{{.FilterOptions.CreationYearMax}}" 
-                               value="{{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{end}}"
-                               placeholder="{{.FilterOptions.CreationYearMax}}">
-                    </label>
+                <h4>Creation Year ({{.FilterOptions.CreationYearMin}} - {{.FilterOptions.CreationYearMax}})</h4>
+                <div class="range-slider-container">
+                    <div class="range-labels">
+                        <span>{{.FilterOptions.CreationYearMin}}</span>
+                        <span>{{.FilterOptions.CreationYearMax}}</span>
+                    </div>
+                    <div class="range-inputs">
+                        <label>
+                            From: {{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}}
+                            <input type="range" 
+                                   name="creationYearFrom" 
+                                   min="{{.FilterOptions.CreationYearMin}}" 
+                                   max="{{.FilterOptions.CreationYearMax}}" 
+                                   value="{{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}}"
+                                   class="range-slider range-from">
+                        </label>
+                        <label>
+                            To: {{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}
+                            <input type="range" 
+                                   name="creationYearTo" 
+                                   min="{{.FilterOptions.CreationYearMin}}" 
+                                   max="{{.FilterOptions.CreationYearMax}}" 
+                                   value="{{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}"
+                                   class="range-slider range-to">
+                        </label>
+                    </div>
+                    <div class="range-values">
+                        <small>Current selection: {{if .AppliedFilters.CreationYearFrom}}{{.AppliedFilters.CreationYearFrom}}{{else}}{{.FilterOptions.CreationYearMin}}{{end}} - {{if .AppliedFilters.CreationYearTo}}{{.AppliedFilters.CreationYearTo}}{{else}}{{.FilterOptions.CreationYearMax}}{{end}}</small>
+                    </div>
                 </div>
             </div>
 

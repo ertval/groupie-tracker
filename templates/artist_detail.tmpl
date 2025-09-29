@@ -14,19 +14,19 @@
                     <p><strong>First Album:</strong> {{.Artist.FirstAlbum}}</p>
                     <p><strong>Members:</strong> {{len .Artist.Members}}</p>
                 </div>
+                <div class="artist-members">
+                    <h3>Band Members</h3>
+                    <div class="members-list">
+                        {{range $index, $member := .Artist.Members}}
+                        <span class="member-item">{{.}}</span>{{if lt $index (sub (len $.Artist.Members) 1)}}, {{end}}
+                        {{end}}
+                    </div>
+                </div>
             </div>
         </div>
     </header>
 
     <main class="page-body">
-        <section class="artist-members">
-            <h2>Band Members</h2>
-            <div class="members-list">
-                {{range $index, $member := .Artist.Members}}
-                <span class="member-item">{{.}}</span>{{if lt $index (sub (len $.Artist.Members) 1)}}, {{end}}
-                {{end}}
-            </div>
-        </section>
 
         {{if .Artist.Concerts}}
         <section class="concert-info">
