@@ -85,3 +85,7 @@ Follow **test driven development**, strict **Idiomatic GO** and KISS principles 
 - In the end write integration and e2e comprehensive tests based on `audit.md` to ensure all aspects of the requirements are covered, including edge cases and test all described inputs of the `audit.md` file, only then the project can be considered complete.
 - Create summary md file with all the changes you made and how you implemented the functionality.
 - Update the readme file to reflect the current state of the project, including any changes made during the implementation process.Dont change the overall structure or flow of the document. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
+
+---
+
+Read the codebase. Check for redundant, dublicate or overly complex code. Then check the package and folder/file structure if it can be simplified for better performance. You should use only idiomatic go and kiss priciple in your refactoring. think ultrahard and create an md plan
