@@ -3,7 +3,6 @@ package server
 import (
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -24,15 +23,8 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	artists := s.artists.GetArtists()
 	stats := s.stats.GetStats()
 
-	// Shuffle the artists array to get random order
-	rand.Shuffle(len(artists), func(i, j int) {
-		artists[i], artists[j] = artists[j], artists[i]
-	})
-
-	// Limit to first 8 artists after shuffling
-	if len(artists) > 8 {
-		artists = artists[:8]
-	}
+	// Get 8 random artists for homepage display
+	artists = getRandomArtists(artists, 8)
 
 	data := struct {
 		BaseTemplateData

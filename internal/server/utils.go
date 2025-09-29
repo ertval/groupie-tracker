@@ -7,6 +7,7 @@ import (
 	"groupie-tracker/internal/data"
 	"html/template"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -361,4 +362,37 @@ func (s *Server) addSuggestionsToData(data interface{}) interface{} {
 	}
 
 	return data
+}
+
+// --- Data Manipulation Utilities ---
+
+// getRandomArtists shuffles the provided artists slice and returns up to maxCount random artists.
+// This utility function encapsulates the randomization logic to keep handlers clean.
+//
+// Parameters:
+//   - artists: slice of artists to shuffle
+//   - maxCount: maximum number of artists to return after shuffling
+//
+// Returns a new slice containing up to maxCount randomly selected artists.
+// The original slice is not modified.
+func getRandomArtists(artists []data.Artist, maxCount int) []data.Artist {
+	if len(artists) == 0 {
+		return artists
+	}
+
+	// Create a copy to avoid modifying the original slice
+	shuffled := make([]data.Artist, len(artists))
+	copy(shuffled, artists)
+
+	// Shuffle the copy
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	// Limit to maxCount
+	if len(shuffled) > maxCount {
+		shuffled = shuffled[:maxCount]
+	}
+
+	return shuffled
 }

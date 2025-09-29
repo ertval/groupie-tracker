@@ -25,6 +25,10 @@ type Server struct {
 	repo       *data.Repository              // Still needed for initialization
 	templates  map[string]*template.Template // Pre-compiled HTML templates for rendering
 	httpServer *http.Server                  // HTTP server instance
+	// Handler is the http.Handler used by the server. It is exported to allow
+	// external packages (tests) to create test servers using the same handler
+	// without needing to start a full network listener.
+	Handler http.Handler
 }
 
 // NewServer creates and fully initializes a Server with dependency injection.
@@ -79,6 +83,9 @@ func NewServer() (*Server, error) {
 
 	// Assemble middleware chain and route handlers
 	serveMux := withMiddleware(server.createServeMux())
+
+	// Expose the handler so tests can reuse it directly (httptest.NewServer)
+	server.Handler = serveMux
 	port := getPort()
 
 	// Create production-ready HTTP server with configured timeouts
