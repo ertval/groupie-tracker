@@ -24,8 +24,8 @@
 }
 
 .artist-image {
-    width: 200px;
-    height: 200px;
+    width: 250px;
+    height: 250px;
     object-fit: cover;
     border-radius: var(--border-radius-lg);
     background: var(--secondary-bg);
@@ -34,6 +34,9 @@
 
 .artist-basic-info {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
 }
 
 .artist-basic-info h1 {
@@ -57,6 +60,37 @@
 .artist-meta p strong {
     color: var(--text-primary);
     font-weight: 600;
+}
+
+/* Members section in header */
+.artist-members {
+    background: var(--secondary-bg);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    border: 1px solid var(--border);
+}
+
+.artist-members h3 {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.members-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    font-size: 1rem;
+    color: var(--text);
+}
+
+.member-item {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--card-bg);
+    border-radius: var(--border-radius-sm);
+    border: 1px solid var(--border);
 }
 
 /* Members section */
