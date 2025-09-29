@@ -21,11 +21,9 @@
     <main class="page-body">
         <section class="artist-members">
             <h2>Band Members</h2>
-            <div class="members-grid">
-                {{range .Artist.Members}}
-                <div class="member-card">
-                    <span class="member-name">{{.}}</span>
-                </div>
+            <div class="members-list">
+                {{range $index, $member := .Artist.Members}}
+                <span class="member-item">{{.}}</span>{{if lt $index (sub (len $.Artist.Members) 1)}}, {{end}}
                 {{end}}
             </div>
         </section>
@@ -80,15 +78,17 @@
         </section>
 
         <div class="navigation-links">
-            {{if .PrevArtist}}
-            <a href="/artists/{{.PrevArtist.Slug}}" class="btn btn-outline">← {{.PrevArtist.Name}}</a>
-            {{end}}
-            {{if .NextArtist}}
-            <a href="/artists/{{.NextArtist.Slug}}" class="btn btn-outline">{{.NextArtist.Name}} →</a>
-            {{end}}
-        </div>
-        <div class="back-to-artists">
-          <a href="/artists" class="btn btn-secondary">← Back to Artists</a>
+            <div class="artist-nav-buttons">
+                {{if .PrevArtist}}
+                <a href="/artists/{{.PrevArtist.Slug}}" class="nav-btn">← {{.PrevArtist.Name}}</a>
+                {{end}}
+                {{if .NextArtist}}
+                <a href="/artists/{{.NextArtist.Slug}}" class="nav-btn">{{.NextArtist.Name}} →</a>
+                {{end}}
+            </div>
+            <div class="back-to-artists">
+                <a href="/artists" class="btn btn-secondary">← Back to Artists</a>
+            </div>
         </div>
     </main>
 </div>

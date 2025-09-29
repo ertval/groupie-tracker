@@ -101,6 +101,7 @@ func Artists(w http.ResponseWriter, r *http.Request) {
 		AppliedFilters data.ArtistFilterParams
 		IsFiltered     bool
 		TotalArtists   int
+		Suggestions    []data.SearchSuggestion
 	}{
 		Title:          "Artists",
 		ExtraCSS:       "artists.css",
@@ -111,6 +112,7 @@ func Artists(w http.ResponseWriter, r *http.Request) {
 		AppliedFilters: appliedFilters,
 		IsFiltered:     r.Method == http.MethodPost,
 		TotalArtists:   totalArtists,
+		Suggestions:    repo.GenerateAllSearchSuggestions(),
 	}
 
 	render(w, r, "artists.tmpl", data)
@@ -155,19 +157,21 @@ func ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title      string
-		ExtraCSS   string
-		ExtraJS    string
-		Artist     data.Artist
-		PrevArtist *data.Artist
-		NextArtist *data.Artist
+		Title       string
+		ExtraCSS    string
+		ExtraJS     string
+		Artist      data.Artist
+		PrevArtist  *data.Artist
+		NextArtist  *data.Artist
+		Suggestions []data.SearchSuggestion
 	}{
-		Title:      artist.Name,
-		ExtraCSS:   "artist_detail.css",
-		ExtraJS:    "",
-		Artist:     artist,
-		PrevArtist: prevArtist,
-		NextArtist: nextArtist,
+		Title:       artist.Name,
+		ExtraCSS:    "artist_detail.css",
+		ExtraJS:     "",
+		Artist:      artist,
+		PrevArtist:  prevArtist,
+		NextArtist:  nextArtist,
+		Suggestions: repo.GenerateAllSearchSuggestions(),
 	}
 
 	render(w, r, "artist_detail.tmpl", data)
@@ -322,6 +326,7 @@ func Locations(w http.ResponseWriter, r *http.Request) {
 		TotalLocations        int
 		TotalCountries        int
 		TotalConcerts         int
+		Suggestions           []data.SearchSuggestion
 	}{
 		Title:                 "Locations",
 		ExtraCSS:              "locations.css",
@@ -334,6 +339,7 @@ func Locations(w http.ResponseWriter, r *http.Request) {
 		TotalLocations:        totalLocations,
 		TotalCountries:        stats["total_countries"],
 		TotalConcerts:         stats["total_concerts"],
+		Suggestions:           repo.GenerateAllSearchSuggestions(),
 	}
 
 	render(w, r, "locations.tmpl", data)
@@ -359,17 +365,19 @@ func LocationDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title    string
-		ExtraCSS string
-		ExtraJS  string
-		Location data.Location
-		Artists  []data.ArtistAtLocation
+		Title       string
+		ExtraCSS    string
+		ExtraJS     string
+		Location    data.Location
+		Artists     []data.ArtistAtLocation
+		Suggestions []data.SearchSuggestion
 	}{
-		Title:    fmt.Sprintf("%s - Location", location.Name),
-		ExtraCSS: "location_detail.css",
-		ExtraJS:  "",
-		Location: location,
-		Artists:  location.Artists,
+		Title:       fmt.Sprintf("%s - Location", location.Name),
+		ExtraCSS:    "location_detail.css",
+		ExtraJS:     "",
+		Location:    location,
+		Artists:     location.Artists,
+		Suggestions: repo.GenerateAllSearchSuggestions(),
 	}
 
 	render(w, r, "location_detail.tmpl", data)
@@ -391,15 +399,17 @@ func DevIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title    string
-		ExtraCSS string
-		ExtraJS  string
-		Links    []struct{ Href, Text string }
+		Title       string
+		ExtraCSS    string
+		ExtraJS     string
+		Links       []struct{ Href, Text string }
+		Suggestions []data.SearchSuggestion
 	}{
-		Title:    "Developer Tools",
-		ExtraCSS: "dev.css",
-		ExtraJS:  "",
-		Links:    links,
+		Title:       "Developer Tools",
+		ExtraCSS:    "dev.css",
+		ExtraJS:     "",
+		Links:       links,
+		Suggestions: repo.GenerateAllSearchSuggestions(),
 	}
 
 	render(w, r, "dev.tmpl", data)

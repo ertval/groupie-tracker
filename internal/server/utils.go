@@ -335,3 +335,34 @@ func extractSearchTerm(input string) string {
 
 	return input
 }
+
+// addSuggestionsToData adds search suggestions to template data if the data struct has a Suggestions field.
+// This helper allows pages to optionally include search suggestions for the global navbar without
+// requiring all handlers to be modified or causing template errors on pages that don't need suggestions.
+func addSuggestionsToData(data interface{}) interface{} {
+	// Use reflection to check if the data struct has a Suggestions field
+	v := reflect.ValueOf(data)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() != reflect.Struct {
+		return data
+	}
+
+	suggestionsField := v.FieldByName("Suggestions")
+	if !suggestionsField.IsValid() || !suggestionsField.CanSet() {
+		// No Suggestions field or not settable, return original data
+		return data
+	}
+
+	// Only generate suggestions if the field exists and is empty
+	if suggestionsField.IsNil() || suggestionsField.Len() == 0 {
+		suggestions := repo.GenerateAllSearchSuggestions()
+		suggestionsValue := reflect.ValueOf(suggestions)
+		if suggestionsValue.Type().AssignableTo(suggestionsField.Type()) {
+			suggestionsField.Set(suggestionsValue)
+		}
+	}
+
+	return data
+}

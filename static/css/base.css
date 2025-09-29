@@ -200,6 +200,30 @@ body {
     margin-top: 3rem;
 }
 
+.home-links {
+    padding: var(--spacing-lg) 0;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
+.home-links a {
+    color: var(--accent);
+    text-decoration: none;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--border-radius);
+    transition: all var(--transition-fast);
+}
+
+.home-links a:hover {
+    background: var(--accent);
+    color: white;
+}
+
+.page-body {
+    min-height: calc(100vh - 250px); /* Ensure space for header and footer */
+}
+
 .placeholder {
     padding: 2.5rem;
     background: var(--card-bg);

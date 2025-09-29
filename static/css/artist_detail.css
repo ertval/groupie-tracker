@@ -14,12 +14,13 @@
     margin-bottom: var(--spacing-xl);
     border: 1px solid var(--border);
     box-shadow: var(--shadow);
-}
-
-.artist-meta {
     display: flex;
     gap: var(--spacing-xl);
     align-items: flex-start;
+}
+
+.artist-image-large {
+    flex-shrink: 0;
 }
 
 .artist-image {
@@ -29,14 +30,13 @@
     border-radius: var(--border-radius-lg);
     background: var(--secondary-bg);
     border: 1px solid var(--border);
-    flex-shrink: 0;
 }
 
-.artist-info {
+.artist-basic-info {
     flex: 1;
 }
 
-.artist-info h1 {
+.artist-basic-info h1 {
     color: var(--text-primary);
     font-size: 2.5rem;
     font-weight: 700;
@@ -44,19 +44,19 @@
     line-height: 1.2;
 }
 
-.meta p {
-    margin: var(--spacing-sm) 0;
+.artist-meta {
+    display: grid;
+    gap: var(--spacing-sm);
+}
+
+.artist-meta p {
+    margin: 0;
     font-size: 1.1rem;
     color: var(--text-secondary);
 }
 
-.meta p strong {
+.artist-meta p strong {
     color: var(--text-primary);
-    font-weight: 600;
-}
-
-.creation-year {
-    color: var(--accent) !important;
     font-weight: 600;
 }
 
@@ -77,26 +77,24 @@
     margin-bottom: var(--spacing-md);
 }
 
-.artist-members ul {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--spacing-sm);
+.members-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-xs);
+    font-size: 1.1rem;
+    color: var(--text);
 }
 
-.artist-members li {
+.member-item {
+    display: inline-block;
+    padding: var(--spacing-xs) var(--spacing-sm);
     background: var(--secondary-bg);
-    padding: var(--spacing-md) var(--spacing-lg);
-    border-radius: var(--border-radius);
-    color: var(--text-primary);
-    font-weight: 500;
+    border-radius: var(--border-radius-sm);
     border: 1px solid var(--border);
 }
 
 /* Concerts section */
-.artist-concerts {
+.concert-info {
     background: var(--card-bg);
     border-radius: var(--border-radius-lg);
     padding: var(--card-padding-lg);
@@ -105,84 +103,140 @@
     box-shadow: var(--shadow);
 }
 
-.artist-concerts h2 {
+.concert-info h2 {
     color: var(--text-primary);
     font-size: 1.5rem;
     font-weight: 600;
     margin-bottom: var(--spacing-md);
 }
 
-.concerts-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: var(--spacing-md);
-}
-
-.concert-location {
-    background: var(--secondary-bg);
-    border-radius: var(--border-radius);
+.location-section {
+    margin-bottom: var(--spacing-md);
     padding: var(--spacing-md);
     border: 1px solid var(--border);
+    border-radius: var(--border-radius);
+    background: var(--secondary-bg);
 }
 
-.concert-location h3 {
-    color: var(--text-primary);
-    font-size: 1rem;
+.location-name {
+    margin: 0 0 var(--spacing-sm) 0;
+    font-size: 1.2rem;
     font-weight: 600;
-    margin-bottom: var(--spacing-sm);
 }
 
-.concert-dates {
+.location-link {
+    color: var(--accent);
+    text-decoration: none;
+    transition: color var(--transition-fast);
+}
+
+.location-link:hover {
+    color: var(--accent-hover);
+    text-decoration: underline;
+}
+
+.dates-list {
     display: flex;
     flex-wrap: wrap;
     gap: var(--spacing-xs);
 }
 
 .concert-date {
-    background: var(--accent);
-    color: white;
+    background: var(--bg);
+    color: var(--text);
     padding: var(--spacing-xs) var(--spacing-sm);
     border-radius: var(--border-radius-sm);
     font-size: 0.8rem;
-    font-weight: 500;
-}
-
-/* Navigation */
-.artist-navigation {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: var(--spacing-xl);
-    background: var(--card-bg);
-    border-radius: var(--border-radius-lg);
-    padding: var(--spacing-md);
+    font-weight: 400;
     border: 1px solid var(--border);
 }
 
-.nav-link {
+/* Statistics section */
+.artist-stats {
+    background: var(--card-bg);
+    border-radius: var(--border-radius-lg);
+    padding: var(--card-padding-lg);
+    margin-bottom: var(--spacing-xl);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+}
+
+.artist-stats h2 {
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-md);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.stat-item {
+    text-align: center;
+    padding: var(--spacing-md);
+    background: var(--secondary-bg);
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
+}
+
+.stat-number {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
     color: var(--accent);
+    line-height: 1.2;
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-top: var(--spacing-xs);
+}
+
+/* Navigation */
+.navigation-links {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.artist-nav-buttons {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.nav-btn {
+    flex: 1;
+    text-align: center;
+    padding: var(--spacing-md);
+    background: var(--secondary-bg);
+    color: var(--text);
     text-decoration: none;
+    border-radius: var(--border-radius);
+    border: 1px solid var(--border);
     font-weight: 500;
-    padding: var(--spacing-sm) var(--spacing-md);
-    border-radius: var(--btn-radius);
-    border: 1px solid var(--accent);
     transition: all var(--transition-normal);
 }
 
-.nav-link:hover {
+.nav-btn:hover {
     background: var(--accent);
     color: white;
+    border-color: var(--accent);
 }
 
-.nav-link.disabled {
-    color: var(--text-secondary);
-    border-color: var(--border);
-    cursor: not-allowed;
+.back-to-artists {
+    text-align: center;
 }
 
-.nav-link.disabled:hover {
-    background: transparent;
-    color: var(--text-secondary);
+.back-to-artists .btn {
+    padding: var(--spacing-md) var(--spacing-lg);
 }
 
 /* Responsive */

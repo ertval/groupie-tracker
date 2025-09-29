@@ -15,23 +15,28 @@
             <div class="artists-grid">
                 {{range .Artists}}
                 <div class="artist-card">
-                    <div class="artist-image">
-                        <a href="/artists/{{.Artist.Slug}}">
-                            <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-img">
-                        </a>
-                    </div>
-                    <div class="artist-info">
-                        <h3 class="artist-heading">
-                            <a href="/artists/{{.Artist.Slug}}" class="artist-link">{{.Artist.Name}} ({{.ConcertCount}} concerts)</a>
-                        </h3>
-                        <div class="artist-meta muted-small">
-                            <strong>Creation Year:</strong> {{.Artist.CreationYear}} &nbsp; <strong>Members:</strong> {{len .Artist.Members}}
+                    <a href="/artists/{{.Artist.Slug}}" class="artist-link">
+                        <div class="artist-image-container">
+                            <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-image">
                         </div>
-                        {{$dates := index .Artist.DatesAtLocation $.Location.Slug}}
-                        {{if $dates}}
-                        <p class="dates-list"><strong>Dates performed here:</strong> {{join $dates ", "}}</p>
-                        {{end}}
-                    </div>
+                        <div class="artist-info">
+                            <h3 class="artist-name">{{.Artist.Name}}</h3>
+                            <p class="artist-details">
+                                {{len .Artist.Members}} member{{if ne (len .Artist.Members) 1}}s{{end}} • 
+                                Founded {{.Artist.CreationYear}} • 
+                                {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}}
+                            </p>
+                            {{if .Artist.Countries}}
+                            <p class="artist-countries">
+                                Performed in: {{join .Artist.Countries ", "}}
+                            </p>
+                            {{end}}
+                            {{$dates := index .Artist.DatesAtLocation $.Location.Slug}}
+                            {{if $dates}}
+                            <p class="dates-list"><strong>Dates performed here:</strong> {{join $dates ", "}}</p>
+                            {{end}}
+                        </div>
+                    </a>
                 </div>
                 {{end}}
             </div>
