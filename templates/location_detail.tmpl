@@ -44,11 +44,11 @@
 
         <div class="navigation-links">
             <div class="location-nav-buttons">
-                {{if .PrevArtist}}
-                <a href="/artists/{{.PrevArtist.Slug}}" class="nav-btn">← {{.PrevArtist.Name}}</a>
+                {{if .PrevLocation}}
+                <a href="/locations/{{.PrevLocation.Slug}}" class="nav-btn">← {{.PrevLocation.Name}}</a>
                 {{end}}
-                {{if .NextArtist}}
-                <a href="/artists/{{.NextArtist.Slug}}" class="nav-btn">{{.NextArtist.Name}} →</a>
+                {{if .NextLocation}}
+                <a href="/locations/{{.NextLocation.Slug}}" class="nav-btn">{{.NextLocation.Name}} →</a>
                 {{end}}
             </div>
             <div class="back-to-locations">

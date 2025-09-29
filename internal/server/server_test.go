@@ -33,14 +33,28 @@ func setupTestEnvironment(t *testing.T) {
 		switch r.URL.Path {
 		case "/api/artists":
 			w.Write([]byte(`[
-				{"id": 1, "name": "Queen", "creationDate": 1970},
-				{"id": 2, "name": "AC/DC", "creationDate": 1973}
+				{"id": 1, "name": "Queen", "creationDate": 1970, "firstAlbum": "14-12-1973", "members": ["Freddie Mercury", "Brian May"]},
+				{"id": 2, "name": "AC/DC", "creationDate": 1973, "firstAlbum": "17-02-1975", "members": ["Angus Young", "Malcolm Young"]}
 			]`))
+		case "/api/locations":
+			w.Write([]byte(`{
+				"index": [
+					{"id": 1, "locations": ["London-UK"]},
+					{"id": 2, "locations": ["London-UK"]}
+				]
+			}`))
+		case "/api/dates":
+			w.Write([]byte(`{
+				"index": [
+					{"id": 1, "dates": ["14-12-2022"]},
+					{"id": 2, "dates": ["15-02-2023"]}
+				]
+			}`))
 		case "/api/relation":
 			w.Write([]byte(`{
 				"index": [
-					{"id": 1, "datesLocations": {"london-uk": ["2022-01-01"]}},
-					{"id": 2, "datesLocations": {"london-uk": ["2023-01-01"]}}
+					{"id": 1, "datesLocations": {"London-UK": ["14-12-2022"]}},
+					{"id": 2, "datesLocations": {"London-UK": ["15-02-2023"]}}
 				]
 			}`))
 		default:
@@ -85,6 +99,10 @@ func newTestServer(t *testing.T) *httptest.Server {
 		switch r.URL.Path {
 		case "/api/artists":
 			w.Write([]byte(`[]`))
+		case "/api/locations":
+			w.Write([]byte(`{"index":[]}`))
+		case "/api/dates":
+			w.Write([]byte(`{"index":[]}`))
 		case "/api/relation":
 			w.Write([]byte(`{"index":[]}`))
 		default:

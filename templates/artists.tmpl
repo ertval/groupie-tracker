@@ -12,7 +12,7 @@
                 <a href="/artists" class="clear-filters-link">Show All Artists</a>
             </div>
             {{else}}
-            <p class="muted results-count">Browse through our collection of {{len .Artists}} artists</p>
+            <p class="muted results-count">Browse through our collection of {{len .Artists}} artists by Concerts Performed</p>
             {{end}}
         </div>
     </header>
@@ -24,7 +24,6 @@
                 <!-- Top Artists Section -->
                 {{if not .IsFiltered}}
                 <section class="top-artists">
-                    <h2>Top Artists by Concerts Performed</h2>
                     <div class="top-artists-grid">
                         {{range $index, $artist := .TopArtists}}
                         <div class="top-artist-card">

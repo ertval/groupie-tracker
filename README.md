@@ -55,21 +55,38 @@ Groupie Tracker is a Go-based web application that:
 
 ### Key Implementation Files
 - `cmd/cli/main.go` - Streamlined application entry point
+- `cmd/cli/e2e_test.go` - End-to-end integration tests
+- `cmd/cli/search_e2e_test.go` - Search-specific E2E tests
 - `internal/server/server.go` - Package-level server initialization with global variables
 - `internal/server/routes.go` - HTTP routing and middleware setup
 - `internal/server/handlers.go` - All HTTP endpoints with filter/search APIs (package-level functions)
 - `internal/server/middleware.go` - Panic recovery, logging, security headers
+- `internal/server/utils.go` - Template utilities and form parsing helpers
+- `internal/server/server_test.go` - Comprehensive handler unit tests
+- `internal/server/search_integration_test.go` - Search integration testing
 - `internal/config/config.go` - Centralized configuration variables
-- `internal/data/repository.go` - Core data management logic (396 lines)
-- `internal/data/filters.go` - **NEW: Server-side filter logic for artists and locations**
-- `internal/data/search.go` - **NEW: Comprehensive search functionality with suggestions**
-- `internal/data/models.go` - Domain models with FilterParams + SearchParams structures  
+- `internal/data/repository.go` - Core data management logic with thread-safe operations
+- `internal/data/filters.go` - Server-side filter logic for artists and locations
+- `internal/data/search.go` - Comprehensive search functionality with suggestions
+- `internal/data/models.go` - Domain models with FilterParams + SearchParams structures
+- `internal/data/filter_test.go` - Comprehensive filter unit tests (18 tests)
+- `internal/data/search_test.go` - Comprehensive search unit tests (30+ tests)
+- `internal/data/repository_test.go` - Repository unit tests (91.2% coverage)
 - `templates/base.tmpl` - Base template with global search bar
-- `templates/search.tmpl` - **NEW: Dedicated search interface with advanced filters**
-- `templates/artists.tmpl` - **Enhanced with right sidebar filter UI**
-- `templates/locations.tmpl` - **Enhanced with location filtering UI**
-- `static/css/artists.css` - **Updated for sidebar layout with responsive design**
-- `static/css/locations.css` - **NEW: Comprehensive styling for location filters**
+- `templates/search.tmpl` - Dedicated search interface with advanced filters
+- `templates/artists.tmpl` - Enhanced with right sidebar filter UI
+- `templates/locations.tmpl` - Enhanced with location filtering UI
+- `templates/artist_detail.tmpl` - Individual artist detail pages
+- `templates/location_detail.tmpl` - Individual location detail pages
+- `templates/home.tmpl` - Homepage with artist overview
+- `templates/error.tmpl` - Error pages with graceful fallback
+- `static/css/base.css` - Core styling and global components
+- `static/css/artists.css` - Updated for sidebar layout with responsive design
+- `static/css/locations.css` - Comprehensive styling for location filters
+- `static/css/search.css` - Search interface styling
+- `static/css/home.css` - Homepage specific styling
+- `static/css/errors.css` - Error page styling
+- `static/img/artists/` - Cached artist images directory
 
 ### Notable Features
 - **Comprehensive Search**: Full-text search across artists, members, locations, dates
@@ -111,40 +128,58 @@ The application handles the API's inconsistent response formats:
 ```
 cmd/cli/                    # Application entry point  
   ├── main.go              # Streamlined server startup
-  └── e2e_test.go          # End-to-end integration tests
+  ├── e2e_test.go          # End-to-end integration tests
+  └── search_e2e_test.go   # Search-specific E2E tests
 
 internal/
   ├── config/              # Centralized configuration
   │   └── config.go        # Global variables for timeouts, URLs, cache settings
-  ├── data/                # Core domain layer (88.9% test coverage)
+  ├── data/                # Core domain layer (91.2% test coverage)
   │   ├── repository.go    # Single data load with thread-safe read operations
-  │   ├── models.go        # Domain models + FilterParams structures
-  │   ├── filters.go       # NEW: Server-side filter logic (artists + locations)
-  │   ├── filter_test.go   # NEW: Comprehensive filter testing (18 tests passing)
-  │   └── repository_test.go # Repository tests
+  │   ├── models.go        # Domain models + FilterParams/SearchParams structures
+  │   ├── filters.go       # Server-side filter logic (artists + locations)
+  │   ├── search.go        # Comprehensive search functionality with suggestions
+  │   ├── filter_test.go   # Comprehensive filter testing (18 tests passing)
+  │   ├── search_test.go   # Comprehensive search testing (30+ tests passing)
+  │   └── repository_test.go # Repository tests (91.2% coverage)
   └── server/              # HTTP layer (79.7% test coverage)
       ├── server.go        # Package-level server initialization with global variables
       ├── routes.go        # HTTP routing and middleware setup
-      ├── handlers.go      # All HTTP endpoints + filter APIs (package-level functions)
+      ├── handlers.go      # All HTTP endpoints + filter/search APIs (package-level functions)
       ├── middleware.go    # Panic recovery, logging, security headers
-      └── server_test.go   # Comprehensive unified server tests
+      ├── utils.go         # Template utilities and form parsing helpers
+      ├── server_test.go   # Comprehensive unified server tests
+      └── search_integration_test.go # Search integration testing
 
 templates/                 # Template inheritance system + filter UI
   ├── base.tmpl           # Base layout with {{define "base"}}
-  ├── artist_detail.tmpl  # Artist pages with {{define "body"}}
+  ├── home.tmpl           # Homepage with artist overview
   ├── artists.tmpl        # Artist listing + RIGHT SIDEBAR FILTERS
-  ├── home.tmpl          # Homepage
-  ├── locations.tmpl     # Location listing + FILTER SIDEBAR
+  ├── artist_detail.tmpl  # Artist pages with {{define "body"}}
+  ├── locations.tmpl      # Location listing + FILTER SIDEBAR
   ├── location_detail.tmpl # Location detail pages
-  └── error.tmpl         # Error pages with graceful fallback
+  ├── search.tmpl         # Dedicated search interface with advanced filters
+  └── error.tmpl          # Error pages with graceful fallback
 
 static/                   # Static assets with enhanced styling
   ├── css/               # Stylesheets with filter sidebar support
-  │   ├── base.css       # Core styling 
+  │   ├── base.css       # Core styling and global components
+  │   ├── home.css       # Homepage specific styling
   │   ├── artists.css    # ENHANCED: Sidebar layout + filter controls
-  │   └── locations.css  # NEW: Complete location filter styling
+  │   ├── locations.css  # Complete location filter styling
+  │   ├── search.css     # Search interface styling
+  │   ├── artist_detail.css # Artist detail page styling
+  │   ├── location_detail.css # Location detail page styling
+  │   ├── errors.css     # Error page styling
+  │   └── dev.css        # Development/debug styling
   ├── img/artists/       # Cached artist images
   └── favicon.ico        # Site favicon
+
+tests/                    # Audit and integration tests
+  ├── audit_test.go      # Audit requirement validation
+  ├── debug_test.go      # Debug and development tests
+  ├── visual_e2e_test.go # Visual/UI end-to-end tests
+  └── playwright_test.go # Browser automation tests
 ```
 
 ### 🔄 Detailed Data Flow

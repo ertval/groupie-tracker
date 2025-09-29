@@ -390,24 +390,45 @@ func TestE2EMethodNotAllowed(t *testing.T) {
 
 	client := server.Client()
 
-	paths := []string{"/", "/artists", "/locations", "/health"}
-	methods := []string{"POST", "PUT", "DELETE", "PATCH"}
+	// Test method not allowed for various endpoints
+	// Note: POST /artists and POST /locations are now valid for filter forms
+	testCases := []struct {
+		path   string
+		method string
+	}{
+		// Home page - only GET allowed
+		{"/", "POST"},
+		{"/", "PUT"},
+		{"/", "DELETE"},
+		{"/", "PATCH"},
+		// Artists - GET and POST allowed (POST for filters)
+		{"/artists", "PUT"},
+		{"/artists", "DELETE"},
+		{"/artists", "PATCH"},
+		// Locations - GET and POST allowed (POST for filters)  
+		{"/locations", "PUT"},
+		{"/locations", "DELETE"},
+		{"/locations", "PATCH"},
+		// Health - only GET allowed
+		{"/health", "POST"},
+		{"/health", "PUT"},
+		{"/health", "DELETE"},
+		{"/health", "PATCH"},
+	}
 
-	for _, path := range paths {
-		for _, method := range methods {
-			t.Run(fmt.Sprintf("%s %s", method, path), func(t *testing.T) {
-				req, _ := http.NewRequest(method, server.URL+path, nil)
-				res, err := client.Do(req)
-				if err != nil {
-					t.Fatalf("failed to send request: %v", err)
-				}
-				defer res.Body.Close()
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("%s %s", tc.method, tc.path), func(t *testing.T) {
+			req, _ := http.NewRequest(tc.method, server.URL+tc.path, nil)
+			res, err := client.Do(req)
+			if err != nil {
+				t.Fatalf("failed to send request: %v", err)
+			}
+			defer res.Body.Close()
 
-				if res.StatusCode != http.StatusMethodNotAllowed {
-					t.Errorf("expected status 405, got %d", res.StatusCode)
-				}
-			})
-		}
+			if res.StatusCode != http.StatusMethodNotAllowed {
+				t.Errorf("expected status 405, got %d", res.StatusCode)
+			}
+		})
 	}
 }
 

@@ -365,19 +365,23 @@ func LocationDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	data := struct {
-		Title       string
-		ExtraCSS    string
-		ExtraJS     string
-		Location    data.Location
-		Artists     []data.ArtistAtLocation
-		Suggestions []data.SearchSuggestion
+		Title        string
+		ExtraCSS     string
+		ExtraJS      string
+		Location     data.Location
+		Artists      []data.ArtistAtLocation
+		PrevLocation *data.Location `json:"prevLocation,omitempty"`
+		NextLocation *data.Location `json:"nextLocation,omitempty"`
+		Suggestions  []data.SearchSuggestion
 	}{
-		Title:       fmt.Sprintf("%s - Location", location.Name),
-		ExtraCSS:    "location_detail.css",
-		ExtraJS:     "",
-		Location:    location,
-		Artists:     location.Artists,
-		Suggestions: repo.GenerateAllSearchSuggestions(),
+		Title:        fmt.Sprintf("%s - Location", location.Name),
+		ExtraCSS:     "location_detail.css",
+		ExtraJS:      "",
+		Location:     location,
+		Artists:      location.Artists,
+		PrevLocation: nil, // Could be implemented later for location navigation
+		NextLocation: nil, // Could be implemented later for location navigation
+		Suggestions:  repo.GenerateAllSearchSuggestions(),
 	}
 
 	render(w, r, "location_detail.tmpl", data)
