@@ -160,49 +160,78 @@
     background: #4b5563;
 }
 
-/* Top Locations List */
-.top-locations-list {
-    display: flex;
-    flex-direction: column;
+/* Top Locations Section */
+.top-locations h2 {
+    color: var(--text);
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: var(--spacing-lg);
+    text-align: center;
+}
+
+.top-locations-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-xl);
 }
 
-.top-location-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-    padding: var(--spacing-md);
+.top-location-card {
     background: var(--secondary-bg);
     border-radius: var(--border-radius);
     border: 1px solid var(--border);
-}
-
-.top-location-item .rank {
-    font-weight: bold;
-    color: var(--info);
-    font-size: 1.25rem;
-    min-width: 2rem;
     text-align: center;
+    transition: all var(--transition-normal);
 }
 
-.top-location-item .location-name {
-    flex-grow: 1;
+.top-location-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+    border-color: var(--accent);
 }
 
-.top-location-item .location-name a {
-    font-weight: 600;
-    color: var(--text-primary);
+.top-location-link {
+    display: block;
+    padding: var(--spacing-md);
     text-decoration: none;
+    color: inherit;
+    height: 100%;
 }
 
-.top-location-item .location-name a:hover {
-    color: var(--info);
+.top-location-card .rank {
+    display: block;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: var(--spacing-xs);
 }
 
-.top-location-item .stats {
-    color: var(--text-secondary);
-    font-size: 0.875rem;
+.top-location-card .location-name {
+    font-weight: 600;
+    margin-bottom: var(--spacing-sm);
+}
+
+.top-location-card .location-name {
+    color: var(--text);
+    text-decoration: none;
+    font-size: 1rem;
+}
+
+.top-location-card .location-name:hover {
+    color: var(--accent);
+}
+
+.location-stats {
+    font-size: 0.85rem;
+    color: var(--muted);
+    display: flex;
+    justify-content: center;
+    gap: var(--spacing-xs);
+}
+
+.location-stats .concert-count,
+.location-stats .artist-count {
+    display: inline-block;
 }
 
 /* Locations Grid */

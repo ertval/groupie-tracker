@@ -284,7 +284,6 @@
 .top-artist-card {
     background: var(--secondary-bg);
     border-radius: var(--border-radius);
-    padding: var(--spacing-md);
     border: 1px solid var(--border);
     text-align: center;
     transition: all var(--transition-normal);
@@ -294,6 +293,14 @@
     transform: translateY(-2px);
     box-shadow: var(--shadow-md);
     border-color: var(--accent);
+}
+
+.top-artist-link {
+    display: block;
+    padding: var(--spacing-md);
+    text-decoration: none;
+    color: inherit;
+    height: 100%;
 }
 
 .top-artist-card .rank {
@@ -309,13 +316,13 @@
     margin-bottom: var(--spacing-sm);
 }
 
-.top-artist-card .artist-name a {
+.top-artist-card .artist-name {
     color: var(--text);
     text-decoration: none;
     font-size: 1rem;
 }
 
-.top-artist-card .artist-name a:hover {
+.top-artist-card .artist-name:hover {
     color: var(--accent);
 }
 

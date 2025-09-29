@@ -43,7 +43,17 @@
         </section>
 
         <div class="navigation-links">
-            <a href="/locations" class="btn btn-secondary">← Back to Locations</a>
+            <div class="location-nav-buttons">
+                {{if .PrevArtist}}
+                <a href="/artists/{{.PrevArtist.Slug}}" class="nav-btn">← {{.PrevArtist.Name}}</a>
+                {{end}}
+                {{if .NextArtist}}
+                <a href="/artists/{{.NextArtist.Slug}}" class="nav-btn">{{.NextArtist.Name}} →</a>
+                {{end}}
+            </div>
+            <div class="back-to-locations">
+                <a href="/locations" class="btn btn-secondary">← Back to Locations</a>
+            </div>
         </div>
     </main>
 </div>

@@ -21,14 +21,19 @@
             <div class="main-content">
                 {{if not .IsFiltered}}
                 <section class="top-locations">
-                    <h2>Top 10 Locations by Concerts</h2>
-                    <div class="top-locations-list">
+                    <h2>Top Locations by Concerts</h2>
+                    <div class="top-locations-grid">
                         {{range $index, $location := .Locations}}
                         {{if lt $index 10}}
-                        <div class="top-location-item">
-                            <span class="rank">{{add $index 1}}</span>
-                            <span class="location-name"><a href="/locations/{{$location.Slug}}">{{$location.Name | title}}</a></span>
-                            <span class="stats">{{$location.TotalConcerts}} concerts • {{$location.ArtistCount}} artists</span>
+                        <div class="top-location-card">
+                            <a href="/locations/{{$location.Slug}}" class="top-location-link">
+                                <div class="rank">{{add $index 1}}</div>
+                                <div class="location-name">{{$location.Name | title}}</div>
+                                <div class="location-stats">
+                                    <span class="concert-count">{{$location.TotalConcerts}} concerts</span> • 
+                                    <span class="artist-count">{{$location.ArtistCount}} artists</span>
+                                </div>
+                            </a>
                         </div>
                         {{end}}
                         {{end}}
