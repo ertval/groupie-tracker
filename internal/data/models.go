@@ -51,11 +51,11 @@ type APIRelation struct {
 // This is the rich domain model used throughout the application, containing both
 // original API data and computed fields for enhanced functionality:
 //
-// Navigation: NextArtistID/PrevArtistID enable prev/next artist browsing
 // Performance: Pre-computed fields like ConcertCount avoid repeated calculations
 // Filtering: Countries slice enables efficient country-based filtering
 // SEO: Slug field provides URL-friendly artist identification
 // Caching: DatesAtLocation map enables fast location-specific concert lookups
+// Navigation: On-demand adjacent artist lookup via GetAdjacentArtists()
 type Artist struct {
 	ID              int                 // Unique identifier matching API data
 	Name            string              // Artist/band name for display
@@ -68,8 +68,6 @@ type Artist struct {
 	DatesAtLocation map[string][]string // Pre-indexed concert dates by location slug for fast lookups
 	ConcertCount    int                 // Total number of concerts (computed field)
 	Countries       []string            // Unique countries where artist performed (sorted, for filtering)
-	NextArtistID    int                 // ID of next artist in collection (for navigation)
-	PrevArtistID    int                 // ID of previous artist in collection (for navigation)
 }
 
 // ArtistAtLocation represents an artist's concert activity at a specific venue.

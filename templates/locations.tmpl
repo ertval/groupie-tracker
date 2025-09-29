@@ -125,7 +125,6 @@
                 </details>
 
                 <section class="locations-grid">
-                    <h2>{{if .IsFiltered}}Filtered Locations{{if .FilterDescription}} in {{.FilterDescription}}{{end}}{{else}}All Locations{{end}} (Sorted by Popularity)</h2>
                     {{if .Locations}}
                     <div class="locations-cards">
                         {{range .Locations}}
@@ -139,7 +138,7 @@
                                 {{if gt (len .Artists) 0}}
                                 <div class="location-artists muted">
                                     {{range $i, $artistAtLocation := .Artists}}
-                                    <span class="artist-with-count">{{if gt $i 0}}, {{end}}<a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}}</a> ({{$artistAtLocation.ConcertCount}})</span>
+                                    {{if gt $i 0}} {{end}}<span class="artist-with-count"><a href="/artists/{{$artistAtLocation.Artist.Slug}}">{{$artistAtLocation.Artist.Name}}</a>, ({{$artistAtLocation.ConcertCount}})</span>
                                     {{end}}
                                 </div>
                                 {{end}}

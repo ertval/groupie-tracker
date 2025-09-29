@@ -280,13 +280,14 @@ func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error
 // helper methods that each handle a single responsibility:
 // - transformAPIArtists: converts API data to domain models
 // - addConcertData: enriches artists with concert information
-// - addNavigationLinks: establishes prev/next relationships
+//
+// Navigation links are now computed on-demand via GetAdjacentArtists()
+// to reduce memory usage and complexity.
 //
 // Returns a complete slice of processed Artist objects sorted by name.
 func (r *Repository) processArtists(apiArtists []APIArtist, apiRelations APIRelation) []Artist {
 	artists := r.transformAPIArtists(apiArtists)
 	artists = r.addConcertData(artists, apiRelations)
-	artists = r.addNavigationLinks(artists)
 	return artists
 }
 
@@ -378,18 +379,38 @@ func (r *Repository) convertCountriesMapToSlice(countriesMap map[string]bool) []
 	return countries
 }
 
-// addNavigationLinks establishes previous/next relationships between artists.
-// This assumes artists are already sorted in the desired navigation order.
-func (r *Repository) addNavigationLinks(artists []Artist) []Artist {
-	for i := range artists {
-		if i > 0 {
-			artists[i].PrevArtistID = artists[i-1].ID
-		}
-		if i < len(artists)-1 {
-			artists[i].NextArtistID = artists[i+1].ID
+// GetAdjacentArtists finds the previous and next artists in the collection
+// based on alphabetical order by name. This replaces pre-computed navigation IDs
+// with on-demand lookup to reduce memory usage and complexity.
+func (r *Repository) GetAdjacentArtists(currentID int) (prev, next *Artist) {
+	if len(r.artists) == 0 {
+		return nil, nil
+	}
+
+	// Find the current artist index
+	currentIndex := -1
+	for i, artist := range r.artists {
+		if artist.ID == currentID {
+			currentIndex = i
+			break
 		}
 	}
-	return artists
+
+	if currentIndex == -1 {
+		return nil, nil // Artist not found
+	}
+
+	// Get previous artist (if not first)
+	if currentIndex > 0 {
+		prev = &r.artists[currentIndex-1]
+	}
+
+	// Get next artist (if not last)
+	if currentIndex < len(r.artists)-1 {
+		next = &r.artists[currentIndex+1]
+	}
+
+	return prev, next
 }
 
 // cacheImages handles local image caching optimization for artist photos.

@@ -81,12 +81,15 @@ func TestRepository_LoadData_Success(t *testing.T) {
 		t.Errorf("expected Queen to have 2 concerts, got %d", queen.ConcertCount)
 	}
 
-	// Check navigation IDs
-	if acdc.NextArtistID != queen.ID {
-		t.Errorf("expected AC/DC's next artist to be Queen, got ID %d", acdc.NextArtistID)
+	// Check navigation works
+	prevArtist, nextArtist := repo.GetAdjacentArtists(acdc.ID)
+	if nextArtist == nil || nextArtist.ID != queen.ID {
+		t.Error("expected AC/DC's next artist to be Queen")
 	}
-	if queen.PrevArtistID != acdc.ID {
-		t.Errorf("expected Queen's previous artist to be AC/DC, got ID %d", queen.PrevArtistID)
+	
+	prevArtist, nextArtist = repo.GetAdjacentArtists(queen.ID)
+	if prevArtist == nil || prevArtist.ID != acdc.ID {
+		t.Error("expected Queen's previous artist to be AC/DC")
 	}
 
 	// Check locations
@@ -370,8 +373,20 @@ func TestRepository_EdgeCaseData(t *testing.T) {
 		t.Errorf("expected at least 2 locations, got %d", len(locations))
 	}
 
-	// Check navigation IDs work with edge cases
-	if artists[0].NextArtistID == 0 || artists[len(artists)-1].PrevArtistID == 0 {
-		t.Error("navigation IDs should be set correctly")
+	// Check navigation works with edge cases
+	firstPrev, firstNext := repo.GetAdjacentArtists(artists[0].ID)
+	lastPrev, lastNext := repo.GetAdjacentArtists(artists[len(artists)-1].ID)
+	
+	if firstPrev != nil {
+		t.Error("first artist should not have a previous artist")
+	}
+	if firstNext == nil {
+		t.Error("first artist should have a next artist")
+	}
+	if lastNext != nil {
+		t.Error("last artist should not have a next artist")
+	}
+	if lastPrev == nil {
+		t.Error("last artist should have a previous artist")
 	}
 }

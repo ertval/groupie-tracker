@@ -106,18 +106,8 @@ func ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Get navigation artists
-	var prevArtist, nextArtist *data.Artist
-	if artist.PrevArtistID != 0 {
-		if p, ok := repo.GetArtistByID(artist.PrevArtistID); ok {
-			prevArtist = &p
-		}
-	}
-	if artist.NextArtistID != 0 {
-		if n, ok := repo.GetArtistByID(artist.NextArtistID); ok {
-			nextArtist = &n
-		}
-	}
+	// Get navigation artists using on-demand lookup
+	prevArtist, nextArtist := repo.GetAdjacentArtists(artist.ID)
 
 	data := struct {
 		BaseTemplateData
