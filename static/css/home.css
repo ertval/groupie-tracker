@@ -295,31 +295,7 @@
     margin-top: var(--spacing-xl);
 }
 
-.btn {
-    display: inline-block;
-    padding: var(--btn-padding);
-    background: var(--accent);
-    color: white;
-    text-decoration: none;
-    border-radius: var(--btn-radius);
-    font-weight: 500;
-    transition: background-color var(--transition-fast);
-    border: none;
-    cursor: pointer;
-    font-size: 1rem;
-}
 
-.btn:hover {
-    background: var(--accent-hover);
-}
-
-.btn-primary {
-    background: var(--accent);
-}
-
-.btn-primary:hover {
-    background: var(--accent-hover);
-}
 
 /* Responsive */
 @media (max-width: 768px) {
