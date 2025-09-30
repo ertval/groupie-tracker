@@ -306,7 +306,7 @@ func createMockRepository(t *testing.T) *Repository {
 		artist := &mockArtists[i]
 		countries := make(map[string]bool)
 		for _, concert := range artist.Concerts {
-			country := repo.extractCountryFromLocation(concert.Location)
+			country := extractCountryFromLocation(concert.Location)
 			if country != "" {
 				countries[country] = true
 			}
@@ -314,18 +314,8 @@ func createMockRepository(t *testing.T) *Repository {
 		artist.Countries = repo.convertCountriesMapToSlice(countries)
 	}
 
-	// Convert to pointer slice for hardened storage
-	repo.artists = make([]*Artist, len(mockArtists))
-	repo.artistsByID = make(map[int]*Artist, len(mockArtists))
-	repo.artistsBySlug = make(map[string]*Artist, len(mockArtists))
-	repo.artistIndex = make(map[int]int, len(mockArtists))
-
-	for i, artist := range mockArtists {
-		repo.artists[i] = &mockArtists[i]
-		repo.artistsByID[artist.ID] = repo.artists[i]
-		repo.artistsBySlug[createSlug(artist.Name)] = repo.artists[i]
-		repo.artistIndex[artist.ID] = i
-	}
+	// Use SetTestData method to properly initialize the repository
+	repo.SetTestData(mockArtists, []Location{})
 
 	return repo
 }

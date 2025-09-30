@@ -94,7 +94,8 @@ func (r *Repository) extractYearFromDate(dateStr string) int {
 //
 // Returns a slice of artists that match all specified filter criteria.
 func (r *Repository) FilterArtists(params ArtistFilterParams) []*Artist {
-	var filtered []*Artist
+	// Pre-allocate with estimated capacity to reduce memory allocations
+	filtered := make([]*Artist, 0, len(r.artists)/2)
 
 	for _, artist := range r.artists {
 		if r.matchesArtistFilters(*artist, params) {

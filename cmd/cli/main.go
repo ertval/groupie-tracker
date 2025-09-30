@@ -6,13 +6,13 @@ import (
 	"log"
 	"net/http"
 
-	"groupie-tracker/internal/server"
+	"groupie-tracker/internal/data"
 )
 
 func main() {
 	log.Println("Starting Groupie Tracker server...")
 
-	server, err := server.NewServer()
+	server, err := data.NewServer()
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}

@@ -53,28 +53,9 @@ func createTestSearchData() *Repository {
 		},
 	}
 
-	// Create repository with test data (convert to pointer-based storage)
-	repo := &Repository{
-		artists:         make([]*Artist, len(artists)),
-		artistsByID:     make(map[int]*Artist, len(artists)),
-		artistsBySlug:   make(map[string]*Artist, len(artists)),
-		artistIndex:     make(map[int]int, len(artists)),
-		locations:       make([]*Location, len(locations)),
-		locationsBySlug: make(map[string]*Location, len(locations)),
-	}
-
-	// Build indexes
-	for i, artist := range artists {
-		repo.artists[i] = &artists[i]
-		repo.artistsByID[artist.ID] = repo.artists[i]
-		repo.artistsBySlug[artist.Slug] = repo.artists[i]
-		repo.artistIndex[artist.ID] = i
-	}
-
-	for i, location := range locations {
-		repo.locations[i] = &locations[i]
-		repo.locationsBySlug[location.Slug] = repo.locations[i]
-	}
+	// Create repository with test data using SetTestData method
+	repo := NewRepository()
+	repo.SetTestData(artists, locations)
 
 	return repo
 }
@@ -114,26 +95,8 @@ func TestArtistLocationSearch(t *testing.T) {
 		{Name: "new-york-usa", Slug: "new-york-usa"},
 	}
 
-	repo := &Repository{
-		artists:         make([]*Artist, len(artists)),
-		locations:       make([]*Location, len(locations)),
-		artistsByID:     make(map[int]*Artist, len(artists)),
-		artistsBySlug:   make(map[string]*Artist, len(artists)),
-		artistIndex:     make(map[int]int, len(artists)),
-		locationsBySlug: make(map[string]*Location, len(locations)),
-	}
-
-	// Build indexes
-	for i, artist := range artists {
-		repo.artists[i] = &artists[i]
-		repo.artistsByID[artist.ID] = repo.artists[i]
-		repo.artistsBySlug[artist.Slug] = repo.artists[i]
-		repo.artistIndex[artist.ID] = i
-	}
-	for i, location := range locations {
-		repo.locations[i] = &locations[i]
-		repo.locationsBySlug[location.Slug] = repo.locations[i]
-	}
+	repo := NewRepository()
+	repo.SetTestData(artists, locations)
 
 	tests := []struct {
 		name          string

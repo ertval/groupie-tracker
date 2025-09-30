@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"groupie-tracker/internal/config"
-	serverpkg "groupie-tracker/internal/server"
+	"groupie-tracker/internal/data"
 )
 
 // TestE2ECompleteUserFlow tests the complete user journey through the application
@@ -452,7 +452,7 @@ func createTestServerWithAPI(t *testing.T, apiURL string) *httptest.Server {
 	config.WithCache = false
 
 	// Create server using the real server creation logic
-	srv, err := serverpkg.NewServer()
+	srv, err := data.NewServer()
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
