@@ -81,10 +81,7 @@ func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
 	// Get top 10 artists by concert count for the top section
 	topArtists := make([]data.Artist, 0, 10)
 	if len(artists) > 0 {
-		limit := 10
-		if len(artists) < 10 {
-			limit = len(artists)
-		}
+		limit := min(len(artists), 10)
 		topArtists = artists[:limit]
 	}
 
