@@ -222,26 +222,57 @@ func (r *Repository) GetAppStats() AppStats {
 
 // fetchAPIData retrieves raw JSON data from the external Groupie Tracker API endpoints.
 //
-// This method coordinates parallel fetching of two API endpoints:
+// This method coordinates concurrent fetching of two API endpoints using goroutines:
 //   - /api/artists: Complete artist information (name, members, creation year, etc.)
 //   - /api/relation: Concert location and date mappings for all artists
 //
-// The method uses the repository's configured HTTP client with timeout to prevent
-// hanging requests. It validates HTTP status codes and JSON response format.
+// The method uses goroutines to fetch both endpoints concurrently, improving performance
+// by reducing total wait time from sequential (time1 + time2) to concurrent (max(time1, time2)).
+// It uses the repository's configured HTTP client with timeout to prevent hanging requests.
 //
 // Returns the complete API datasets ready for processing, or an error if any
 // network or parsing issues occur. Both endpoints must succeed for the method to succeed.
 func (r *Repository) fetchAPIData(ctx context.Context) ([]APIArtist, APIRelation, error) {
-	var apiArtists []APIArtist
-	if err := r.fetchJSON(ctx, "/api/artists", &apiArtists); err != nil {
-		return nil, APIRelation{}, fmt.Errorf("failed to fetch artists: %w", err)
+	// Result structures for concurrent fetching
+	type artistsResult struct {
+		data []APIArtist
+		err  error
+	}
+	type relationsResult struct {
+		data APIRelation
+		err  error
 	}
 
-	var apiRelations APIRelation
-	if err := r.fetchJSON(ctx, "/api/relation", &apiRelations); err != nil {
-		return nil, APIRelation{}, fmt.Errorf("failed to fetch relations: %w", err)
+	// Channels for goroutine communication
+	artistsChan := make(chan artistsResult, 1)
+	relationsChan := make(chan relationsResult, 1)
+
+	// Launch concurrent API requests
+	go func() {
+		var apiArtists []APIArtist
+		err := r.fetchJSON(ctx, "/api/artists", &apiArtists)
+		artistsChan <- artistsResult{data: apiArtists, err: err}
+	}()
+
+	go func() {
+		var apiRelations APIRelation
+		err := r.fetchJSON(ctx, "/api/relation", &apiRelations)
+		relationsChan <- relationsResult{data: apiRelations, err: err}
+	}()
+
+	// Collect results from both goroutines
+	artistsRes := <-artistsChan
+	relationsRes := <-relationsChan
+
+	// Check for errors from either request
+	if artistsRes.err != nil {
+		return nil, APIRelation{}, fmt.Errorf("failed to fetch artists: %w", artistsRes.err)
 	}
-	return apiArtists, apiRelations, nil
+	if relationsRes.err != nil {
+		return nil, APIRelation{}, fmt.Errorf("failed to fetch relations: %w", relationsRes.err)
+	}
+
+	return artistsRes.data, relationsRes.data, nil
 }
 
 // fetchJSON performs HTTP GET requests with JSON response parsing.
