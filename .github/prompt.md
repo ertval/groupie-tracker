@@ -94,4 +94,10 @@ Read the codebase carefully. Check for redundant, dublicate or overly complex co
 - Focus on reducing LOC while maintaining readability, testability and simplicity.
 - Store your plan in a md file that starts with your name.
 
-Propose a project restructuring into packages/folders/files such that its simpler and easer to maintain following Idiomatic Go best practices and KISS principles. Think Ultrahard for this and then store your plan in a md file that starts with your name.
+---
+
+Read carefully the refactoring plan and the codebase. then:
+- Create a step by step implementation plan that follows the refactoring plan.
+- Always dont forget to use Idiomatic GO best practeces and KISS principle
+- In the end clean up the repo to reflect all changes removing old code and files folders.
+- Update all documentation and readme files to reflect the current state of the project.
