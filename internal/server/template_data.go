@@ -262,7 +262,7 @@ func FormatSearchResultForTemplate(result data.SearchResult) TemplateSearchResul
 	}
 
 	return TemplateSearchResult{
-		Artists:         FormatArtistsForTemplate(result.Artists),
+		Artists:         FormatArtistsForTemplate(convertArtistPointersToValues(result.Artists)),
 		TotalResults:    result.TotalResults,
 		ResultCountText: resultCountText,
 	}

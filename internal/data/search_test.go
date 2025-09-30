@@ -53,23 +53,27 @@ func createTestSearchData() *Repository {
 		},
 	}
 
-	// Create repository with test data
+	// Create repository with test data (convert to pointer-based storage)
 	repo := &Repository{
-		artists:         artists,
-		artistsByID:     make(map[int]Artist),
-		artistsBySlug:   make(map[string]Artist),
-		locations:       locations,
-		locationsBySlug: make(map[string]Location),
+		artists:         make([]*Artist, len(artists)),
+		artistsByID:     make(map[int]*Artist, len(artists)),
+		artistsBySlug:   make(map[string]*Artist, len(artists)),
+		artistIndex:     make(map[int]int, len(artists)),
+		locations:       make([]*Location, len(locations)),
+		locationsBySlug: make(map[string]*Location, len(locations)),
 	}
 
 	// Build indexes
-	for _, artist := range artists {
-		repo.artistsByID[artist.ID] = artist
-		repo.artistsBySlug[artist.Slug] = artist
+	for i, artist := range artists {
+		repo.artists[i] = &artists[i]
+		repo.artistsByID[artist.ID] = repo.artists[i]
+		repo.artistsBySlug[artist.Slug] = repo.artists[i]
+		repo.artistIndex[artist.ID] = i
 	}
 
-	for _, location := range locations {
-		repo.locationsBySlug[location.Slug] = location
+	for i, location := range locations {
+		repo.locations[i] = &locations[i]
+		repo.locationsBySlug[location.Slug] = repo.locations[i]
 	}
 
 	return repo
@@ -111,20 +115,24 @@ func TestArtistLocationSearch(t *testing.T) {
 	}
 
 	repo := &Repository{
-		artists:         artists,
-		locations:       locations,
-		artistsByID:     make(map[int]Artist),
-		artistsBySlug:   make(map[string]Artist),
-		locationsBySlug: make(map[string]Location),
+		artists:         make([]*Artist, len(artists)),
+		locations:       make([]*Location, len(locations)),
+		artistsByID:     make(map[int]*Artist, len(artists)),
+		artistsBySlug:   make(map[string]*Artist, len(artists)),
+		artistIndex:     make(map[int]int, len(artists)),
+		locationsBySlug: make(map[string]*Location, len(locations)),
 	}
 
 	// Build indexes
-	for _, artist := range artists {
-		repo.artistsByID[artist.ID] = artist
-		repo.artistsBySlug[artist.Slug] = artist
+	for i, artist := range artists {
+		repo.artists[i] = &artists[i]
+		repo.artistsByID[artist.ID] = repo.artists[i]
+		repo.artistsBySlug[artist.Slug] = repo.artists[i]
+		repo.artistIndex[artist.ID] = i
 	}
-	for _, location := range locations {
-		repo.locationsBySlug[location.Slug] = location
+	for i, location := range locations {
+		repo.locations[i] = &locations[i]
+		repo.locationsBySlug[location.Slug] = repo.locations[i]
 	}
 
 	tests := []struct {

@@ -46,13 +46,14 @@ type Repository struct {
 	cacheEnabled bool // True if image caching is enabled and functional
 
 	// Core data collections (loaded once, read-only after initialization)
-	artists         []Artist            // All artists sorted by name
-	artistsByID     map[int]Artist      // Fast artist lookup by ID
-	artistsBySlug   map[string]Artist   // Fast artist lookup by URL slug
-	locations       []Location          // All locations sorted by concert count (descending)
-	locationsBySlug map[string]Location // Fast location lookup by URL slug
-	globalStats     map[string]int      // Pre-computed application statistics (legacy)
-	appStats        AppStats            // Type-safe application statistics
+	artists         []*Artist            // All artists sorted by name (pointers for memory efficiency)
+	artistsByID     map[int]*Artist      // Fast artist lookup by ID (pointers to slice elements)
+	artistsBySlug   map[string]*Artist   // Fast artist lookup by URL slug (pointers to slice elements)
+	artistIndex     map[int]int          // Maps artist ID to index in artists slice for O(1) adjacent lookups
+	locations       []*Location          // All locations sorted by concert count (descending, pointers for consistency)
+	locationsBySlug map[string]*Location // Fast location lookup by URL slug (pointers to slice elements)
+	globalStats     map[string]int       // Pre-computed application statistics (legacy)
+	appStats        AppStats             // Type-safe application statistics
 }
 
 // NewRepository creates a new repository instance configured from the global config package.
@@ -138,7 +139,7 @@ func (r *Repository) LoadData(ctx context.Context) error {
 //   - SEO-friendly slugs for URL generation
 //
 // This method is commonly used for artist listing pages and search operations.
-func (r *Repository) GetArtists() []Artist {
+func (r *Repository) GetArtists() []*Artist {
 	return r.artists
 }
 
@@ -148,7 +149,7 @@ func (r *Repository) GetArtists() []Artist {
 // should match the original API artist ID.
 //
 // Returns the complete Artist object and a boolean indicating if the artist was found.
-func (r *Repository) GetArtistByID(id int) (Artist, bool) {
+func (r *Repository) GetArtistByID(id int) (*Artist, bool) {
 	artist, found := r.artistsByID[id]
 	return artist, found
 }
@@ -159,7 +160,7 @@ func (r *Repository) GetArtistByID(id int) (Artist, bool) {
 // This enables SEO-friendly URLs like /artists/queen instead of /artists/28.
 //
 // Returns the complete Artist object and a boolean indicating if the slug was found.
-func (r *Repository) GetArtistBySlug(slug string) (Artist, bool) {
+func (r *Repository) GetArtistBySlug(slug string) (*Artist, bool) {
 	artist, found := r.artistsBySlug[slug]
 	return artist, found
 }
@@ -174,7 +175,7 @@ func (r *Repository) GetArtistBySlug(slug string) (Artist, bool) {
 //   - SEO-friendly slugs for URL generation
 //
 // This method is used for location listing pages and geographic analysis.
-func (r *Repository) GetLocations() []Location {
+func (r *Repository) GetLocations() []*Location {
 	return r.locations
 }
 
@@ -184,7 +185,7 @@ func (r *Repository) GetLocations() []Location {
 // This enables SEO-friendly URLs like /locations/london-uk.
 //
 // Returns the complete Location object and a boolean indicating if the slug was found.
-func (r *Repository) GetLocationBySlug(slug string) (Location, bool) {
+func (r *Repository) GetLocationBySlug(slug string) (*Location, bool) {
 	location, found := r.locationsBySlug[slug]
 	return location, found
 }
@@ -390,34 +391,26 @@ func (r *Repository) convertCountriesMapToSlice(countriesMap map[string]bool) []
 }
 
 // GetAdjacentArtists finds the previous and next artists in the collection
-// based on alphabetical order by name. This replaces pre-computed navigation IDs
-// with on-demand lookup to reduce memory usage and complexity.
+// based on alphabetical order by name. Uses O(1) artistIndex lookup for optimal performance.
 func (r *Repository) GetAdjacentArtists(currentID int) (prev, next *Artist) {
 	if len(r.artists) == 0 {
 		return nil, nil
 	}
 
-	// Find the current artist index
-	currentIndex := -1
-	for i, artist := range r.artists {
-		if artist.ID == currentID {
-			currentIndex = i
-			break
-		}
-	}
-
-	if currentIndex == -1 {
+	// Use artistIndex for O(1) lookup instead of O(n) iteration
+	currentIndex, found := r.artistIndex[currentID]
+	if !found {
 		return nil, nil // Artist not found
 	}
 
 	// Get previous artist (if not first)
 	if currentIndex > 0 {
-		prev = &r.artists[currentIndex-1]
+		prev = r.artists[currentIndex-1]
 	}
 
 	// Get next artist (if not last)
 	if currentIndex < len(r.artists)-1 {
-		next = &r.artists[currentIndex+1]
+		next = r.artists[currentIndex+1]
 	}
 
 	return prev, next
@@ -665,18 +658,25 @@ func (r *Repository) createLocations(artists []Artist) []Location {
 // After this method completes, the repository is fully initialized and ready
 // to serve application requests efficiently.
 func (r *Repository) loadProcessedData(artists []Artist, locations []Location, cachedCount, downloadedCount int) {
-	// Store artists
-	r.artists = artists
-	r.artistsByID = make(map[int]Artist, len(artists))
-	r.artistsBySlug = make(map[string]Artist, len(artists))
+	// Convert artists slice to pointer slice and build indexes
+	r.artists = make([]*Artist, len(artists))
+	r.artistsByID = make(map[int]*Artist, len(artists))
+	r.artistsBySlug = make(map[string]*Artist, len(artists))
+	r.artistIndex = make(map[int]int, len(artists))
 
 	totalMembers := 0
 	totalConcerts := 0
 	countries := make(map[string]bool)
 
-	for _, artist := range artists {
-		r.artistsByID[artist.ID] = artist
-		r.artistsBySlug[artist.Slug] = artist
+	for i, artist := range artists {
+		// Store pointer to artist in slice
+		r.artists[i] = &artists[i]
+		// Map ID and slug to the same pointer for consistency
+		r.artistsByID[artist.ID] = r.artists[i]
+		r.artistsBySlug[artist.Slug] = r.artists[i]
+		// Build artistIndex for O(1) adjacent lookups
+		r.artistIndex[artist.ID] = i
+
 		totalMembers += len(artist.Members)
 		totalConcerts += artist.ConcertCount
 
@@ -685,11 +685,12 @@ func (r *Repository) loadProcessedData(artists []Artist, locations []Location, c
 		}
 	}
 
-	// Store locations
-	r.locations = locations
-	r.locationsBySlug = make(map[string]Location, len(locations))
-	for _, location := range locations {
-		r.locationsBySlug[location.Slug] = location
+	// Convert locations slice to pointer slice
+	r.locations = make([]*Location, len(locations))
+	r.locationsBySlug = make(map[string]*Location, len(locations))
+	for i, location := range locations {
+		r.locations[i] = &locations[i]
+		r.locationsBySlug[location.Slug] = r.locations[i]
 	}
 
 	// Store global stats including cache statistics
@@ -712,20 +713,24 @@ func (r *Repository) loadProcessedData(artists []Artist, locations []Location, c
 // This method is only intended for use in test files and bypasses
 // the normal data loading pipeline.
 func (r *Repository) SetTestData(artists []Artist, locations []Location) {
-	r.artists = artists
-	r.locations = locations
+	// Convert to pointer slices for consistency with hardened storage
+	r.artists = make([]*Artist, len(artists))
+	r.artistsByID = make(map[int]*Artist, len(artists))
+	r.artistsBySlug = make(map[string]*Artist, len(artists))
+	r.artistIndex = make(map[int]int, len(artists))
 
-	// Build indexes
-	r.artistsByID = make(map[int]Artist)
-	r.artistsBySlug = make(map[string]Artist)
-	for _, artist := range artists {
-		r.artistsByID[artist.ID] = artist
-		r.artistsBySlug[artist.Slug] = artist
+	for i, artist := range artists {
+		r.artists[i] = &artists[i]
+		r.artistsByID[artist.ID] = r.artists[i]
+		r.artistsBySlug[artist.Slug] = r.artists[i]
+		r.artistIndex[artist.ID] = i
 	}
 
-	r.locationsBySlug = make(map[string]Location)
-	for _, location := range locations {
-		r.locationsBySlug[location.Slug] = location
+	r.locations = make([]*Location, len(locations))
+	r.locationsBySlug = make(map[string]*Location, len(locations))
+	for i, location := range locations {
+		r.locations[i] = &locations[i]
+		r.locationsBySlug[location.Slug] = r.locations[i]
 	}
 
 	// Mock stats (type-safe version)

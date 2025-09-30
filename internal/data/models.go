@@ -238,9 +238,9 @@ type SearchSuggestion struct {
 // Contains all matching artists and the search parameters used. This structure
 // supports both direct search results and integration with existing filter system.
 type SearchResult struct {
-	Artists      []Artist `json:"artists"`      // Artists matching search criteria
-	Query        string   `json:"query"`        // Original search query
-	TotalResults int      `json:"totalResults"` // Number of matching results
+	Artists      []*Artist `json:"artists"`      // Artists matching search criteria (pointers for consistency)
+	Query        string    `json:"query"`        // Original search query
+	TotalResults int       `json:"totalResults"` // Number of matching results
 }
 
 // SearchParams represents search query parameters from user input.

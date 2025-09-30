@@ -93,11 +93,11 @@ func (r *Repository) extractYearFromDate(dateStr string) int {
 // to be included in results. Empty filter parameters are ignored (no filtering applied).
 //
 // Returns a slice of artists that match all specified filter criteria.
-func (r *Repository) FilterArtists(params ArtistFilterParams) []Artist {
-	var filtered []Artist
+func (r *Repository) FilterArtists(params ArtistFilterParams) []*Artist {
+	var filtered []*Artist
 
 	for _, artist := range r.artists {
-		if r.matchesArtistFilters(artist, params) {
+		if r.matchesArtistFilters(*artist, params) {
 			filtered = append(filtered, artist)
 		}
 	}
@@ -303,11 +303,11 @@ func (r *Repository) GetArtistFilterOptions() ArtistFilterOptions {
 // ALL active filters to appear in results.
 //
 // Returns a slice of locations matching all specified filter criteria.
-func (r *Repository) FilterLocations(params LocationFilterParams) []Location {
-	var filtered []Location
+func (r *Repository) FilterLocations(params LocationFilterParams) []*Location {
+	var filtered []*Location
 
 	for _, location := range r.locations {
-		if r.matchesLocationFilters(location, params) {
+		if r.matchesLocationFilters(*location, params) {
 			filtered = append(filtered, location)
 		}
 	}

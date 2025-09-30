@@ -292,13 +292,13 @@ func extractSearchTerm(input string) string {
 //
 // Returns a new slice containing up to maxCount randomly selected artists.
 // The original slice is not modified.
-func getRandomArtists(artists []data.Artist, maxCount int) []data.Artist {
+func getRandomArtists(artists []*data.Artist, maxCount int) []*data.Artist {
 	if len(artists) == 0 {
 		return artists
 	}
 
 	// Create a copy to avoid modifying the original slice
-	shuffled := make([]data.Artist, len(artists))
+	shuffled := make([]*data.Artist, len(artists))
 	copy(shuffled, artists)
 
 	// Shuffle the copy
@@ -312,4 +312,28 @@ func getRandomArtists(artists []data.Artist, maxCount int) []data.Artist {
 	}
 
 	return shuffled
+}
+
+// convertArtistPointersToValues converts []*data.Artist to []data.Artist for template compatibility.
+// This helper function minimizes template changes during repository hardening by providing
+// backward compatibility with existing template structures.
+func convertArtistPointersToValues(artists []*data.Artist) []data.Artist {
+	values := make([]data.Artist, len(artists))
+	for i, artist := range artists {
+		if artist != nil {
+			values[i] = *artist
+		}
+	}
+	return values
+}
+
+// convertLocationPointersToValues converts []*data.Location to []data.Location for template compatibility.
+func convertLocationPointersToValues(locations []*data.Location) []data.Location {
+	values := make([]data.Location, len(locations))
+	for i, location := range locations {
+		if location != nil {
+			values[i] = *location
+		}
+	}
+	return values
 }

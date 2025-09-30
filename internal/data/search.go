@@ -32,7 +32,7 @@ func newSearchSuggestion(text, suggestionType, description, url string, artistID
 // refined results (e.g., "Phil Collins created after 1980").
 func (r *Repository) SearchArtists(params SearchParams) SearchResult {
 	query := normalizeSearchQuery(params.Query)
-	var matchingArtists []Artist
+	var matchingArtists []*Artist
 
 	// If no query provided, use all artists
 	if query == "" {
@@ -40,7 +40,7 @@ func (r *Repository) SearchArtists(params SearchParams) SearchResult {
 	} else {
 		// Filter artists by search query
 		for _, artist := range r.artists {
-			if matchesSearchQuery(artist, query) {
+			if matchesSearchQuery(*artist, query) {
 				matchingArtists = append(matchingArtists, artist)
 			}
 		}
@@ -48,9 +48,9 @@ func (r *Repository) SearchArtists(params SearchParams) SearchResult {
 
 	// Apply additional filters if provided
 	if !isEmptyFilter(params.Filters) {
-		var filteredArtists []Artist
+		var filteredArtists []*Artist
 		for _, artist := range matchingArtists {
-			if r.matchesArtistFilters(artist, params.Filters) {
+			if r.matchesArtistFilters(*artist, params.Filters) {
 				filteredArtists = append(filteredArtists, artist)
 			}
 		}

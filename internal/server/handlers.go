@@ -25,7 +25,7 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	stats := s.repo.GetStats()
 
 	// Get 8 random artists for homepage display
-	artists = getRandomArtists(artists, 8)
+	randomArtists := getRandomArtists(artists, 8)
 
 	data := struct {
 		Title          string
@@ -40,7 +40,7 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:       "home.css",
 		ExtraJS:        "",
 		Suggestions:    s.suggestions, // Use cached suggestions
-		Artists:        artists,
+		Artists:        convertArtistPointersToValues(randomArtists),
 		TotalMembers:   stats["total_members"],
 		TotalLocations: stats["total_locations"],
 	}
@@ -90,7 +90,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:       "artists.css",
 		ExtraJS:        "",
 		Suggestions:    s.suggestions, // Use cached suggestions
-		Artists:        artists,
+		Artists:        convertArtistPointersToValues(artists),
 		FilterOptions:  filterOptions,
 		AppliedFilters: appliedFilters,
 		IsFiltered:     r.Method == http.MethodPost,
@@ -137,7 +137,7 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:    "artist_detail.css",
 		ExtraJS:     "",
 		Suggestions: s.suggestions, // Use cached suggestions
-		Artist:      artist,
+		Artist:      *artist,
 		PrevArtist:  prevArtist,
 		NextArtist:  nextArtist,
 	}
@@ -180,9 +180,13 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if cacheHit {
-			// Use cached results
+			// Use cached results - convert cached values to pointers for consistency
+			var artistPointers []*data.Artist
+			for i := range cachedResults {
+				artistPointers = append(artistPointers, &cachedResults[i])
+			}
 			searchResults = data.SearchResult{
-				Artists:      cachedResults,
+				Artists:      artistPointers,
 				Query:        searchQuery,
 				TotalResults: len(cachedResults),
 			}
@@ -194,9 +198,9 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 			}
 			searchResults = s.repo.SearchArtists(searchParams)
 
-			// Cache simple search results (no filters)
+			// Cache simple search results (no filters) - convert pointers to values for cache
 			if isEmptyArtistFilters(appliedFilters) && normalizedQuery != "" {
-				s.setCachedSearchResults(cacheKey, searchResults.Artists)
+				s.setCachedSearchResults(cacheKey, convertArtistPointersToValues(searchResults.Artists))
 			}
 		}
 	}
@@ -292,7 +296,7 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:              "locations.css",
 		ExtraJS:               "",
 		Suggestions:           s.suggestions, // Use cached suggestions
-		Locations:             locations,
+		Locations:             convertLocationPointersToValues(locations),
 		LocationFilterOptions: filterOptions,
 		AppliedFilters:        appliedFilters,
 		IsFiltered:            isFiltered,
@@ -333,7 +337,7 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS:     "location_detail.css",
 		ExtraJS:      "",
 		Suggestions:  s.suggestions, // Use cached suggestions
-		Location:     location,
+		Location:     *location,
 		Artists:      location.Artists,
 		PrevLocation: nil, // Could be implemented later for location navigation
 		NextLocation: nil, // Could be implemented later for location navigation

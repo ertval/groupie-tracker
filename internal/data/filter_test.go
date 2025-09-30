@@ -314,19 +314,23 @@ func createMockRepository(t *testing.T) *Repository {
 		artist.Countries = repo.convertCountriesMapToSlice(countries)
 	}
 
-	repo.artists = mockArtists
-	repo.artistsByID = make(map[int]Artist)
-	repo.artistsBySlug = make(map[string]Artist)
+	// Convert to pointer slice for hardened storage
+	repo.artists = make([]*Artist, len(mockArtists))
+	repo.artistsByID = make(map[int]*Artist, len(mockArtists))
+	repo.artistsBySlug = make(map[string]*Artist, len(mockArtists))
+	repo.artistIndex = make(map[int]int, len(mockArtists))
 
-	for _, artist := range mockArtists {
-		repo.artistsByID[artist.ID] = artist
-		repo.artistsBySlug[createSlug(artist.Name)] = artist
+	for i, artist := range mockArtists {
+		repo.artists[i] = &mockArtists[i]
+		repo.artistsByID[artist.ID] = repo.artists[i]
+		repo.artistsBySlug[createSlug(artist.Name)] = repo.artists[i]
+		repo.artistIndex[artist.ID] = i
 	}
 
 	return repo
 }
 
-func getArtistNames(artists []Artist) []string {
+func getArtistNames(artists []*Artist) []string {
 	names := make([]string, len(artists))
 	for i, artist := range artists {
 		names[i] = artist.Name
