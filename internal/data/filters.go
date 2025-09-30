@@ -6,10 +6,20 @@ import (
 	"strings"
 )
 
-// --- Filter Functionality ---
+// --- Geographic and Date Parsing Utilities ---
 
-// extractCountryFromLocation extracts the country from a location string
-// Assumes location format like "city-state-country" or "city-country"
+// extractCountryFromLocation parses location strings to extract country names.
+//
+// Handles common location formats used in the Groupie Tracker API:
+//   - "city-country" (e.g., "london-uk")
+//   - "city-state-country" (e.g., "new-york-usa")
+//   - "city-region-country" (e.g., "abu-dhabi-united-arab-emirates")
+//
+// The function normalizes country abbreviations (USA, UK, UAE) and applies
+// proper title casing to multi-word country names. This ensures consistent
+// country identification for filtering operations.
+//
+// Returns the normalized country name, or empty string if parsing fails.
 func (r *Repository) extractCountryFromLocation(location string) string {
 	parts := strings.Split(strings.ToLower(location), "-")
 	if len(parts) == 0 {
@@ -39,7 +49,18 @@ func (r *Repository) extractCountryFromLocation(location string) string {
 	}
 }
 
-// extractYearFromDate extracts year from various date formats
+// extractYearFromDate parses various date string formats to extract calendar years.
+//
+// Supports common date formats from the Groupie Tracker API:
+//   - "DD-MM-YYYY" format (26-03-2001)
+//   - "YYYY-MM-DD" format (2001-03-26)
+//   - "YYYY" format (2001)
+//
+// This function enables filtering by album release years and concert years
+// regardless of the original API date format. Year values are validated to be
+// within reasonable bounds (1900-3000) to prevent parsing errors.
+//
+// Returns the extracted year as integer, or 0 if no valid year is found.
 func (r *Repository) extractYearFromDate(dateStr string) int {
 	// Handle common date formats
 	if len(dateStr) >= 4 {
@@ -57,9 +78,21 @@ func (r *Repository) extractYearFromDate(dateStr string) int {
 	return 0
 }
 
-// --- Artist Filter Functionality ---
+// --- Artist Filtering System ---
 
-// FilterArtists filters the artists based on the provided criteria
+// FilterArtists applies multi-criteria filtering to the complete artist collection.
+//
+// This is the primary artist filtering function that accepts comprehensive filter
+// parameters and returns matching artists. Supports the following filter types:
+//   - Creation year range: Band formation years
+//   - First album year range: Debut album release years
+//   - Member count selection: Number of band members (checkbox filtering)
+//   - Country selection: Countries where artists have performed concerts
+//
+// All filters are applied with AND logic - artists must match ALL active criteria
+// to be included in results. Empty filter parameters are ignored (no filtering applied).
+//
+// Returns a slice of artists that match all specified filter criteria.
 func (r *Repository) FilterArtists(params ArtistFilterParams) []Artist {
 	var filtered []Artist
 
@@ -72,7 +105,31 @@ func (r *Repository) FilterArtists(params ArtistFilterParams) []Artist {
 	return filtered
 }
 
-// matchesArtistFilters checks if an artist matches the filter criteria
+// matchesArtistFilters determines if a single artist satisfies all active filter criteria.
+//
+// This helper function implements the core filtering logic by testing each artist
+// against all provided filter parameters:
+//
+// Creation Year Filtering:
+//   - Tests artist formation year against optional min/max bounds
+//   - Uses inclusive range matching (>= min, <= max)
+//
+// First Album Year Filtering:
+//   - Extracts year from artist's first album date string
+//   - Applies same inclusive range logic as creation year
+//   - Skips filtering if album date cannot be parsed
+//
+// Member Count Filtering:
+//   - Counts current band members from artist.Members slice
+//   - Checks if count appears in the allowed member counts list
+//   - Uses exact matching (not range-based)
+//
+// Country Filtering:
+//   - Extracts countries from all artist concert locations
+//   - Checks if any artist country matches filter country list
+//   - Uses string-based country matching after normalization
+//
+// Returns true only if artist passes ALL active filters (AND logic).
 func (r *Repository) matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 	// Creation year range filter
 	if params.CreationYearFrom != nil && artist.CreationYear < *params.CreationYearFrom {
@@ -139,7 +196,26 @@ func (r *Repository) matchesArtistFilters(artist Artist, params ArtistFilterPara
 	return true
 }
 
-// GetArtistFilterOptions returns the available filter options based on current data
+// GetArtistFilterOptions analyzes current artist data to compute filter bounds and available options.
+//
+// This function scans the complete artist collection to determine:
+//
+// Range Bounds:
+//   - Min/max creation years across all artists (for range sliders)
+//   - Min/max first album years extracted from date strings
+//   - Fallback to creation year bounds if album dates are unparseable
+//
+// Discrete Options:
+//   - Unique member counts (1 to maximum found, sorted ascending)
+//   - Unique countries extracted from all concert locations (sorted alphabetically)
+//
+// The computed options are used by the frontend to configure filter UI elements:
+// range sliders get min/max bounds, checkboxes get available option lists.
+//
+// This ensures filter options always reflect the actual data distribution,
+// preventing empty result sets from impossible filter combinations.
+//
+// Returns structured filter options ready for template rendering and JSON APIs.
 func (r *Repository) GetArtistFilterOptions() ArtistFilterOptions {
 	if len(r.artists) == 0 {
 		return ArtistFilterOptions{}
@@ -216,9 +292,21 @@ func (r *Repository) GetArtistFilterOptions() ArtistFilterOptions {
 	}
 }
 
-// --- Location Filter Functionality ---
+// --- Location Filtering System ---
 
-// FilterLocations filters the locations based on the provided criteria
+// FilterLocations applies multi-criteria filtering to the complete location collection.
+//
+// This function mirrors the artist filtering approach but operates on concert locations.
+// Supports location-specific filter criteria:
+//   - Concert count range: Total concerts held at location
+//   - Artist count range: Number of unique artists who performed there
+//   - Concert year range: Date range of concerts at location
+//   - Country selection: Geographic country filtering
+//
+// Like artist filtering, all criteria use AND logic - locations must satisfy
+// ALL active filters to appear in results.
+//
+// Returns a slice of locations matching all specified filter criteria.
 func (r *Repository) FilterLocations(params LocationFilterParams) []Location {
 	var filtered []Location
 
@@ -231,7 +319,30 @@ func (r *Repository) FilterLocations(params LocationFilterParams) []Location {
 	return filtered
 }
 
-// matchesLocationFilters checks if a location matches the filter criteria
+// matchesLocationFilters determines if a single location satisfies all active filter criteria.
+//
+// This helper implements location-specific filtering logic by testing each location
+// against provided filter parameters:
+//
+// Concert Count Filtering:
+//   - Tests location.TotalConcerts against optional min/max bounds
+//   - Uses inclusive range matching for concert volume filtering
+//
+// Artist Count Filtering:
+//   - Tests location.ArtistCount (unique artists) against range bounds
+//   - Helps find venues that host many different artists vs. few regulars
+//
+// Concert Year Filtering:
+//   - Uses location.EarliestYear and location.LatestYear for range checks
+//   - Enables temporal filtering (e.g., venues active in specific decades)
+//   - Year bounds are pre-computed during location creation
+//
+// Country Filtering:
+//   - Extracts country from location name using standard parsing
+//   - Matches against allowed country list with exact string comparison
+//   - Uses same normalization as artist country filtering
+//
+// Returns true only if location passes ALL active filters (AND logic).
 func (r *Repository) matchesLocationFilters(location Location, params LocationFilterParams) bool {
 	// Concert count range filter
 	if params.ConcertCountFrom != nil && location.TotalConcerts < *params.ConcertCountFrom {
@@ -275,7 +386,28 @@ func (r *Repository) matchesLocationFilters(location Location, params LocationFi
 	return true
 }
 
-// GetLocationFilterOptions returns the available location filter options based on current data
+// GetLocationFilterOptions analyzes current location data to compute filter bounds and available options.
+//
+// This function scans the complete location collection to determine:
+//
+// Range Bounds:
+//   - Min/max concert counts across all locations (for volume filtering)
+//   - Min/max artist counts (for venue diversity filtering)
+//   - Min/max concert years (for temporal filtering)
+//   - All bounds use inclusive ranges for intuitive slider behavior
+//
+// Discrete Options:
+//   - Unique countries extracted from location names (sorted alphabetically)
+//   - Same country normalization as used in artist filtering for consistency
+//
+// The computed options configure location filter UI elements and ensure that
+// filter ranges reflect actual data distribution. This prevents users from
+// setting impossible filter combinations that would return no results.
+//
+// Year bounds use the pre-computed EarliestYear/LatestYear fields from each
+// location, which are calculated during the location creation process.
+//
+// Returns structured location filter options ready for template rendering and JSON APIs.
 func (r *Repository) GetLocationFilterOptions() LocationFilterOptions {
 	if len(r.locations) == 0 {
 		return LocationFilterOptions{}

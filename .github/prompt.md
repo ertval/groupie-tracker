@@ -78,9 +78,10 @@ Remove the start server function. Create a bakingInfo function that logs all the
 
 ---
 
-Follow **test driven development**, strict **Idiomatic GO** and KISS principles to implement the project as required in the `requirements.md`. 
-- Continue with the implementation of the filter functionality as described in the `requirements.md` file.
+Follow **test driven development**, strict **Idiomatic GO** and KISS principles to implement the project as described in the `requirements.md`. 
+- Continue with the implementation of the **search-bar** functionality as described in the `requirements.md` file.
+- Do not use any javascript, only Go and HTML and CSS.
 - Update the templates to integrate the filter functionality, and any other changes needed to make the project work as intended.
 - In the end write integration and e2e comprehensive tests based on `audit.md` to ensure all aspects of the requirements are covered, including edge cases and test all described inputs of the `audit.md` file, only then the project can be considered complete.
-- Create summary md file with all the changes you made and how you implemented the filter functionality.
-- Update the readme file to reflect the current state of the project, including any changes made during the implementation process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
+- Create summary md file with all the changes you made and how you implemented the functionality.
+- Update the readme file to reflect the current state of the project, including any changes made during the implementation process.Dont change the overall structure or flow of the document. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.

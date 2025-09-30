@@ -1,30 +1,31 @@
 # Groupie Tracker - AI Coding Agent Instructions
 
 ## Project Overview
-An educational project implementing a Go web application that consumes the Groupie Trackers API to display band/artist information. The project follows strict TDD principles, uses only Go standard library, and maintains audit requirements. **Recently enhanced with comprehensive filter functionality including dual-range sliders and checkbox filters.**
+An educational Go web application consuming the Groupie Trackers API to display band/artist information. Built with strict TDD principles, Go standard library only, and audit requirements. **Features comprehensive server-side filtering with HTML forms (no JavaScript dependencies).**
 
 ## Key Constraints & Commands
 
 **Critical Constraints:**
 - **Standard-library-only Go project** — NEVER add third-party modules (`go.mod` has no dependencies)
 - **Test-Driven Development** — Write `*_test.go` files before implementation  
+- **No JavaScript dependencies** — All filtering via server-side HTML forms with POST requests
 - **No server crashes** — All handlers have panic recovery and proper error handling
 - **Go 1.24+ required** — Uses modern Go features
 
 **Quick Commands:**
 ```bash
-go run ./cmd/cli/             # Start server (new entry point, default PORT=8080)
+go run ./cmd/cli/             # Start server (streamlined entry point, default PORT=8080)
 go test ./internal/...        # Run internal tests (clean, all passing)  
-go test ./tests/...           # Run audit/e2e tests (package issues but functional)
+go test ./tests/...           # Run audit/e2e tests (functional but with package issues)
 go test -cover ./internal/... # Coverage: ~82% overall (data: 88.9%, handlers: 79.7%)
 go build -o groupie-tracker ./cmd/cli
 ```
 
-## Current Architecture (Updated January 2025)
+## Current Architecture (Updated September 2025)
 
-### Clean Architecture with Filter Enhancement
+### Clean Architecture with Server-Side Filtering
 ```
-cmd/cli/                     # New streamlined entry point
+cmd/cli/                     # Streamlined entry point
   ├── main.go                # Simple server startup
   └── e2e_test.go           # End-to-end integration tests
 internal/
@@ -32,33 +33,34 @@ internal/
   │   └── config.go          # Centralized global config (no constructor params)
   ├── data/                  # Core domain layer with filtering
   │   ├── repository.go      # Single data load with thread-safe access
-  │   ├── models.go          # Domain models + FilterParams/FilterOptions
-  │   ├── filters.go         # NEW: Filter logic with dual-range/checkbox support
+  │   ├── models.go          # Domain models + FilterParams/FilterOptions  
+  │   ├── filters.go         # Server-side filter logic (HTML form processing)
+  │   ├── filter_test.go     # Filter unit tests (18 tests)
   │   └── repository_test.go # Repository tests (88.9% coverage)
   └── server/                # HTTP layer (renamed from handlers/)
-      ├── server.go          # App struct with server initialization
-      ├── handlers.go        # All endpoints + JSON filter APIs (79.7% coverage)
+      ├── server.go          # Package-level server initialization with global variables
+      ├── handlers.go        # All endpoints + filter form processing (package-level functions)
       ├── routes.go          # HTTP routing and middleware setup
       ├── middleware.go      # Panic recovery, logging, security headers  
       ├── utils.go           # Template utilities and helper functions
       └── server_test.go     # Comprehensive handler tests
 templates/                   # Template inheritance with filter UI components
 static/
-  ├── css/                  # Stylesheets including filter controls
-  ├── js/filters.js         # NEW: Client-side filter interactions (361 lines)
+  ├── css/                  # Stylesheets including filter controls (no JavaScript)
   └── img/artists/          # Cached artist images
-tests/                      # Audit tests (package issues but functional)
+tests/                      # Audit tests (functional but with package issues)
 ```
 
 **🏗️ Current Architecture:**
 - **Global config pattern**: `internal/config` package with module-level variables
+- **Package-level server functions**: Removed App struct, using package-level variables (repo, templates)
 - **Single data load**: Repository loads all data once at startup via `LoadData(ctx)`
 - **Thread-safe reads**: All repository methods are read-only after initial load
 - **Template inheritance**: Uses `{{define "base"}}` and `{{template "body" .}}` pattern
-- **Filter system**: Dual-range sliders, checkbox grids, JSON API endpoints
+- **Server-side filtering**: HTML forms with POST to `/artists` (no JavaScript/AJAX)
 - **In-memory indexes**: SEO slugs, location mappings, filter options precomputed
 
-### Repository Pattern (January 2025)
+### Repository Pattern (September 2025)
 ```go
 // Repository initialization in server startup (reads internal/config automatically)
 repo := data.NewRepository()  // No constructor parameters needed
@@ -72,31 +74,64 @@ artist, found := repo.GetArtistBySlug("queen")
 locations := repo.GetLocations()
 stats := repo.GetStats()  // Precomputed statistics
 
-// NEW: Filter functionality with dual-range sliders and checkboxes
-filterOptions := repo.GetFilterOptions()  // Min/max bounds for sliders
-filteredArtists := repo.FilterArtists(filterParams)  // Apply filter criteria
+// Server-side filtering with HTML form data processing
+filterOptions := repo.GetFilterOptions()  // Min/max bounds for form validation
+filteredArtists := repo.FilterArtists(filterParams)  // Apply filter criteria from form
 ```
 
-## Filter System Architecture (NEW - January 2025)
+### Package-Level Server Pattern (Updated September 2025)
+```go
+// Package-level variables (follows global config pattern)
+var (
+    repo      *data.Repository
+    templates map[string]*template.Template
+)
+
+// Server initialization assigns to package-level variables
+func NewServer() (*http.Server, error) {
+    repo = data.NewRepository()  // Assigns to package-level variable
+    if err := repo.LoadData(ctx); err != nil {
+        return nil, fmt.Errorf("failed to load data: %w", err)
+    }
+    loadTemplates()  // Assigns to package-level templates variable
+    serveMux := withMiddleware(routes())  // Uses package-level functions
+    return &http.Server{Addr: port, Handler: serveMux}, nil
+}
+
+// All handlers are package-level functions using global variables
+func Home(w http.ResponseWriter, r *http.Request) {
+    artists := repo.GetArtists()  // Uses package-level repo
+    render(w, r, "home.tmpl", data)  // Uses package-level templates
+}
+
+func routes() *http.ServeMux {
+    mux := http.NewServeMux()
+    mux.HandleFunc("/", Home)  // References package-level function
+    mux.HandleFunc("/artists", Artists)  // No receiver needed
+    return mux
+}
+```
+
+## Filter System Architecture (Server-Side HTML Forms)
 
 ### Filter Data Structures (`internal/data/models.go`)
 ```go
-// Filter parameters from client form submission
+// Filter parameters from HTML form submission
 type FilterParams struct {
-    CreationYearFrom    *int     `json:"creationYearFrom"`     // Range slider min
-    CreationYearTo      *int     `json:"creationYearTo"`       // Range slider max
-    FirstAlbumYearFrom  *int     `json:"firstAlbumYearFrom"`   // Range slider min
-    FirstAlbumYearTo    *int     `json:"firstAlbumYearTo"`     // Range slider max  
+    CreationYearFrom    *int     `json:"creationYearFrom"`     // Number input min
+    CreationYearTo      *int     `json:"creationYearTo"`       // Number input max
+    FirstAlbumYearFrom  *int     `json:"firstAlbumYearFrom"`   // Number input min
+    FirstAlbumYearTo    *int     `json:"firstAlbumYearTo"`     // Number input max  
     MemberCounts        []int    `json:"memberCounts"`         // Checkbox selections
     Countries           []string `json:"countries"`            // Checkbox selections
 }
 
 // Pre-computed filter bounds and options
 type FilterOptions struct {
-    CreationYearMin     int      `json:"creationYearMin"`      // Slider min bound
-    CreationYearMax     int      `json:"creationYearMax"`      // Slider max bound  
-    FirstAlbumYearMin   int      `json:"firstAlbumYearMin"`    // Slider min bound
-    FirstAlbumYearMax   int      `json:"firstAlbumYearMax"`    // Slider max bound
+    CreationYearMin     int      `json:"creationYearMin"`      // Input min bound
+    CreationYearMax     int      `json:"creationYearMax"`      // Input max bound  
+    FirstAlbumYearMin   int      `json:"firstAlbumYearMin"`    // Input min bound
+    FirstAlbumYearMax   int      `json:"firstAlbumYearMax"`    // Input max bound
     MemberCounts        []int    `json:"memberCounts"`         // Available options
     Countries           []string `json:"countries"`            // Available options
 }
@@ -112,7 +147,7 @@ func (r *Repository) FilterArtists(params FilterParams) []Artist {
 
 // Extract filter bounds from loaded data  
 func (r *Repository) GetFilterOptions() FilterOptions {
-    // Pre-computes min/max values for sliders, unique member counts, unique countries
+    // Pre-computes min/max values for inputs, unique member counts, unique countries
 }
 
 // Helper: Extract country from location string "City, Country" format
@@ -122,52 +157,35 @@ func extractCountryFromLocation(location string) string
 func matchesFilters(artist Artist, params FilterParams) bool
 ```
 
-### Filter API Endpoints (`internal/server/handlers.go`)
+### Filter Form Processing (`internal/server/handlers.go`)
 ```go
-// POST /api/filter-artists - Apply filters and return matching artists as JSON
-func (h *App) FilterArtists(w http.ResponseWriter, r *http.Request) {
-    // Decodes FilterParams from JSON request body
-    // Calls repo.FilterArtists() and returns filtered results as JSON
-}
-
-// GET /api/filter-options - Return filter bounds and available options as JSON  
-func (h *App) FilterOptions(w http.ResponseWriter, r *http.Request) {
-    // Returns FilterOptions struct with slider bounds and checkbox options
+// POST/GET /artists - Handle filter form submission and display
+func Artists(w http.ResponseWriter, r *http.Request) {
+    // Parses FilterParams from HTML form data (POST) or shows all artists (GET)
+    // Calls repo.FilterArtists() and renders filtered results in same template
+    // No JSON API endpoints - all server-side rendering
 }
 ```
 
 ### Filter UI Components (`templates/artists.tmpl`)
 ```go
-// Dual-range sliders for year filtering
-<div class="range-slider">
-    <input type="range" id="creation-year-from" name="creationYearFrom" 
+// HTML form with server-side submission
+<form method="POST" action="/artists">
+    <!-- Number inputs for year ranges -->
+    <input type="number" name="creationYearFrom" 
            min="{{.FilterOptions.CreationYearMin}}" 
            max="{{.FilterOptions.CreationYearMax}}" 
-           value="{{.FilterOptions.CreationYearMin}}" class="range-input range-from">
-    <input type="range" id="creation-year-to" name="creationYearTo" 
-           min="{{.FilterOptions.CreationYearMin}}" 
-           max="{{.FilterOptions.CreationYearMax}}" 
-           value="{{.FilterOptions.CreationYearMax}}" class="range-input range-to">
-</div>
-
-// Checkbox grids for discrete options
-<div class="checkbox-grid" id="member-count-checkboxes">
-    {{range .FilterOptions.MemberCounts}}
-    <div class="checkbox-item">
-        <input type="checkbox" id="members-{{.}}" name="memberCounts" value="{{.}}">
-        <label for="members-{{.}}">{{.}} member{{if ne . 1}}s{{end}}</label>
+           value="{{if .FilterParams.CreationYearFrom}}{{.FilterParams.CreationYearFrom}}{{end}}">
+    
+    <!-- Checkbox grids for discrete options -->
+    <div class="checkbox-grid">
+        {{range .FilterOptions.MemberCounts}}
+        <input type="checkbox" name="memberCounts" value="{{.}}"
+               {{if contains $.FilterParams.MemberCounts .}}checked{{end}}>
+        {{end}}
     </div>
-    {{end}}
-</div>
+</form>
 ```
-
-### Filter JavaScript (`static/js/filters.js`)
-- **361 lines** of client-side filter interaction logic
-- **Dual-range slider synchronization** - prevents min > max values  
-- **Real-time value updates** - displays current slider positions
-- **AJAX form submission** - posts to `/api/filter-artists` endpoint
-- **Dynamic DOM updates** - replaces artist grid with filtered results
-- **Filter state management** - clear/reset functionality
 
 ## Critical Data Flow Patterns
 
@@ -261,29 +279,28 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 **Required Endpoints:**
 - `GET /` (home page)
 - `GET /artists` (all artists with filter UI)
+- `POST /artists` (filter form submission - server-side processing)
 - `GET /artists/{slug}` (artist detail via SEO slug)
 - `GET /locations` (all locations)
 - `GET /locations/{slug}` (location detail)
 - `GET /health` (JSON health check)
-- `POST /api/filter-artists` (JSON filter API)
-- `GET /api/filter-options` (JSON filter bounds)
 
-## Current Status (January 2025)
+## Current Status (September 2025)
 
 **✅ Recently Completed:**
-- **Major Filter System Implementation** - dual-range sliders for year filtering, checkbox grids for member counts and countries
+- **Major Filter System Implementation** - server-side form processing for year filtering, checkbox grids for member counts and countries
 - **Restructured Architecture** - moved from cmd/server/ to cmd/cli/, renamed handlers/ to server/, added filters.go
-- **Enhanced API Layer** - new JSON endpoints for filter functionality with proper error handling
-- **Client-Side Interactions** - 361-line JavaScript implementation with AJAX form submission and dynamic DOM updates
-- **Template Enhancement** - artists.tmpl updated with comprehensive filter UI components
+- **Enhanced Server Layer** - form processing endpoints with proper error handling and validation
+- **Template Enhancement** - artists.tmpl updated with comprehensive filter UI components using native HTML controls
 - **Improved Test Coverage** - repository tests 88.9%, handlers 79.7%, overall ~82%
 - **Thread-safe Operations** - all filter operations work with read-only repository after initial load
 
 **🔧 Current Architecture:**
-- Clean App struct pattern in server package with proper initialization
+- Package-level server functions pattern instead of App struct 
+- Repository and templates stored as global variables following config pattern
 - Filter system as separate filters.go module with dedicated logic
-- JSON API endpoints for client-server filter communication
-- Dual-range slider synchronization preventing invalid min > max values
+- Server-side form processing with POST requests to `/artists`
+- HTML form controls (number inputs, checkboxes) for filtering
 - Template inheritance system enhanced with filter components
 - SEO-friendly URL slugs (/artists/queen vs /artists/28)
 - Self-contained error handling with graceful template fallbacks
@@ -294,15 +311,16 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 2. **Use centralized config** (`internal/config` package for all settings)
 3. **Follow template inheritance pattern** (base.tmpl with body blocks)
 4. **Test with audit data** (Queen, Gorillaz, Travis Scott)
-5. **Use inline struct patterns** for template data (type safety)**File Reading Priority:**
+5. **Use inline struct patterns** for template data (type safety)
+
+**File Reading Priority:**
 1. `internal/data/repository.go` (core data management)
-2. `internal/data/filters.go` (NEW: filter logic and bounds calculation)
+2. `internal/data/filters.go` (filter logic and bounds calculation)
 3. `internal/config/config.go` (centralized configuration)
-4. `internal/server/handlers.go` (HTTP layer patterns + filter APIs)
-5. `internal/server/server.go` (startup and App initialization)
+4. `internal/server/handlers.go` (HTTP layer patterns + filter form processing)
+5. `internal/server/server.go` (startup and package-level initialization)
 6. `templates/artists.tmpl` (filter UI components)
-7. `static/js/filters.js` (client-side filter interactions)
-8. Test files for current usage patterns
+7. Test files for current usage patterns
 
 **Testing Strategy:**
 - Use `go test ./internal/...` for clean test runs
@@ -310,7 +328,7 @@ func (h *App) render(w http.ResponseWriter, r *http.Request, templateName string
 - Test repository methods with mock data where needed  
 - Test filter functionality with various parameter combinations
 - Override config variables in tests rather than passing parameters
-- Ensure filter API endpoints return proper JSON responses
-- Test dual-range slider edge cases (min=max, invalid ranges)
+- Ensure server-side form processing works correctly
+- Test filter UI with different parameter combinations
 - Validate checkbox filter logic with multiple selections
 - Ensure no regression in audit requirements

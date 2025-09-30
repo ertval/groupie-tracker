@@ -15,9 +15,19 @@ import (
 	"time"
 )
 
-// newTestApplication creates a new application instance for testing.
-func newTestApplication(t *testing.T) *App {
-	// Create a mock server
+// setupTestEnvironment prepares the test environment with mock API and template loading.
+//
+// This function creates a complete test environment for server testing:
+//   - Starts a mock HTTP server with realistic API responses
+//   - Configures the global repository to use the mock API
+//   - Disables image caching to avoid filesystem operations during tests
+//   - Loads templates from the project directory for rendering tests
+//   - Sets short timeouts appropriate for unit testing
+//
+// This setup allows tests to run in isolation without external dependencies
+// while still testing the complete request/response cycle.
+func setupTestEnvironment(t *testing.T) {
+	// Create mock API server with realistic responses for testing
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.URL.Path {
@@ -38,29 +48,37 @@ func newTestApplication(t *testing.T) *App {
 		}
 	}))
 
-	// Disable image caching for tests to avoid creating files on disk
-	config.WithCache = false
-	// Point repository to the mock server and use a short timeout for tests
+	// Configure test-specific settings for isolated testing
+	config.WithCache = false // Prevent filesystem operations during tests
 	config.APIBaseURL = server.URL
 	config.APIRequestTimeout = 5 * time.Second
-	repo := data.NewRepository()
+
+	// Initialize repository with mock data
+	repo = data.NewRepository()
 	if err := repo.LoadData(context.Background()); err != nil {
 		t.Fatalf("failed to load data for tests: %v", err)
 	}
 
-	// Change working directory to repository root so templates/static files are found
+	// Load templates from project root for rendering functionality
 	origWd, _ := os.Getwd()
 	repoRoot := filepath.Join(origWd, "..", "..")
 	_ = os.Chdir(repoRoot)
-	// Create an App that loads templates from the repo
-	app := NewApp(repo)
-	// Restore working directory
-	_ = os.Chdir(origWd)
-
-	return app
+	loadTemplates()
+	_ = os.Chdir(origWd) // Restore original directory
 }
 
-// newTestServer creates a new server for testing, including a mock API.
+// newTestServer creates a complete test server with mock API and configured handlers.
+//
+// This function provides a fully functional HTTP test server that:
+//   - Creates a mock API server with minimal but valid responses
+//   - Initializes the server package with mock data and templates
+//   - Returns an httptest.Server ready for HTTP client testing
+//   - Automatically cleans up resources when test completes
+//
+// Use this for integration tests that need to make actual HTTP requests
+// to test the full request/response cycle including routing and middleware.
+//
+// The returned server should be used with server.Client() for HTTP requests.
 func newTestServer(t *testing.T) *httptest.Server {
 	mockAPIServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -74,65 +92,68 @@ func newTestServer(t *testing.T) *httptest.Server {
 		}
 	}))
 
-	// Change working directory to repository root so templates/static files are found
+	// Setup working directory for template and static file access
 	origWd, _ := os.Getwd()
 	repoRoot := filepath.Join(origWd, "..", "..")
 	_ = os.Chdir(repoRoot)
 
-	// Configure repository to use mock API server
+	// Configure server to use mock API with test timeouts
 	config.APIBaseURL = mockAPIServer.URL
 	config.APIRequestTimeout = 5 * time.Second
 
 	srv, err := NewServer()
 	if err != nil {
-		t.Fatalf("failed to create server: %v", err)
+		t.Fatalf("Failed to create test server: %v", err)
 	}
 
 	testServer := httptest.NewServer(srv.Handler)
 	t.Cleanup(func() {
-		mockAPIServer.Close()
 		testServer.Close()
-		_ = os.Chdir(origWd)
+		mockAPIServer.Close()
+		_ = os.Chdir(origWd) // Restore working directory
 	})
 
 	return testServer
 }
 
-// Handler Tests
+// --- Unit Tests for HTTP Handlers ---
 
+// TestHome verifies the home page handler renders successfully with mock data.
 func TestHome(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	req := httptest.NewRequest("GET", "/", nil)
 	w := httptest.NewRecorder()
 
-	h.Home(w, req)
+	Home(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", w.Code)
 	}
 }
 
+// TestArtists verifies the artists listing page renders with filter UI.
 func TestArtists(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	req := httptest.NewRequest("GET", "/artists", nil)
 	w := httptest.NewRecorder()
 
-	h.Artists(w, req)
+	Artists(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", w.Code)
 	}
 }
 
+// TestHealth verifies the health check endpoint returns proper JSON response.
 func TestHealth(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
 
-	h.Health(w, req)
+	Health(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", w.Code)
@@ -149,8 +170,9 @@ func TestHealth(t *testing.T) {
 	}
 }
 
+// TestArtistDetail verifies artist detail pages work with SEO-friendly slugs and proper 404 handling.
 func TestArtistDetail(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	tests := []struct {
 		name       string
@@ -168,7 +190,7 @@ func TestArtistDetail(t *testing.T) {
 			req := httptest.NewRequest("GET", tt.path, nil)
 			w := httptest.NewRecorder()
 
-			h.ArtistDetail(w, req)
+			ArtistDetail(w, req)
 
 			if w.Code != tt.wantStatus {
 				t.Errorf("expected status %d, got %d", tt.wantStatus, w.Code)
@@ -178,12 +200,12 @@ func TestArtistDetail(t *testing.T) {
 }
 
 func TestLocations(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	req := httptest.NewRequest("GET", "/locations", nil)
 	w := httptest.NewRecorder()
 
-	h.Locations(w, req)
+	Locations(w, req)
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status 200, got %d", w.Code)
@@ -191,7 +213,7 @@ func TestLocations(t *testing.T) {
 }
 
 func TestLocationDetail(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	tests := []struct {
 		name       string
@@ -208,7 +230,7 @@ func TestLocationDetail(t *testing.T) {
 			req := httptest.NewRequest("GET", tt.path, nil)
 			w := httptest.NewRecorder()
 
-			h.LocationDetail(w, req)
+			LocationDetail(w, req)
 
 			if w.Code != tt.wantStatus {
 				t.Errorf("expected status %d, got %d", tt.wantStatus, w.Code)
@@ -218,7 +240,7 @@ func TestLocationDetail(t *testing.T) {
 }
 
 func TestStaticFiles(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	// Change to repo root for static files
 	origWd, _ := os.Getwd()
@@ -242,7 +264,7 @@ func TestStaticFiles(t *testing.T) {
 			req := httptest.NewRequest("GET", tt.path, nil)
 			w := httptest.NewRecorder()
 
-			h.StaticFiles(w, req)
+			StaticFiles(w, req)
 
 			if w.Code != tt.wantStatus {
 				t.Errorf("expected status %d, got %d", tt.wantStatus, w.Code)
@@ -252,7 +274,7 @@ func TestStaticFiles(t *testing.T) {
 }
 
 func TestInvalidMethods(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	tests := []struct {
 		endpoint string
@@ -272,13 +294,13 @@ func TestInvalidMethods(t *testing.T) {
 
 				switch tt.endpoint {
 				case "/":
-					h.Home(w, req)
+					Home(w, req)
 				case "/artists":
-					h.Artists(w, req)
+					Artists(w, req)
 				case "/locations":
-					h.Locations(w, req)
+					Locations(w, req)
 				case "/health":
-					h.Health(w, req)
+					Health(w, req)
 				}
 
 				if w.Code != http.StatusMethodNotAllowed {
@@ -290,7 +312,7 @@ func TestInvalidMethods(t *testing.T) {
 }
 
 func TestInvalidPaths(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	tests := []struct {
 		name       string
@@ -298,9 +320,9 @@ func TestInvalidPaths(t *testing.T) {
 		handler    func(http.ResponseWriter, *http.Request)
 		wantStatus int
 	}{
-		{"Home with extra path", "/extra", h.Home, http.StatusNotFound},
-		{"Artists with invalid path", "/artists/some/extra/path", h.ArtistDetail, http.StatusNotFound},
-		{"Locations with invalid path", "/locations/some/extra/path", h.LocationDetail, http.StatusNotFound},
+		{"Home with extra path", "/extra", Home, http.StatusNotFound},
+		{"Artists with invalid path", "/artists/some/extra/path", ArtistDetail, http.StatusNotFound},
+		{"Locations with invalid path", "/locations/some/extra/path", LocationDetail, http.StatusNotFound},
 	}
 
 	for _, tt := range tests {
@@ -333,6 +355,9 @@ func TestGetPort(t *testing.T) {
 	}
 }
 
+// --- Integration Tests ---
+
+// TestRouter verifies the complete routing configuration with a live test server.
 func TestRouter(t *testing.T) {
 	testServer := newTestServer(t)
 
@@ -371,10 +396,11 @@ func TestRouter(t *testing.T) {
 	}
 }
 
-// Middleware Tests
+// --- Middleware Tests ---
 
+// TestMiddleware verifies the middleware chain handles panic recovery, logging, and security headers.
 func TestMiddleware(t *testing.T) {
-	// Test withRecovery
+	// Test panic recovery middleware
 	recoveryTestHandler := withRecovery(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
 	}))
@@ -698,14 +724,18 @@ func TestServerMethodNotAllowed(t *testing.T) {
 	}
 }
 
-// intPtr returns a pointer to the given int value
+// --- Utility Function Tests ---
+
+// intPtr is a test helper that returns a pointer to the given int value.
+// Useful for testing optional integer fields that use *int to distinguish
+// between zero values and unset values.
 func intPtr(i int) *int {
 	return &i
 }
 
-// TestParseFilterParams tests the form parsing functionality
+// TestParseFilterParams verifies form data parsing for artist filtering functionality.
 func TestParseFilterParams(t *testing.T) {
-	h := newTestApplication(t)
+	setupTestEnvironment(t)
 
 	tests := []struct {
 		name     string
@@ -765,7 +795,7 @@ func TestParseFilterParams(t *testing.T) {
 			req := httptest.NewRequest("POST", "/artists", nil)
 			req.Form = tt.formData
 
-			got := h.parseFilterParams(req)
+			got := parseArtistFilterParams(req)
 
 			// Compare basic fields
 			if !equalIntPtr(got.CreationYearFrom, tt.want.CreationYearFrom) {
@@ -793,6 +823,8 @@ func TestParseFilterParams(t *testing.T) {
 }
 
 // Helper functions for test comparisons
+
+// equalIntPtr compares two *int pointers, handling nil cases properly.
 func equalIntPtr(a, b *int) bool {
 	if a == nil && b == nil {
 		return true
@@ -803,6 +835,7 @@ func equalIntPtr(a, b *int) bool {
 	return *a == *b
 }
 
+// equalIntSlices performs deep equality comparison of integer slices.
 func equalIntSlices(a, b []int) bool {
 	if len(a) != len(b) {
 		return false
@@ -815,6 +848,7 @@ func equalIntSlices(a, b []int) bool {
 	return true
 }
 
+// equalStringSlices performs deep equality comparison of string slices.
 func equalStringSlices(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

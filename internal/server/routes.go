@@ -4,32 +4,34 @@ import (
 	"net/http"
 )
 
-// Routes sets up all Routes.
-func (a *App) Routes() *http.ServeMux {
+// createServeMux initializes and configures the HTTP router with all application routes.
+// Returns a configured *http.ServeMux with handlers for static files, API endpoints,
+// web pages, and development tools. Routes are organized by functionality for clarity.
+func createServeMux() *http.ServeMux {
 	router := http.NewServeMux()
 
-	// Static file serving
-	router.HandleFunc("/static/", a.StaticFiles)
-	router.HandleFunc("/favicon.ico", a.StaticFiles)
+	// Static assets: CSS, JS, images, and favicon
+	router.HandleFunc("/static/", StaticFiles)
+	router.HandleFunc("/favicon.ico", StaticFiles)
 
-	// Health check
-	router.HandleFunc("/health", a.Health)
+	// Health check endpoint for monitoring
+	router.HandleFunc("/health", Health)
 
-	// Dev routes
-	router.HandleFunc("/dev", a.DevIndex)
-	router.HandleFunc("/dev/panic", a.DevPanic)
-	router.HandleFunc("/dev/404", a.Dev404)
-	router.HandleFunc("/dev/500", a.Dev500)
-	router.HandleFunc("/dev/tmpl-error", a.Dev500Tmpl)
+	// Development tools (only active in dev mode)
+	router.HandleFunc("/dev", DevIndex)
+	router.HandleFunc("/dev/panic", DevPanic)
+	router.HandleFunc("/dev/404", Dev404)
+	router.HandleFunc("/dev/500", Dev500)
+	router.HandleFunc("/dev/tmpl-error", Dev500Tmpl)
 
-	// Web routes
-	router.HandleFunc("/artists", a.Artists)
-	router.HandleFunc("/artists/", a.ArtistDetail)
-	router.HandleFunc("/locations", a.Locations)
-	router.HandleFunc("/locations/", a.LocationDetail)
+	// Main application pages with filter support
+	router.HandleFunc("/artists", Artists)
+	router.HandleFunc("/artists/", ArtistDetail)
+	router.HandleFunc("/locations", Locations)
+	router.HandleFunc("/locations/", LocationDetail)
 
-	// Home route
-	router.HandleFunc("/", a.Home)
+	// Home page (catch-all root handler)
+	router.HandleFunc("/", Home)
 
 	return router
 }

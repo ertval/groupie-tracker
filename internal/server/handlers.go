@@ -15,13 +15,13 @@ import (
 )
 
 // Home handles the home page.
-func (a *App) Home(w http.ResponseWriter, r *http.Request) {
-	if !a.validateRequestGETPath(w, r, "/") {
+func Home(w http.ResponseWriter, r *http.Request) {
+	if !validateRequestGETPath(w, r, "/") {
 		return
 	}
 
-	artists := a.repo.GetArtists()
-	stats := a.repo.GetStats()
+	artists := repo.GetArtists()
+	stats := repo.GetStats()
 
 	data := struct {
 		Title          string
@@ -39,38 +39,38 @@ func (a *App) Home(w http.ResponseWriter, r *http.Request) {
 		TotalLocations: stats["total_locations"],
 	}
 
-	a.render(w, r, "home.tmpl", data)
+	render(w, r, "home.tmpl", data)
 }
 
 // Artists handles the artists listing page.
-func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
+func Artists(w http.ResponseWriter, r *http.Request) {
 	// Allow both GET and POST requests
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		w.Header().Set("Allow", "GET, POST")
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	// Validate path for both GET and POST
 	if r.URL.Path != "/artists" {
-		a.Error(w, r, http.StatusNotFound, "Page not found")
+		Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
-	artists := a.repo.GetArtists()
-	filterOptions := a.repo.GetArtistFilterOptions()
+	artists := repo.GetArtists()
+	filterOptions := repo.GetArtistFilterOptions()
 	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			a.Error(w, r, http.StatusBadRequest, "Failed to parse form data")
+			Error(w, r, http.StatusBadRequest, "Failed to parse form data")
 			return
 		}
 
-		appliedFilters = a.parseFilterParams(r)
-		artists = a.repo.FilterArtists(appliedFilters)
+		appliedFilters = parseArtistFilterParams(r)
+		artists = repo.FilterArtists(appliedFilters)
 	}
 
 	// Sort artists by concert count (descending) for main display
@@ -107,30 +107,30 @@ func (a *App) Artists(w http.ResponseWriter, r *http.Request) {
 		TotalArtists:   totalArtists,
 	}
 
-	a.render(w, r, "artists.tmpl", data)
+	render(w, r, "artists.tmpl", data)
 }
 
 // ArtistDetail handles individual artist pages.
-func (a *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
+func ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
-		a.Error(w, r, http.StatusNotFound, "Page not found")
+		Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
 	// Try slug first, then ID
-	artist, found := a.repo.GetArtistBySlug(path)
+	artist, found := repo.GetArtistBySlug(path)
 	if !found {
 		if id, err := strconv.Atoi(path); err == nil {
-			artist, found = a.repo.GetArtistByID(id)
+			artist, found = repo.GetArtistByID(id)
 		}
 		if !found {
-			a.Error(w, r, http.StatusNotFound, "Artist not found")
+			Error(w, r, http.StatusNotFound, "Artist not found")
 			return
 		}
 	}
@@ -138,12 +138,12 @@ func (a *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	// Get navigation artists
 	var prevArtist, nextArtist *data.Artist
 	if artist.PrevArtistID != 0 {
-		if p, ok := a.repo.GetArtistByID(artist.PrevArtistID); ok {
+		if p, ok := repo.GetArtistByID(artist.PrevArtistID); ok {
 			prevArtist = &p
 		}
 	}
 	if artist.NextArtistID != 0 {
-		if n, ok := a.repo.GetArtistByID(artist.NextArtistID); ok {
+		if n, ok := repo.GetArtistByID(artist.NextArtistID); ok {
 			nextArtist = &n
 		}
 	}
@@ -164,39 +164,39 @@ func (a *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		NextArtist: nextArtist,
 	}
 
-	a.render(w, r, "artist_detail.tmpl", data)
+	render(w, r, "artist_detail.tmpl", data)
 }
 
 // Locations handles the locations listing page.
-func (a *App) Locations(w http.ResponseWriter, r *http.Request) {
+func Locations(w http.ResponseWriter, r *http.Request) {
 	// Allow both GET and POST requests
 	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		w.Header().Set("Allow", "GET, POST")
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	// Validate path for both GET and POST
 	if r.URL.Path != "/locations" {
-		a.Error(w, r, http.StatusNotFound, "Page not found")
+		Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
-	locations := a.repo.GetLocations()
-	filterOptions := a.repo.GetLocationFilterOptions()
+	locations := repo.GetLocations()
+	filterOptions := repo.GetLocationFilterOptions()
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
-	stats := a.repo.GetStats()
+	stats := repo.GetStats()
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
 		if err := r.ParseForm(); err != nil {
-			a.Error(w, r, http.StatusBadRequest, "Failed to parse form data")
+			Error(w, r, http.StatusBadRequest, "Failed to parse form data")
 			return
 		}
 
-		appliedFilters = a.parseLocationFilterParams(r)
-		locations = a.repo.FilterLocations(appliedFilters)
+		appliedFilters = parseLocationFilterParams(r)
+		locations = repo.FilterLocations(appliedFilters)
 	}
 
 	// Check if any filter is applied
@@ -245,25 +245,25 @@ func (a *App) Locations(w http.ResponseWriter, r *http.Request) {
 		TotalConcerts:         stats["total_concerts"],
 	}
 
-	a.render(w, r, "locations.tmpl", data)
+	render(w, r, "locations.tmpl", data)
 }
 
 // LocationDetail handles individual location pages.
-func (a *App) LocationDetail(w http.ResponseWriter, r *http.Request) {
+func LocationDetail(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	slug := strings.TrimPrefix(r.URL.Path, "/locations/")
 	if slug == "" {
-		a.Error(w, r, http.StatusNotFound, "Page not found")
+		Error(w, r, http.StatusNotFound, "Page not found")
 		return
 	}
 
-	location, found := a.repo.GetLocationBySlug(slug)
+	location, found := repo.GetLocationBySlug(slug)
 	if !found {
-		a.Error(w, r, http.StatusNotFound, "Location not found")
+		Error(w, r, http.StatusNotFound, "Location not found")
 		return
 	}
 
@@ -281,13 +281,13 @@ func (a *App) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		Artists:  location.Artists,
 	}
 
-	a.render(w, r, "location_detail.tmpl", data)
+	render(w, r, "location_detail.tmpl", data)
 }
 
 // DevIndex renders a small developer page with quick links.
-func (a *App) DevIndex(w http.ResponseWriter, r *http.Request) {
+func DevIndex(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -311,11 +311,11 @@ func (a *App) DevIndex(w http.ResponseWriter, r *http.Request) {
 		Links:    links,
 	}
 
-	a.render(w, r, "dev.tmpl", data)
+	render(w, r, "dev.tmpl", data)
 }
 
 // Error handles all errors (4xx and 5xx) in a centralized way.
-func (a *App) Error(w http.ResponseWriter, r *http.Request, status int, message string) {
+func Error(w http.ResponseWriter, r *http.Request, status int, message string) {
 	data := struct {
 		Title        string
 		ExtraCSS     string
@@ -334,21 +334,21 @@ func (a *App) Error(w http.ResponseWriter, r *http.Request, status int, message 
 		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
 	}
 
-	a.render(w, r, "error.tmpl", data, status)
+	render(w, r, "error.tmpl", data, status)
 }
 
 // Health provides a health check endpoint.
-func (a *App) Health(w http.ResponseWriter, r *http.Request) {
+func Health(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
 	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     a.repo.GetStats(),
+		"stats":     repo.GetStats(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -356,12 +356,12 @@ func (a *App) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 // DevPanic is a development endpoint to test panic recovery.
-func (a *App) DevPanic(w http.ResponseWriter, r *http.Request) {
+func DevPanic(w http.ResponseWriter, r *http.Request) {
 	panic("Development panic triggered")
 }
 
 // Dev404 is a development endpoint to test 404 error template.
-func (a *App) Dev404(w http.ResponseWriter, r *http.Request) {
+func Dev404(w http.ResponseWriter, r *http.Request) {
 	// Simulate a realistic 404 by mutating a shallow copy of the request
 	// so that template rendering sees a non-existent requested URL.
 	// We keep the original request untouched and pass the modified copy
@@ -374,27 +374,27 @@ func (a *App) Dev404(w http.ResponseWriter, r *http.Request) {
 
 	// Call Home with the modified request so the Error template is rendered
 	// using the realistic requested URL stored in nr.URL.Path.
-	a.Home(w, nr)
+	Home(w, nr)
 }
 
 // Dev500 is a development endpoint to test 500 error template.
-func (a *App) Dev500(w http.ResponseWriter, r *http.Request) {
-	a.Error(w, r, http.StatusInternalServerError, "This is a simulated 500 error.")
+func Dev500(w http.ResponseWriter, r *http.Request) {
+	Error(w, r, http.StatusInternalServerError, "This is a simulated 500 error.")
 }
 
 // Dev500Tmpl is a development endpoint to test template failure.
-func (a *App) Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
+func Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
 	// To simulate a template error, we can try to render a template that doesn't exist.
-	a.render(w, r, "nonexistent.tmpl", nil)
+	render(w, r, "nonexistent.tmpl", nil)
 }
 
-func (a *App) StaticFiles(w http.ResponseWriter, r *http.Request) {
+func StaticFiles(w http.ResponseWriter, r *http.Request) {
 	const staticDir = "static"
 
 	// Only allow GET and HEAD methods
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
-		a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+		Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 		return
 	}
 
@@ -402,7 +402,7 @@ func (a *App) StaticFiles(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path == "/favicon.ico" {
 		target := filepath.Join(staticDir, "favicon.ico")
 		if fi, err := os.Stat(target); err != nil || fi.IsDir() {
-			a.Error(w, r, http.StatusNotFound, "Favicon not found")
+			Error(w, r, http.StatusNotFound, "Favicon not found")
 			return
 		}
 		http.ServeFile(w, r, target)
@@ -411,21 +411,21 @@ func (a *App) StaticFiles(w http.ResponseWriter, r *http.Request) {
 
 	// Only allow /static/ prefix
 	if !strings.HasPrefix(r.URL.Path, "/static/") {
-		a.Error(w, r, http.StatusNotFound, "Not found")
+		Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
 	// Extract relative path and prevent directory traversal
 	rel := strings.TrimPrefix(r.URL.Path, "/static/")
 	if rel == "" || strings.Contains(rel, "..") || strings.HasPrefix(rel, "/") {
-		a.Error(w, r, http.StatusNotFound, "Not found")
+		Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
 	// Build target path and verify it's a regular file
 	target := filepath.Join(staticDir, rel)
 	if fi, err := os.Stat(target); err != nil || fi.IsDir() {
-		a.Error(w, r, http.StatusNotFound, "Not found")
+		Error(w, r, http.StatusNotFound, "Not found")
 		return
 	}
 
