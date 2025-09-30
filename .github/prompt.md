@@ -88,4 +88,4 @@ Follow **test driven development**, strict **Idiomatic GO** and KISS principles 
 
 ---
 
-Read the codebase. Check for redundant, dublicate or overly complex code. Then check the package and folder/file structure if it can be simplified for better performance. You should use only idiomatic go and kiss priciple in your refactoring. think ultrahard and create an md plan
+Read the codebase. Check for redundant, dublicate or overly complex code that you can reduce and simplify. Then check the package and folder/file structure if it can be simplified for better performance. You should use only idiomatic go best practices and kiss priciple in your refactoring. **think ultrahard and create an md file with the refactoring plan.**
