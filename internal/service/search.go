@@ -1,53 +1,26 @@
-package data
+package service
 
 import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"groupie-tracker/internal/models"
 )
 
-// --- Search Data Structures ---
+// SearchService handles search functionality and suggestion generation.
+type SearchService struct{}
 
-// SearchParams combines search query with optional filters.
-type SearchParams struct {
-	Query   string  `form:"q" json:"query"`
-	Filters Filters `form:"filters" json:"filters"`
+// NewSearchService creates a new search service.
+func NewSearchService() *SearchService {
+	return &SearchService{}
 }
 
-// SearchResult contains search results and metadata.
-type SearchResult struct {
-	Artists      []Artist `json:"artists"`
-	TotalResults int      `json:"total_results"`
-	Query        string   `json:"query"`
-}
-
-// SearchSuggestionType categorizes different types of search suggestions.
-type SearchSuggestionType string
-
-const (
-	SuggestionTypeArtist     SearchSuggestionType = "artist"
-	SuggestionTypeMember     SearchSuggestionType = "member"
-	SuggestionTypeLocation   SearchSuggestionType = "location"
-	SuggestionTypeFirstAlbum SearchSuggestionType = "first-album"
-	SuggestionTypeCreation   SearchSuggestionType = "creation"
-)
-
-// SearchSuggestion represents a search autocomplete suggestion.
-type SearchSuggestion struct {
-	Text        string               `json:"text"`
-	Type        SearchSuggestionType `json:"type"`
-	Description string               `json:"description"`
-	URL         string               `json:"url"`
-	ArtistID    int                  `json:"artist_id,omitempty"`
-}
-
-// --- Core Search Functions ---
-
-// SearchArtists performs comprehensive search across all artist data.
+// Search performs comprehensive search across all artist data.
 // Searches across artist names, band members, concert locations, creation years, and first album dates.
-func SearchArtists(artists []Artist, params SearchParams) SearchResult {
-	query := normalizeQuery(params.Query)
-	var matchingArtists []Artist
+func (ss *SearchService) Search(artists []models.Artist, params models.SearchParams) models.SearchResult {
+	query := ss.normalizeQuery(params.Query)
+	var matchingArtists []models.Artist
 
 	// If no query provided, use all artists
 	if query == "" {
@@ -55,7 +28,7 @@ func SearchArtists(artists []Artist, params SearchParams) SearchResult {
 	} else {
 		// Filter artists by search query
 		for _, artist := range artists {
-			if matchesSearchQuery(artist, query) {
+			if ss.matchesSearchQuery(artist, query) {
 				matchingArtists = append(matchingArtists, artist)
 			}
 		}
@@ -63,42 +36,43 @@ func SearchArtists(artists []Artist, params SearchParams) SearchResult {
 
 	// Apply additional filters if provided
 	if !params.Filters.IsEmpty() {
-		matchingArtists = FilterArtists(matchingArtists, params.Filters)
+		filterService := NewFilterService()
+		matchingArtists = filterService.FilterArtists(matchingArtists, params.Filters)
 	}
 
-	return SearchResult{
+	return models.SearchResult{
 		Artists:      matchingArtists,
 		TotalResults: len(matchingArtists),
 		Query:        params.Query,
 	}
 }
 
-// GenerateSearchSuggestions creates all search suggestions for autocomplete.
-// This is expensive to generate but cached at startup for performance.
-func GenerateSearchSuggestions(artists []Artist) []SearchSuggestion {
-	var suggestions []SearchSuggestion
+// GenerateSuggestions creates comprehensive search suggestions for autocomplete functionality.
+// This is expensive to generate but should be cached at startup for performance.
+func (ss *SearchService) GenerateSuggestions(artists []models.Artist) []models.SearchSuggestion {
+	var suggestions []models.SearchSuggestion
 	seenTexts := make(map[string]bool) // Deduplicate suggestions
 
 	for _, artist := range artists {
 		// Artist name suggestions
-		if !seenTexts[artist.Name] {
-			suggestions = append(suggestions, SearchSuggestion{
+		if !seenTexts[strings.ToLower(artist.Name)] {
+			suggestions = append(suggestions, models.SearchSuggestion{
 				Text:        artist.Name,
-				Type:        SuggestionTypeArtist,
+				Type:        models.SuggestionTypeArtist,
 				Description: "Artist",
 				URL:         "/artists/" + artist.Slug,
 				ArtistID:    artist.ID,
 			})
-			seenTexts[artist.Name] = true
+			seenTexts[strings.ToLower(artist.Name)] = true
 		}
 
 		// Member name suggestions
 		for _, member := range artist.Members {
 			memberKey := strings.ToLower(member)
 			if !seenTexts[memberKey] {
-				suggestions = append(suggestions, SearchSuggestion{
+				suggestions = append(suggestions, models.SearchSuggestion{
 					Text:        member,
-					Type:        SuggestionTypeMember,
+					Type:        models.SuggestionTypeMember,
 					Description: "Band member of " + artist.Name,
 					URL:         "/artists/" + artist.Slug,
 					ArtistID:    artist.ID,
@@ -107,13 +81,13 @@ func GenerateSearchSuggestions(artists []Artist) []SearchSuggestion {
 			}
 		}
 
-		// Location suggestions
+		// Location suggestions - countries
 		for _, country := range artist.Countries {
 			countryKey := strings.ToLower(country)
 			if !seenTexts[countryKey] {
-				suggestions = append(suggestions, SearchSuggestion{
+				suggestions = append(suggestions, models.SearchSuggestion{
 					Text:        country,
-					Type:        SuggestionTypeLocation,
+					Type:        models.SuggestionTypeLocation,
 					Description: "Concert location",
 					URL:         "/search?q=" + country,
 				})
@@ -125,10 +99,10 @@ func GenerateSearchSuggestions(artists []Artist) []SearchSuggestion {
 		for _, concert := range artist.Concerts {
 			locationKey := strings.ToLower(concert.Location)
 			if !seenTexts[locationKey] && concert.Location != "" {
-				displayLocation := formatLocationName(concert.Location)
-				suggestions = append(suggestions, SearchSuggestion{
+				displayLocation := ss.formatLocationName(concert.Location)
+				suggestions = append(suggestions, models.SearchSuggestion{
 					Text:        displayLocation,
-					Type:        SuggestionTypeLocation,
+					Type:        models.SuggestionTypeLocation,
 					Description: "Concert venue",
 					URL:         "/search?q=" + concert.Location,
 				})
@@ -140,9 +114,9 @@ func GenerateSearchSuggestions(artists []Artist) []SearchSuggestion {
 		if artist.CreationYear > 0 {
 			yearKey := strconv.Itoa(artist.CreationYear)
 			if !seenTexts[yearKey] {
-				suggestions = append(suggestions, SearchSuggestion{
+				suggestions = append(suggestions, models.SearchSuggestion{
 					Text:        yearKey,
-					Type:        SuggestionTypeCreation,
+					Type:        models.SuggestionTypeCreation,
 					Description: "Formation year",
 					URL:         "/search?q=" + yearKey,
 				})
@@ -154,9 +128,9 @@ func GenerateSearchSuggestions(artists []Artist) []SearchSuggestion {
 		if artist.FirstAlbum != "" {
 			albumKey := strings.ToLower(artist.FirstAlbum)
 			if !seenTexts[albumKey] {
-				suggestions = append(suggestions, SearchSuggestion{
+				suggestions = append(suggestions, models.SearchSuggestion{
 					Text:        artist.FirstAlbum,
-					Type:        SuggestionTypeFirstAlbum,
+					Type:        models.SuggestionTypeFirstAlbum,
 					Description: "First album date",
 					URL:         "/artists/" + artist.Slug,
 					ArtistID:    artist.ID,
@@ -166,7 +140,7 @@ func GenerateSearchSuggestions(artists []Artist) []SearchSuggestion {
 		}
 	}
 
-	// Sort suggestions by type then text
+	// Sort suggestions by type then text for consistent presentation
 	sort.Slice(suggestions, func(i, j int) bool {
 		if suggestions[i].Type != suggestions[j].Type {
 			return suggestions[i].Type < suggestions[j].Type
@@ -178,16 +152,16 @@ func GenerateSearchSuggestions(artists []Artist) []SearchSuggestion {
 }
 
 // FilterSuggestions filters suggestions based on query for autocomplete.
-func FilterSuggestions(suggestions []SearchSuggestion, query string) []SearchSuggestion {
+func (ss *SearchService) FilterSuggestions(suggestions []models.SearchSuggestion, query string) []models.SearchSuggestion {
 	if query == "" {
 		return suggestions
 	}
 
-	normalizedQuery := normalizeQuery(query)
-	var filtered []SearchSuggestion
+	normalizedQuery := ss.normalizeQuery(query)
+	var filtered []models.SearchSuggestion
 
 	for _, suggestion := range suggestions {
-		normalizedText := normalizeQuery(suggestion.Text)
+		normalizedText := ss.normalizeQuery(suggestion.Text)
 		if strings.Contains(normalizedText, normalizedQuery) {
 			filtered = append(filtered, suggestion)
 		}
@@ -196,28 +170,26 @@ func FilterSuggestions(suggestions []SearchSuggestion, query string) []SearchSug
 	return filtered
 }
 
-// --- Search Matching Logic ---
-
-// matchesSearchQuery checks if an artist matches the search query.
-func matchesSearchQuery(artist Artist, normalizedQuery string) bool {
+// matchesSearchQuery checks if an artist matches the search query across all searchable fields.
+func (ss *SearchService) matchesSearchQuery(artist models.Artist, normalizedQuery string) bool {
 	// Search in artist name
-	if strings.Contains(normalizeQuery(artist.Name), normalizedQuery) {
+	if strings.Contains(ss.normalizeQuery(artist.Name), normalizedQuery) {
 		return true
 	}
 
 	// Search in member names
 	for _, member := range artist.Members {
-		if strings.Contains(normalizeQuery(member), normalizedQuery) {
+		if strings.Contains(ss.normalizeQuery(member), normalizedQuery) {
 			return true
 		}
 	}
 
-	// Search in concert locations
+	// Search in concert locations and countries
 	for _, concert := range artist.Concerts {
-		if strings.Contains(normalizeQuery(concert.Location), normalizedQuery) {
+		if strings.Contains(ss.normalizeQuery(concert.Location), normalizedQuery) {
 			return true
 		}
-		if strings.Contains(normalizeQuery(concert.Country), normalizedQuery) {
+		if strings.Contains(ss.normalizeQuery(concert.Country), normalizedQuery) {
 			return true
 		}
 	}
@@ -228,22 +200,20 @@ func matchesSearchQuery(artist Artist, normalizedQuery string) bool {
 	}
 
 	// Search in first album
-	if strings.Contains(normalizeQuery(artist.FirstAlbum), normalizedQuery) {
+	if strings.Contains(ss.normalizeQuery(artist.FirstAlbum), normalizedQuery) {
 		return true
 	}
 
 	return false
 }
 
-// --- Helper Functions ---
-
 // normalizeQuery converts query to lowercase and trims whitespace for consistent searching.
-func normalizeQuery(query string) string {
+func (ss *SearchService) normalizeQuery(query string) string {
 	return strings.ToLower(strings.TrimSpace(query))
 }
 
-// formatLocationName converts location slugs to display format.
-func formatLocationName(location string) string {
+// formatLocationName converts location strings to display format.
+func (ss *SearchService) formatLocationName(location string) string {
 	// Convert "new-york-usa" to "New York USA"
 	parts := strings.Split(location, "-")
 	for i, part := range parts {
