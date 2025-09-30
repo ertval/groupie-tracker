@@ -88,6 +88,6 @@ Follow **test driven development**, strict **Idiomatic GO** and KISS principles 
 
 ---
 
-Read the codebase. Check for redundant, dublicate or overly complex code. Then check the package and folder/file structure if it can be simplified for better performance. You should use only idiomatic go and kiss priciple in your refactoring. think ultrahard and create an md plan
+Read the codebase. Check for redundant, dublicate or overly complex code. Check the package and folder/file structure. Then Propose a restructuring/refactoring plan. Think ultrahard and use only idiomatic go best practices and kiss priciple in your refactoring. Try to find a golden ration between complexity and simplicity (break functionality into smaller parts/packages/files but not overly so). Store your plan in a md file that starts with your model name.
 
 Propose a project restructuring into packages/folders/files such that its simpler and easer to maintain following Idiomatic Go best practices and KISS principles. Think Ultrahard for this and then store your plan in a md file that starts with your name.
