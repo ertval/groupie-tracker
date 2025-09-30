@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,7 +14,8 @@ import (
 	"time"
 
 	"groupie-tracker/internal/config"
-	serverpkg "groupie-tracker/internal/server"
+	"groupie-tracker/internal/data"
+	serverpkg "groupie-tracker/internal/web"
 )
 
 // TestE2ECompleteUserFlow tests the complete user journey through the application
@@ -451,13 +453,22 @@ func createTestServerWithAPI(t *testing.T, apiURL string) *httptest.Server {
 	config.APIRequestTimeout = 10 * time.Second
 	config.WithCache = false
 
+	// Create data store and load data
+	store := data.NewStore()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := store.LoadData(ctx); err != nil {
+		t.Fatalf("failed to load data: %v", err)
+	}
+
 	// Create server using the real server creation logic
-	srv, err := serverpkg.NewServer()
+	srv, err := serverpkg.NewServer(store)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
 
-	testServer := httptest.NewServer(srv.Handler)
+	testServer := httptest.NewServer(srv.Handler())
 
 	t.Cleanup(func() {
 		testServer.Close()

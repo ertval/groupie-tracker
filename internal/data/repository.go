@@ -12,10 +12,20 @@ import (
 	"sort"
 	"strings"
 
+	"groupie-tracker/internal/api"
 	"groupie-tracker/internal/config"
 )
 
-// Repository provides centralized data management for the Groupie Tracker application.
+// Repository profunc (r *Repository) fetchAPIData(ctx context.Context) ([]api.APIArtist, api.APIRelation, error) {
+	var apiArtists []api.APIArtist
+	if err := r.fetchJSON(ctx, r.apiEndpoint+"/api/artists", &apiArtists); err != nil {
+		return nil, api.APIRelation{}, fmt.Errorf("failed to fetch artists: %w", err)
+	}
+
+	var apiRelations api.APIRelation
+	if err := r.fetchJSON(ctx, r.apiEndpoint+"/api/relation", &apiRelations); err != nil {
+		return nil, api.APIRelation{}, fmt.Errorf("failed to fetch relations: %w", err)
+	}ralized data management for the Groupie Tracker application.
 //
 // This is the core data access layer that coordinates all data operations:
 //
