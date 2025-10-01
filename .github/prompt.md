@@ -104,8 +104,9 @@ Read carefully the refactoring plan and the codebase. then:
 
 ---
 
-Read the codebase carefully. Then Propose a restructuring/refactoring plan that will simplify and optimize the codebase. Think ultrahard and be specific which parts to change and how.:
+Read the codebase carefully. Then Propose a restructuring/refactoring plan that will simplify and optimize the codebase. Think ultrahard and be specific which parts to change and how:
 - Use only idiomatic go best practices and kiss priciple in your refactoring. 
 - Add concurrency where it makes sense and improves performance.
 - Try to find a golden ration between complexity and simplicity.
+- Remove any compatibility code and refactor for efficiency, simplicity, maintainability and idiomatic go best practices.
 - Store your plan in a md file that starts with your name.
