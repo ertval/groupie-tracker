@@ -18,16 +18,17 @@ func newSearchSuggestion(text, suggestionType, description, url string, artistID
 }
 
 // SearchArtists performs search across artist data with optional filtering.
-func (r *Repository) SearchArtists(params SearchParams) SearchResult {
+func (s *Service) SearchArtists(params SearchParams) SearchResult {
+	artists := s.store.Artists()
 	query := normalizeSearchQuery(params.Query)
 	var matchingArtists []Artist
 
 	// If no query provided, use all artists
 	if query == "" {
-		matchingArtists = r.artists
+		matchingArtists = artists
 	} else {
 		// Filter artists by search query
-		for _, artist := range r.artists {
+		for _, artist := range artists {
 			if matchesSearchQuery(artist, query) {
 				matchingArtists = append(matchingArtists, artist)
 			}
@@ -38,7 +39,7 @@ func (r *Repository) SearchArtists(params SearchParams) SearchResult {
 	if !isEmptyFilter(params.Filters) {
 		var filteredArtists []Artist
 		for _, artist := range matchingArtists {
-			if r.matchesArtistFilters(artist, params.Filters) {
+			if s.matchesArtistFilters(artist, params.Filters) {
 				filteredArtists = append(filteredArtists, artist)
 			}
 		}
@@ -114,8 +115,8 @@ func isEmptyFilter(filters ArtistFilterParams) bool {
 }
 
 // GenerateAllSearchSuggestions returns the precomputed suggestion cache.
-func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
-	return r.store.Suggestions()
+func (s *Service) GenerateAllSearchSuggestions() []SearchSuggestion {
+	return s.store.Suggestions()
 }
 
 // locationMatches checks if a location name matches a search query.

@@ -21,9 +21,9 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists := s.repo.GetArtists()
-	stats := s.repo.GetAppStats()
-	suggestions := s.repo.GenerateAllSearchSuggestions()
+	artists := s.svc.Artists()
+	stats := s.svc.Stats()
+	suggestions := s.svc.GenerateAllSearchSuggestions()
 
 	// Get 8 random artists for homepage display
 	artists = getRandomArtists(artists, 8)
@@ -56,9 +56,9 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists := s.repo.GetArtists()
-	filterOptions := s.repo.GetArtistFilterOptions()
-	suggestions := s.repo.GenerateAllSearchSuggestions()
+	artists := s.svc.Artists()
+	filterOptions := s.svc.GetArtistFilterOptions()
+	suggestions := s.svc.GenerateAllSearchSuggestions()
 	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 
@@ -69,7 +69,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		}
 
 		appliedFilters = parseArtistFilterParams(r)
-		artists = s.repo.FilterArtists(appliedFilters)
+		artists = s.svc.FilterArtists(appliedFilters)
 	}
 
 	// Sort artists by concert count (descending) for main display
@@ -112,10 +112,10 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try slug first, then ID
-	artist, found := s.repo.GetArtistBySlug(path)
+	artist, found := s.svc.ArtistBySlug(path)
 	if !found {
 		if id, err := strconv.Atoi(path); err == nil {
-			artist, found = s.repo.GetArtistByID(id)
+			artist, found = s.svc.ArtistByID(id)
 		}
 		if !found {
 			s.NotFoundError(w, r, "Artist not found")
@@ -124,8 +124,8 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get navigation artists using on-demand lookup
-	prevArtist, nextArtist := s.repo.GetAdjacentArtists(artist.ID)
-	suggestions := s.repo.GenerateAllSearchSuggestions()
+	prevArtist, nextArtist := s.svc.GetAdjacentArtists(artist.ID)
+	suggestions := s.svc.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title       string
@@ -195,7 +195,7 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 				Query:   searchQuery,
 				Filters: appliedFilters,
 			}
-			searchResults = s.repo.SearchArtists(searchParams)
+			searchResults = s.svc.SearchArtists(searchParams)
 
 			// Cache simple search results (no filters)
 			if isEmptyArtistFilters(appliedFilters) && normalizedQuery != "" {
@@ -204,10 +204,10 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	filterOptions := s.repo.GetArtistFilterOptions()
+	filterOptions := s.svc.GetArtistFilterOptions()
 
 	// Generate all search suggestions for datalist
-	allSuggestions := s.repo.GenerateAllSearchSuggestions()
+	allSuggestions := s.svc.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title          string
@@ -241,12 +241,12 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	locations := s.repo.GetLocations()
-	filterOptions := s.repo.GetLocationFilterOptions()
-	suggestions := s.repo.GenerateAllSearchSuggestions()
+	locations := s.svc.Locations()
+	filterOptions := s.svc.GetLocationFilterOptions()
+	suggestions := s.svc.GenerateAllSearchSuggestions()
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
-	stats := s.repo.GetAppStats()
+	stats := s.svc.Stats()
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
@@ -255,7 +255,7 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		}
 
 		appliedFilters = parseLocationFilterParams(r)
-		locations = s.repo.FilterLocations(appliedFilters)
+		locations = s.svc.FilterLocations(appliedFilters)
 	}
 
 	// Check if any filter is applied
@@ -317,13 +317,13 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	location, found := s.repo.GetLocationBySlug(slug)
+	location, found := s.svc.LocationBySlug(slug)
 	if !found {
 		s.NotFoundError(w, r, "Location not found")
 		return
 	}
 
-	suggestions := s.repo.GenerateAllSearchSuggestions()
+	suggestions := s.svc.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title        string
@@ -358,7 +358,7 @@ func (s *Server) DevIndex(w http.ResponseWriter, r *http.Request) {
 		{"/health", "Health Check (/health)"},
 	}
 
-	suggestions := s.repo.GenerateAllSearchSuggestions()
+	suggestions := s.svc.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title       string
@@ -407,7 +407,7 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     s.repo.GetAppStats(),
+		"stats":     s.svc.Stats(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -420,7 +420,7 @@ func (s *Server) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Use optimized filtering with reasonable limits
 	const maxSuggestions = 15 // Limit to avoid overwhelming the UI
-	suggestions := s.repo.GenerateAllSearchSuggestions()
+	suggestions := s.svc.GenerateAllSearchSuggestions()
 	matchingSuggestions := data.FilterSuggestionsOptimized(suggestions, query, maxSuggestions)
 
 	w.Header().Set("Content-Type", "application/json")

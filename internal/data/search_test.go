@@ -53,26 +53,11 @@ func createTestSearchData() *Repository {
 		},
 	}
 
-	// Create repository with test data
-	repo := &Repository{
-		artists:         artists,
-		artistsByID:     make(map[int]Artist),
-		artistsBySlug:   make(map[string]Artist),
-		locations:       locations,
-		locationsBySlug: make(map[string]Location),
+	store := NewStoreFromFixtures(artists, locations)
+	return &Repository{
+		store: store,
+		svc:   newService(store),
 	}
-
-	// Build indexes
-	for _, artist := range artists {
-		repo.artistsByID[artist.ID] = artist
-		repo.artistsBySlug[artist.Slug] = artist
-	}
-
-	for _, location := range locations {
-		repo.locationsBySlug[location.Slug] = location
-	}
-
-	return repo
 }
 
 func TestArtistLocationSearch(t *testing.T) {
@@ -110,22 +95,8 @@ func TestArtistLocationSearch(t *testing.T) {
 		{Name: "new-york-usa", Slug: "new-york-usa"},
 	}
 
-	repo := &Repository{
-		artists:         artists,
-		locations:       locations,
-		artistsByID:     make(map[int]Artist),
-		artistsBySlug:   make(map[string]Artist),
-		locationsBySlug: make(map[string]Location),
-	}
-
-	// Build indexes
-	for _, artist := range artists {
-		repo.artistsByID[artist.ID] = artist
-		repo.artistsBySlug[artist.Slug] = artist
-	}
-	for _, location := range locations {
-		repo.locationsBySlug[location.Slug] = location
-	}
+	store := NewStoreFromFixtures(artists, locations)
+	repo := &Repository{store: store, svc: newService(store)}
 
 	tests := []struct {
 		name          string

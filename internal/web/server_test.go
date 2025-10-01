@@ -88,13 +88,13 @@ func createTestServer(t *testing.T) *Server {
 	return server
 }
 
-// TestNewServer tests server initialization with direct repository access
+// TestNewServer tests server initialization with the service layer wiring
 func TestNewServer(t *testing.T) {
 	server := createTestServer(t)
 
 	// Verify server has required components
-	if server.repo == nil {
-		t.Error("Expected repository to be initialized")
+	if server.svc == nil {
+		t.Error("Expected service to be initialized")
 	}
 	if server.searchCache == nil {
 		t.Error("Expected search cache map to be initialized")
@@ -110,13 +110,13 @@ func TestNewServer(t *testing.T) {
 	}
 
 	// Verify server has loaded data
-	artists := server.repo.GetArtists()
+	artists := server.svc.Artists()
 	if len(artists) == 0 {
 		t.Error("Expected artists to be loaded")
 	}
 
 	// Verify stats are available
-	stats := server.repo.GetAppStats()
+	stats := server.svc.Stats()
 	if stats.TotalArtists == 0 {
 		t.Error("Expected stats to be computed")
 	}
@@ -287,53 +287,52 @@ func TestRouting(t *testing.T) {
 	}
 }
 
-// TestDirectRepositoryAccess tests that server works with direct repository access
-func TestDirectRepositoryAccess(t *testing.T) {
+// TestServiceAccess tests that server works with the shared service layer
+func TestServiceAccess(t *testing.T) {
 	server := createTestServer(t)
 
-	// Test direct repository access for artists
-	artists := server.repo.GetArtists()
+	// Test service access for artists
+	artists := server.svc.Artists()
 	if len(artists) == 0 {
-		t.Error("Repository should return artists")
+		t.Error("Service should return artists")
 	}
 
 	// Test cached suggestions
-	suggestions := server.repo.GenerateAllSearchSuggestions()
+	suggestions := server.svc.GenerateAllSearchSuggestions()
 	if len(suggestions) == 0 {
 		t.Error("Cached suggestions should be available")
 	}
 
-	// Test direct repository access for locations
-	locations := server.repo.GetLocations()
+	// Test service access for locations
+	locations := server.svc.Locations()
 	if len(locations) == 0 {
-		t.Error("Repository should return locations")
+		t.Error("Service should return locations")
 	}
 
-	// Test direct repository access for stats
-	stats := server.repo.GetAppStats()
+	// Test service access for stats
+	stats := server.svc.Stats()
 	if stats.TotalArtists == 0 {
-		t.Error("Repository should return stats")
+		t.Error("Service should return stats")
 	}
 
-	// Test direct repository access for cache status
-	cacheEnabled := server.repo.IsCacheEnabled()
+	// Test service access for cache status
+	cacheEnabled := server.svc.CacheEnabled()
 	if cacheEnabled {
-		t.Error("Repository should report cache as disabled in tests")
+		t.Error("Service should report cache as disabled in tests")
 	}
 }
 
-// TestNoServiceLayerAntiPatterns tests that we don't have unnecessary service layers
-func TestNoServiceLayerAntiPatterns(t *testing.T) {
-	// This test ensures we use direct repository access instead of service facades
+// TestServerServiceWiring ensures the server exposes a single service facade
+func TestServerServiceWiring(t *testing.T) {
 	server1 := createTestServer(t)
 	// Create second server in a separate test to avoid directory issues
 
-	// Server should use direct repository access pattern
-	if server1.repo == nil {
-		t.Error("Server should have direct repository access")
+	// Server should expose an initialized service facade
+	if server1.svc == nil {
+		t.Error("Server should have an initialized service layer")
 	}
-	if len(server1.repo.GenerateAllSearchSuggestions()) == 0 {
-		t.Error("Repository-backed suggestions should be populated")
+	if len(server1.svc.GenerateAllSearchSuggestions()) == 0 {
+		t.Error("Service-backed suggestions should be populated")
 	}
 	if server1.templates == nil {
 		t.Error("Server should have compiled templates")

@@ -264,7 +264,7 @@ func TestRepository_LoadData_WithImageCaching(t *testing.T) {
 	}
 
 	// Check cache status
-	if !repo.cacheEnabled {
+	if !repo.IsCacheEnabled() {
 		t.Error("expected cache to be enabled when WithCache=true")
 	}
 

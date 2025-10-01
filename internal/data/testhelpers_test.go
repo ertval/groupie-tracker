@@ -20,6 +20,7 @@ func NewStoreFromFixtures(artists []Artist, locations []Location) *Store {
 		}
 
 		countries := make(map[string]bool)
+		svc := &Service{}
 		for _, concert := range artist.Concerts {
 			locationName := concert.Location
 			if locationName == "" {
@@ -30,12 +31,14 @@ func NewStoreFromFixtures(artists []Artist, locations []Location) *Store {
 			locationSlug := createSlug(normalizedLocation)
 			artist.DatesAtLocation[locationSlug] = append(artist.DatesAtLocation[locationSlug], concert.Date)
 
-			if country := (&Repository{}).extractCountryFromLocation(locationName); country != "" {
+			if country := svc.extractCountryFromLocation(locationName); country != "" {
 				countries[country] = true
 			}
 		}
 
-		artist.Countries = store.convertCountriesMapToSlice(countries)
+		if len(artist.Countries) == 0 {
+			artist.Countries = store.convertCountriesMapToSlice(countries)
+		}
 		artist.ConcertCount = len(artist.Concerts)
 
 		normalizedArtists[i] = artist

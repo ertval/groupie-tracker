@@ -6,7 +6,7 @@ import (
 )
 
 // extractCountryFromLocation parses location strings to extract country names.
-func (r *Repository) extractCountryFromLocation(location string) string {
+func (s *Service) extractCountryFromLocation(location string) string {
 	parts := strings.Split(strings.ToLower(location), "-")
 	if len(parts) == 0 {
 		return ""
@@ -36,7 +36,7 @@ func (r *Repository) extractCountryFromLocation(location string) string {
 }
 
 // extractYearFromDate parses various date string formats to extract years.
-func (r *Repository) extractYearFromDate(dateStr string) int {
+func (s *Service) extractYearFromDate(dateStr string) int {
 	// Handle common date formats
 	if len(dateStr) >= 4 {
 		// Check for YYYY at the end (DD-MM-YYYY)
@@ -56,11 +56,15 @@ func (r *Repository) extractYearFromDate(dateStr string) int {
 // --- Artist Filtering System ---
 
 // FilterArtists filters artists based on criteria like creation date, album date, location, and member count.
-func (r *Repository) FilterArtists(criteria ArtistFilterParams) []Artist {
-	var filtered []Artist
+func (s *Service) FilterArtists(criteria ArtistFilterParams) []Artist {
+	artists := s.store.Artists()
+	if len(artists) == 0 {
+		return nil
+	}
 
-	for _, artist := range r.artists {
-		if r.matchesArtistFilters(artist, criteria) {
+	var filtered []Artist
+	for _, artist := range artists {
+		if s.matchesArtistFilters(artist, criteria) {
 			filtered = append(filtered, artist)
 		}
 	}
@@ -69,7 +73,7 @@ func (r *Repository) FilterArtists(criteria ArtistFilterParams) []Artist {
 }
 
 // matchesArtistFilters checks if an artist matches all specified filter criteria.
-func (r *Repository) matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
+func (s *Service) matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 	// Creation year range filter
 	if params.CreationYearFrom != nil && artist.CreationYear < *params.CreationYearFrom {
 		return false
@@ -80,7 +84,7 @@ func (r *Repository) matchesArtistFilters(artist Artist, params ArtistFilterPara
 
 	// First album year filter (extract year from date string)
 	if params.FirstAlbumYearFrom != nil || params.FirstAlbumYearTo != nil {
-		albumYear := r.extractYearFromDate(artist.FirstAlbum)
+		albumYear := s.extractYearFromDate(artist.FirstAlbum)
 		if albumYear > 0 {
 			if params.FirstAlbumYearFrom != nil && albumYear < *params.FirstAlbumYearFrom {
 				return false
@@ -133,18 +137,22 @@ func (r *Repository) matchesArtistFilters(artist Artist, params ArtistFilterPara
 }
 
 // GetArtistFilterOptions returns the precomputed artist filter metadata from the store.
-func (r *Repository) GetArtistFilterOptions() ArtistFilterOptions {
-	return r.store.ArtistFilterOptions()
+func (s *Service) GetArtistFilterOptions() ArtistFilterOptions {
+	return s.store.ArtistFilterOptions()
 }
 
 // --- Location Filtering System ---
 
 // FilterLocations filters locations based on concert count, artist count, year range, and country.
-func (r *Repository) FilterLocations(params LocationFilterParams) []Location {
-	var filtered []Location
+func (s *Service) FilterLocations(params LocationFilterParams) []Location {
+	locations := s.store.Locations()
+	if len(locations) == 0 {
+		return nil
+	}
 
-	for _, location := range r.locations {
-		if r.matchesLocationFilters(location, params) {
+	var filtered []Location
+	for _, location := range locations {
+		if s.matchesLocationFilters(location, params) {
 			filtered = append(filtered, location)
 		}
 	}
@@ -153,7 +161,7 @@ func (r *Repository) FilterLocations(params LocationFilterParams) []Location {
 }
 
 // matchesLocationFilters checks if a location matches all specified filter criteria.
-func (r *Repository) matchesLocationFilters(location Location, params LocationFilterParams) bool {
+func (s *Service) matchesLocationFilters(location Location, params LocationFilterParams) bool {
 	// Concert count range filter
 	if params.ConcertCountFrom != nil && location.TotalConcerts < *params.ConcertCountFrom {
 		return false
@@ -180,7 +188,7 @@ func (r *Repository) matchesLocationFilters(location Location, params LocationFi
 
 	// Country filter - check if location's country is in the allowed list
 	if len(params.Countries) > 0 {
-		locationCountry := r.extractCountryFromLocation(location.Name)
+		locationCountry := s.extractCountryFromLocation(location.Name)
 		found := false
 		for _, allowedCountry := range params.Countries {
 			if locationCountry == allowedCountry {
@@ -197,6 +205,6 @@ func (r *Repository) matchesLocationFilters(location Location, params LocationFi
 }
 
 // GetLocationFilterOptions returns the precomputed location filter metadata from the store.
-func (r *Repository) GetLocationFilterOptions() LocationFilterOptions {
-	return r.store.LocationFilterOptions()
+func (s *Service) GetLocationFilterOptions() LocationFilterOptions {
+	return s.store.LocationFilterOptions()
 }

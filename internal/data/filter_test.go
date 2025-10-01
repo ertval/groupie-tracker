@@ -300,9 +300,7 @@ func createMockRepository(t *testing.T) *Repository {
 	}
 
 	store := NewStoreFromFixtures(mockArtists, nil)
-	repo := &Repository{store: store}
-	repo.syncFromStore()
-	return repo
+	return &Repository{store: store, svc: newService(store)}
 }
 
 func getArtistNames(artists []Artist) []string {

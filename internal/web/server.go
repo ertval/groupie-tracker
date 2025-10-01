@@ -13,10 +13,10 @@ import (
 	"groupie-tracker/internal/data"
 )
 
-// Server encapsulates server dependencies with repository and cached data.
+// Server encapsulates server dependencies with data services and cached data.
 type Server struct {
-	// Direct repository access (eliminates service layer facade)
-	repo *data.Repository
+	// Business service exposing read-only data operations
+	svc *data.Service
 
 	// Pre-compiled templates for rendering
 	templates map[string]*template.Template
@@ -40,15 +40,15 @@ func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
 	// Create server instance
 	server := &Server{}
 
-	// Initialize repository with injected API client
-	server.repo = data.NewRepository(apiClient, withCache)
+	// Initialize service with injected API client
+	server.svc = data.NewService(apiClient, withCache)
 
 	// Load all data from external API with timeout protection
 	log.Println("Loading initial data...")
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	err := server.repo.LoadData(loadCtx)
+	err := server.svc.Load(loadCtx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
@@ -60,8 +60,8 @@ func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
 	server.loadTemplates()
 
 	// Log startup summary with cache status and performance metrics
-	stats := server.repo.GetAppStats()
-	if !server.repo.IsCacheEnabled() {
+	stats := server.svc.Stats()
+	if !server.svc.CacheEnabled() {
 		log.Printf("Data loaded - %d artists (caching disabled)", stats.TotalArtists)
 	} else {
 		log.Printf("Data loaded with cache - %d artists", stats.TotalArtists)

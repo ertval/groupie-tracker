@@ -11,21 +11,16 @@ import (
 // New code should prefer using Store directly.
 type Repository struct {
 	store *Store
-	// Re-expose Store fields for backward compatibility with filtering/search/test code
-	artists         []Artist
-	locations       []Location
-	artistsByID     map[int]Artist
-	artistsBySlug   map[string]Artist
-	locationsBySlug map[string]Location
-	cacheEnabled    bool
+	svc   *Service
 }
 
 // NewRepository creates a new repository instance with the provided API client.
 func NewRepository(apiClient *api.Client, withCache bool) *Repository {
-	repo := &Repository{
-		store: NewStore(apiClient, withCache),
+	store := NewStore(apiClient, withCache)
+	return &Repository{
+		store: store,
+		svc:   newService(store),
 	}
-	return repo
 }
 
 // LoadData orchestrates the complete data loading and processing pipeline.
@@ -34,19 +29,7 @@ func (r *Repository) LoadData(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	// Update exposed fields for backward compatibility
-	r.syncFromStore()
 	return nil
-}
-
-// syncFromStore updates the Repository's exposed fields from the Store.
-func (r *Repository) syncFromStore() {
-	r.artists = r.store.Artists()
-	r.locations = r.store.Locations()
-	r.artistsByID = r.store.artistsByID
-	r.artistsBySlug = r.store.artistsBySlug
-	r.locationsBySlug = r.store.locationsBySlug
-	r.cacheEnabled = r.store.CacheEnabled()
 }
 
 // GetArtists returns all artists sorted by name.
@@ -81,35 +64,7 @@ func (r *Repository) GetAppStats() AppStats {
 
 // GetAdjacentArtists finds the previous and next artists in alphabetical order.
 func (r *Repository) GetAdjacentArtists(currentID int) (prev, next *Artist) {
-	artists := r.store.Artists()
-	if len(artists) == 0 {
-		return nil, nil
-	}
-
-	// Find the current artist index
-	currentIndex := -1
-	for i, artist := range artists {
-		if artist.ID == currentID {
-			currentIndex = i
-			break
-		}
-	}
-
-	if currentIndex == -1 {
-		return nil, nil
-	}
-
-	// Get previous artist (if not first)
-	if currentIndex > 0 {
-		prev = &artists[currentIndex-1]
-	}
-
-	// Get next artist (if not last)
-	if currentIndex < len(artists)-1 {
-		next = &artists[currentIndex+1]
-	}
-
-	return prev, next
+	return r.svc.GetAdjacentArtists(currentID)
 }
 
 // IsCacheEnabled returns true if image caching is enabled and functional.
@@ -120,4 +75,34 @@ func (r *Repository) IsCacheEnabled() bool {
 // convertCountriesMapToSlice is a helper for tests (backward compatibility).
 func (r *Repository) convertCountriesMapToSlice(countriesMap map[string]bool) []string {
 	return r.store.convertCountriesMapToSlice(countriesMap)
+}
+
+// FilterArtists filters artists based on the given criteria (compatibility wrapper).
+func (r *Repository) FilterArtists(criteria ArtistFilterParams) []Artist {
+	return r.svc.FilterArtists(criteria)
+}
+
+// FilterLocations filters locations based on the given criteria (compatibility wrapper).
+func (r *Repository) FilterLocations(criteria LocationFilterParams) []Location {
+	return r.svc.FilterLocations(criteria)
+}
+
+// SearchArtists searches for artists matching the query and optional filters (compatibility wrapper).
+func (r *Repository) SearchArtists(params SearchParams) SearchResult {
+	return r.svc.SearchArtists(params)
+}
+
+// GetArtistFilterOptions returns all available filter options for artists (compatibility wrapper).
+func (r *Repository) GetArtistFilterOptions() ArtistFilterOptions {
+	return r.svc.GetArtistFilterOptions()
+}
+
+// GetLocationFilterOptions returns all available filter options for locations (compatibility wrapper).
+func (r *Repository) GetLocationFilterOptions() LocationFilterOptions {
+	return r.svc.GetLocationFilterOptions()
+}
+
+// GenerateAllSearchSuggestions returns precomputed search suggestion data (compatibility wrapper).
+func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
+	return r.svc.GenerateAllSearchSuggestions()
 }
