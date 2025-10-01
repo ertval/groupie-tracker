@@ -96,11 +96,11 @@ func TestNewServer(t *testing.T) {
 	if server.repo == nil {
 		t.Error("Expected repository to be initialized")
 	}
-	if server.suggestions == nil {
-		t.Error("Expected cached suggestions to be initialized")
+	if server.searchCache == nil {
+		t.Error("Expected search cache map to be initialized")
 	}
-	if len(server.suggestions) == 0 {
-		t.Error("Expected cached suggestions to contain data")
+	if server.cacheSize == 0 {
+		t.Error("Expected search cache size to be configured")
 	}
 	if server.templates == nil {
 		t.Error("Expected templates to be initialized")
@@ -298,7 +298,7 @@ func TestDirectRepositoryAccess(t *testing.T) {
 	}
 
 	// Test cached suggestions
-	suggestions := server.suggestions
+	suggestions := server.repo.GenerateAllSearchSuggestions()
 	if len(suggestions) == 0 {
 		t.Error("Cached suggestions should be available")
 	}
@@ -332,11 +332,8 @@ func TestNoServiceLayerAntiPatterns(t *testing.T) {
 	if server1.repo == nil {
 		t.Error("Server should have direct repository access")
 	}
-	if server1.suggestions == nil {
-		t.Error("Server should have cached suggestions")
-	}
-	if len(server1.suggestions) == 0 {
-		t.Error("Server should have populated cached suggestions")
+	if len(server1.repo.GenerateAllSearchSuggestions()) == 0 {
+		t.Error("Repository-backed suggestions should be populated")
 	}
 	if server1.templates == nil {
 		t.Error("Server should have compiled templates")

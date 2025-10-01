@@ -10,25 +10,20 @@ import (
 
 	"groupie-tracker/internal/api"
 	"groupie-tracker/internal/config"
-	"groupie-tracker/internal/domain"
+	"groupie-tracker/internal/data"
 )
 
 // Server encapsulates server dependencies with repository and cached data.
 type Server struct {
 	// Direct repository access (eliminates service layer facade)
-	repo *domain.Repository
+	repo *data.Repository
 
 	// Pre-compiled templates for rendering
 	templates map[string]*template.Template
 
-	// Cached expensive computations (computed once at startup)
-	suggestions        []domain.SearchSuggestion    // All search suggestions cached
-	artistFilterOpts   domain.ArtistFilterOptions   // Artist filter options cached
-	locationFilterOpts domain.LocationFilterOptions // Location filter options cached
-
 	// Lightweight search query cache (for frequent searches)
-	searchCache map[string][]domain.Artist // Key: normalized query, Value: search results
-	cacheSize   int                        // Maximum number of cached queries
+	searchCache map[string][]data.Artist // Key: normalized query, Value: search results
+	cacheSize   int                      // Maximum number of cached queries
 
 	// HTTP server instance
 	httpServer *http.Server
@@ -46,7 +41,7 @@ func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
 	server := &Server{}
 
 	// Initialize repository with injected API client
-	server.repo = domain.NewRepository(apiClient, withCache)
+	server.repo = data.NewRepository(apiClient, withCache)
 
 	// Load all data from external API with timeout protection
 	log.Println("Loading initial data...")
@@ -58,8 +53,8 @@ func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 
-	// Initialize expensive computations cache
-	server.initializeCaches()
+	// Initialize in-memory search cache
+	server.initializeSearchCache()
 
 	// Compile all HTML templates once at startup
 	server.loadTemplates()
@@ -98,22 +93,14 @@ func (s *Server) ListenAndServe() error {
 	return s.httpServer.ListenAndServe()
 }
 
-// initializeCaches pre-computes expensive operations and stores them for O(1) access
-func (s *Server) initializeCaches() {
-	// Cache all search suggestions (expensive to generate on each request)
-	s.suggestions = s.repo.GenerateAllSearchSuggestions()
-
-	// Cache filter options (expensive to compute min/max ranges)
-	s.artistFilterOpts = s.repo.GetArtistFilterOptions()
-	s.locationFilterOpts = s.repo.GetLocationFilterOptions()
-
-	// Initialize search query cache (lightweight LRU-style cache)
-	s.searchCache = make(map[string][]domain.Artist)
+// initializeSearchCache prepares the in-memory search cache.
+func (s *Server) initializeSearchCache() {
+	s.searchCache = make(map[string][]data.Artist)
 	s.cacheSize = 50 // Reasonable cache size for frequent searches
 }
 
 // getCachedSearchResults retrieves cached search results.
-func (s *Server) getCachedSearchResults(normalizedQuery string) ([]domain.Artist, bool) {
+func (s *Server) getCachedSearchResults(normalizedQuery string) ([]data.Artist, bool) {
 	if results, found := s.searchCache[normalizedQuery]; found {
 		return results, true
 	}
@@ -121,11 +108,11 @@ func (s *Server) getCachedSearchResults(normalizedQuery string) ([]domain.Artist
 }
 
 // setCachedSearchResults stores search results in cache.
-func (s *Server) setCachedSearchResults(normalizedQuery string, results []domain.Artist) {
+func (s *Server) setCachedSearchResults(normalizedQuery string, results []data.Artist) {
 	// Simple cache eviction: if at capacity, clear cache (could be more sophisticated)
 	if len(s.searchCache) >= s.cacheSize {
 		// Clear half the cache to make room (simple eviction strategy)
-		newCache := make(map[string][]domain.Artist, s.cacheSize)
+		newCache := make(map[string][]data.Artist, s.cacheSize)
 		count := 0
 		for key, value := range s.searchCache {
 			if count >= s.cacheSize/2 {

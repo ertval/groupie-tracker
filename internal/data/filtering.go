@@ -1,7 +1,6 @@
-package domain
+package data
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -133,80 +132,9 @@ func (r *Repository) matchesArtistFilters(artist Artist, params ArtistFilterPara
 	return true
 }
 
-// GetArtistFilterOptions computes available filter options from the artist dataset.
+// GetArtistFilterOptions returns the precomputed artist filter metadata from the store.
 func (r *Repository) GetArtistFilterOptions() ArtistFilterOptions {
-	if len(r.artists) == 0 {
-		return ArtistFilterOptions{}
-	}
-
-	// Initialize with first artist's values
-	minCreationYear, maxCreationYear := r.artists[0].CreationYear, r.artists[0].CreationYear
-	minFirstAlbumYear, maxFirstAlbumYear := 0, 0
-	memberCountSet := make(map[int]bool)
-	countrySet := make(map[string]bool)
-
-	for _, artist := range r.artists {
-		// Creation year range
-		if artist.CreationYear < minCreationYear {
-			minCreationYear = artist.CreationYear
-		}
-		if artist.CreationYear > maxCreationYear {
-			maxCreationYear = artist.CreationYear
-		}
-
-		// First album year range
-		albumYear := r.extractYearFromDate(artist.FirstAlbum)
-		if albumYear > 0 {
-			if minFirstAlbumYear == 0 || albumYear < minFirstAlbumYear {
-				minFirstAlbumYear = albumYear
-			}
-			if albumYear > maxFirstAlbumYear {
-				maxFirstAlbumYear = albumYear
-			}
-		}
-
-		// Collect unique member counts
-		memberCount := len(artist.Members)
-		memberCountSet[memberCount] = true
-
-		// Collect unique countries from pre-computed Countries field
-		for _, country := range artist.Countries {
-			if country != "" {
-				countrySet[country] = true
-			}
-		}
-	}
-
-	// Convert member count set to sorted slice (1 to max)
-	memberCounts := make([]int, 0, len(memberCountSet))
-	for count := range memberCountSet {
-		memberCounts = append(memberCounts, count)
-	}
-	sort.Ints(memberCounts)
-
-	// Convert country set to sorted slice
-	countries := make([]string, 0, len(countrySet))
-	for country := range countrySet {
-		countries = append(countries, country)
-	}
-	sort.Strings(countries)
-
-	// Set default first album year range if no valid years found
-	if minFirstAlbumYear == 0 {
-		minFirstAlbumYear = minCreationYear
-	}
-	if maxFirstAlbumYear == 0 {
-		maxFirstAlbumYear = maxCreationYear
-	}
-
-	return ArtistFilterOptions{
-		CreationYearMin:   minCreationYear,
-		CreationYearMax:   maxCreationYear,
-		FirstAlbumYearMin: minFirstAlbumYear,
-		FirstAlbumYearMax: maxFirstAlbumYear,
-		MemberCounts:      memberCounts,
-		Countries:         countries,
-	}
+	return r.store.ArtistFilterOptions()
 }
 
 // --- Location Filtering System ---
@@ -268,64 +196,7 @@ func (r *Repository) matchesLocationFilters(location Location, params LocationFi
 	return true
 }
 
-// GetLocationFilterOptions computes available filter options from the location dataset.
+// GetLocationFilterOptions returns the precomputed location filter metadata from the store.
 func (r *Repository) GetLocationFilterOptions() LocationFilterOptions {
-	if len(r.locations) == 0 {
-		return LocationFilterOptions{}
-	}
-
-	// Initialize with first location's values
-	minConcerts, maxConcerts := r.locations[0].TotalConcerts, r.locations[0].TotalConcerts
-	minArtists, maxArtists := r.locations[0].ArtistCount, r.locations[0].ArtistCount
-	minYear, maxYear := r.locations[0].EarliestYear, r.locations[0].LatestYear
-	countrySet := make(map[string]bool)
-
-	for _, location := range r.locations {
-		// Concert count range
-		if location.TotalConcerts < minConcerts {
-			minConcerts = location.TotalConcerts
-		}
-		if location.TotalConcerts > maxConcerts {
-			maxConcerts = location.TotalConcerts
-		}
-
-		// Artist count range
-		if location.ArtistCount < minArtists {
-			minArtists = location.ArtistCount
-		}
-		if location.ArtistCount > maxArtists {
-			maxArtists = location.ArtistCount
-		}
-
-		// Concert year range
-		if location.EarliestYear > 0 && location.EarliestYear < minYear {
-			minYear = location.EarliestYear
-		}
-		if location.LatestYear > maxYear {
-			maxYear = location.LatestYear
-		}
-
-		// Collect unique countries
-		country := r.extractCountryFromLocation(location.Name)
-		if country != "" {
-			countrySet[country] = true
-		}
-	}
-
-	// Convert country set to sorted slice
-	countries := make([]string, 0, len(countrySet))
-	for country := range countrySet {
-		countries = append(countries, country)
-	}
-	sort.Strings(countries)
-
-	return LocationFilterOptions{
-		ConcertCountMin: minConcerts,
-		ConcertCountMax: maxConcerts,
-		ArtistCountMin:  minArtists,
-		ArtistCountMax:  maxArtists,
-		ConcertYearMin:  minYear,
-		ConcertYearMax:  maxYear,
-		Countries:       countries,
-	}
+	return r.store.LocationFilterOptions()
 }

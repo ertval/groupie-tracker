@@ -1,4 +1,4 @@
-package domain
+package data
 
 import (
 	"testing"
@@ -280,8 +280,6 @@ func TestRepository_GetFilterOptions(t *testing.T) {
 // Helper functions
 
 func createMockRepository(t *testing.T) *Repository {
-	repo := &Repository{}
-
 	// Create mock artists with diverse data for testing
 	mockArtists := []Artist{
 		{ID: 1, Name: "Queen", Members: []string{"Freddie Mercury", "Brian May", "Roger Taylor", "John Deacon", "Mike Grose", "Barry Mitchell", "Doug Fogie"}, CreationYear: 1970, FirstAlbum: "14-07-1973", Concerts: []Concert{{Location: "london-uk"}, {Location: "new-york-usa"}}},
@@ -301,28 +299,9 @@ func createMockRepository(t *testing.T) *Repository {
 		{ID: 15, Name: "Red Hot Chili Peppers", Members: []string{"Anthony Kiedis", "Flea", "Chad Smith", "John Frusciante"}, CreationYear: 1982, FirstAlbum: "1991", Concerts: []Concert{{Location: "los-angeles-california-usa"}}},
 	}
 
-	// Process mock artists to populate Countries field like the real repository does
-	for i := range mockArtists {
-		artist := &mockArtists[i]
-		countries := make(map[string]bool)
-		for _, concert := range artist.Concerts {
-			country := repo.extractCountryFromLocation(concert.Location)
-			if country != "" {
-				countries[country] = true
-			}
-		}
-		artist.Countries = repo.convertCountriesMapToSlice(countries)
-	}
-
-	repo.artists = mockArtists
-	repo.artistsByID = make(map[int]Artist)
-	repo.artistsBySlug = make(map[string]Artist)
-
-	for _, artist := range mockArtists {
-		repo.artistsByID[artist.ID] = artist
-		repo.artistsBySlug[createSlug(artist.Name)] = artist
-	}
-
+	store := NewStoreFromFixtures(mockArtists, nil)
+	repo := &Repository{store: store}
+	repo.syncFromStore()
 	return repo
 }
 

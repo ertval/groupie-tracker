@@ -1,4 +1,4 @@
-package domain
+package data
 
 import (
 	"context"
@@ -115,41 +115,6 @@ func (r *Repository) GetAdjacentArtists(currentID int) (prev, next *Artist) {
 // IsCacheEnabled returns true if image caching is enabled and functional.
 func (r *Repository) IsCacheEnabled() bool {
 	return r.store.CacheEnabled()
-}
-
-// SetTestData allows tests to populate the repository with test data.
-// This is a legacy method for backward compatibility with existing tests.
-func (r *Repository) SetTestData(artists []Artist, locations []Location) {
-	// Bypass the Store's normal loading mechanism for testing
-	r.store.artists = artists
-	r.store.locations = locations
-
-	// Build indexes
-	r.store.artistsByID = make(map[int]Artist)
-	r.store.artistsBySlug = make(map[string]Artist)
-	for _, artist := range artists {
-		r.store.artistsByID[artist.ID] = artist
-		r.store.artistsBySlug[artist.Slug] = artist
-	}
-
-	r.store.locationsBySlug = make(map[string]Location)
-	for _, location := range locations {
-		r.store.locationsBySlug[location.Slug] = location
-	}
-
-	// Mock stats
-	r.store.appStats = AppStats{
-		TotalArtists:     len(artists),
-		TotalMembers:     0,
-		TotalLocations:   len(locations),
-		TotalConcerts:    0,
-		TotalCountries:   0,
-		CachedImages:     0,
-		DownloadedImages: 0,
-	}
-
-	// Sync to Repository fields
-	r.syncFromStore()
 }
 
 // convertCountriesMapToSlice is a helper for tests (backward compatibility).

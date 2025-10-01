@@ -1,4 +1,4 @@
-package domain
+package data
 
 // Artist represents the complete internal model of a music artist.
 type Artist struct {

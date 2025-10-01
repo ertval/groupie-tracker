@@ -1,7 +1,6 @@
-package domain
+package data
 
 import (
-	"sort"
 	"strconv"
 	"strings"
 )
@@ -114,92 +113,9 @@ func isEmptyFilter(filters ArtistFilterParams) bool {
 		len(filters.Countries) == 0
 }
 
-// GenerateAllSearchSuggestions creates search suggestions for autocomplete.
+// GenerateAllSearchSuggestions returns the precomputed suggestion cache.
 func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
-	var suggestions []SearchSuggestion
-	seenSuggestions := make(map[string]bool)
-
-	for _, artist := range r.artists {
-		// Add artist name suggestion
-		artistKey := "artist:" + artist.Name
-		if !seenSuggestions[artistKey] {
-			suggestions = append(suggestions, newSearchSuggestion(
-				artist.Name+" - artist",
-				string(SuggestionTypeArtist),
-				artist.Name+" - artist",
-				"/artists/"+artist.Slug,
-				artist.ID,
-			))
-			seenSuggestions[artistKey] = true
-		}
-
-		// Add member suggestions
-		for _, member := range artist.Members {
-			memberKey := "member:" + member
-			if !seenSuggestions[memberKey] {
-				suggestions = append(suggestions, newSearchSuggestion(
-					member+" - member",
-					string(SuggestionTypeMember),
-					member+" - member of "+artist.Name,
-					"/artists/"+artist.Slug,
-					artist.ID,
-				))
-				seenSuggestions[memberKey] = true
-			}
-		}
-
-		// Add location suggestions
-		for location := range artist.DatesAtLocation {
-			locationKey := "location:" + location
-			if !seenSuggestions[locationKey] {
-				suggestions = append(suggestions, newSearchSuggestion(
-					location+" - location",
-					string(SuggestionTypeLocation),
-					location+" - concert location",
-					"/search?q="+location,
-					0, // Not specific to one artist
-				))
-				seenSuggestions[locationKey] = true
-			}
-		}
-
-		// Add creation year suggestion
-		creationYearStr := strconv.Itoa(artist.CreationYear)
-		yearKey := "creation:" + creationYearStr
-		if !seenSuggestions[yearKey] {
-			suggestions = append(suggestions, newSearchSuggestion(
-				creationYearStr+" - creation year",
-				string(SuggestionTypeCreation),
-				"Artists created in "+creationYearStr,
-				"/search?q="+creationYearStr,
-				0,
-			))
-			seenSuggestions[yearKey] = true
-		}
-
-		// Add first album date suggestion
-		albumKey := "album:" + artist.FirstAlbum
-		if !seenSuggestions[albumKey] {
-			suggestions = append(suggestions, newSearchSuggestion(
-				artist.FirstAlbum+" - first album",
-				string(SuggestionTypeFirstAlbum),
-				"Albums released on "+artist.FirstAlbum,
-				"/search?q="+artist.FirstAlbum,
-				0,
-			))
-			seenSuggestions[albumKey] = true
-		}
-	}
-
-	// Sort suggestions by type and then by text for consistent ordering
-	sort.Slice(suggestions, func(i, j int) bool {
-		if suggestions[i].Type != suggestions[j].Type {
-			return suggestions[i].Type < suggestions[j].Type
-		}
-		return suggestions[i].Text < suggestions[j].Text
-	})
-
-	return suggestions
+	return r.store.Suggestions()
 }
 
 // locationMatches checks if a location name matches a search query.

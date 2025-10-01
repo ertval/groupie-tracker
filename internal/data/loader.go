@@ -1,4 +1,4 @@
-package domain
+package data
 
 import (
 	"fmt"
@@ -8,8 +8,10 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"groupie-tracker/internal/api"
 )
@@ -94,26 +96,27 @@ func (s *Store) addConcertData(artists []Artist, apiRelations api.Relation) []Ar
 	return artists
 }
 
-// buildIndexes creates fast lookup maps and stores the processed artists.
-func (s *Store) buildIndexes(artists []Artist) {
-	s.artists = artists
-	s.artistsByID = make(map[int]Artist, len(artists))
-	s.artistsBySlug = make(map[string]Artist, len(artists))
+// createArtistIndexes builds lookup maps for artists by ID and slug.
+func (s *Store) createArtistIndexes(artists []Artist) (map[int]Artist, map[string]Artist) {
+	artistsByID := make(map[int]Artist, len(artists))
+	artistsBySlug := make(map[string]Artist, len(artists))
 
 	for _, artist := range artists {
-		s.artistsByID[artist.ID] = artist
-		s.artistsBySlug[artist.Slug] = artist
+		artistsByID[artist.ID] = artist
+		artistsBySlug[artist.Slug] = artist
 	}
+
+	return artistsByID, artistsBySlug
 }
 
-// buildLocations creates location aggregates from artist concert data.
-func (s *Store) buildLocations() {
-	locations := s.createLocations(s.artists)
-	s.locations = locations
-	s.locationsBySlug = make(map[string]Location, len(locations))
+// createLocationsData builds location aggregates and lookup maps.
+func (s *Store) createLocationsData(artists []Artist) ([]Location, map[string]Location) {
+	locations := s.createLocations(artists)
+	locationsBySlug := make(map[string]Location, len(locations))
 	for _, location := range locations {
-		s.locationsBySlug[location.Slug] = location
+		locationsBySlug[location.Slug] = location
 	}
+	return locations, locationsBySlug
 }
 
 // createLocations builds location models from artist concert data.
@@ -200,13 +203,219 @@ func (s *Store) createLocations(artists []Artist) []Location {
 	return locations
 }
 
-// computeStats calculates application statistics from loaded data.
-func (s *Store) computeStats() {
+// calculateArtistFilterOptions derives available artist filter metadata from the dataset.
+func (s *Store) calculateArtistFilterOptions(artists []Artist) ArtistFilterOptions {
+	if len(artists) == 0 {
+		return ArtistFilterOptions{}
+	}
+
+	minCreationYear, maxCreationYear := artists[0].CreationYear, artists[0].CreationYear
+	minFirstAlbumYear, maxFirstAlbumYear := 0, 0
+	memberCountSet := make(map[int]bool)
+	countrySet := make(map[string]bool)
+
+	for _, artist := range artists {
+		if artist.CreationYear < minCreationYear {
+			minCreationYear = artist.CreationYear
+		}
+		if artist.CreationYear > maxCreationYear {
+			maxCreationYear = artist.CreationYear
+		}
+
+		albumYear := s.extractYearFromDate(artist.FirstAlbum)
+		if albumYear > 0 {
+			if minFirstAlbumYear == 0 || albumYear < minFirstAlbumYear {
+				minFirstAlbumYear = albumYear
+			}
+			if albumYear > maxFirstAlbumYear {
+				maxFirstAlbumYear = albumYear
+			}
+		}
+
+		memberCount := len(artist.Members)
+		memberCountSet[memberCount] = true
+
+		for _, country := range artist.Countries {
+			if country != "" {
+				countrySet[country] = true
+			}
+		}
+	}
+
+	memberCounts := make([]int, 0, len(memberCountSet))
+	for count := range memberCountSet {
+		memberCounts = append(memberCounts, count)
+	}
+	sort.Ints(memberCounts)
+
+	countries := make([]string, 0, len(countrySet))
+	for country := range countrySet {
+		countries = append(countries, country)
+	}
+	sort.Strings(countries)
+
+	if minFirstAlbumYear == 0 {
+		minFirstAlbumYear = minCreationYear
+	}
+	if maxFirstAlbumYear == 0 {
+		maxFirstAlbumYear = maxCreationYear
+	}
+
+	return ArtistFilterOptions{
+		CreationYearMin:   minCreationYear,
+		CreationYearMax:   maxCreationYear,
+		FirstAlbumYearMin: minFirstAlbumYear,
+		FirstAlbumYearMax: maxFirstAlbumYear,
+		MemberCounts:      memberCounts,
+		Countries:         countries,
+	}
+}
+
+// calculateLocationFilterOptions derives available location filter metadata.
+func (s *Store) calculateLocationFilterOptions(locations []Location) LocationFilterOptions {
+	if len(locations) == 0 {
+		return LocationFilterOptions{}
+	}
+
+	minConcerts, maxConcerts := locations[0].TotalConcerts, locations[0].TotalConcerts
+	minArtists, maxArtists := locations[0].ArtistCount, locations[0].ArtistCount
+	minYear, maxYear := locations[0].EarliestYear, locations[0].LatestYear
+	countrySet := make(map[string]bool)
+
+	for _, location := range locations {
+		if location.TotalConcerts < minConcerts {
+			minConcerts = location.TotalConcerts
+		}
+		if location.TotalConcerts > maxConcerts {
+			maxConcerts = location.TotalConcerts
+		}
+
+		if location.ArtistCount < minArtists {
+			minArtists = location.ArtistCount
+		}
+		if location.ArtistCount > maxArtists {
+			maxArtists = location.ArtistCount
+		}
+
+		if location.EarliestYear > 0 && location.EarliestYear < minYear {
+			minYear = location.EarliestYear
+		}
+		if location.LatestYear > maxYear {
+			maxYear = location.LatestYear
+		}
+
+		country := s.extractCountryFromLocation(location.Name)
+		if country != "" {
+			countrySet[country] = true
+		}
+	}
+
+	countries := make([]string, 0, len(countrySet))
+	for country := range countrySet {
+		countries = append(countries, country)
+	}
+	sort.Strings(countries)
+
+	return LocationFilterOptions{
+		ConcertCountMin: minConcerts,
+		ConcertCountMax: maxConcerts,
+		ArtistCountMin:  minArtists,
+		ArtistCountMax:  maxArtists,
+		ConcertYearMin:  minYear,
+		ConcertYearMax:  maxYear,
+		Countries:       countries,
+	}
+}
+
+// generateSearchSuggestions pre-computes autocomplete suggestions from the dataset.
+func (s *Store) generateSearchSuggestions(artists []Artist) []SearchSuggestion {
+	var suggestions []SearchSuggestion
+	seen := make(map[string]bool)
+
+	for _, artist := range artists {
+		artistKey := "artist:" + artist.Name
+		if !seen[artistKey] {
+			suggestions = append(suggestions, newSearchSuggestion(
+				artist.Name+" - artist",
+				string(SuggestionTypeArtist),
+				artist.Name+" - artist",
+				"/artists/"+artist.Slug,
+				artist.ID,
+			))
+			seen[artistKey] = true
+		}
+
+		for _, member := range artist.Members {
+			memberKey := "member:" + member
+			if !seen[memberKey] {
+				suggestions = append(suggestions, newSearchSuggestion(
+					member+" - member",
+					string(SuggestionTypeMember),
+					member+" - member of "+artist.Name,
+					"/artists/"+artist.Slug,
+					artist.ID,
+				))
+				seen[memberKey] = true
+			}
+		}
+
+		for location := range artist.DatesAtLocation {
+			locationKey := "location:" + location
+			if !seen[locationKey] {
+				suggestions = append(suggestions, newSearchSuggestion(
+					location+" - location",
+					string(SuggestionTypeLocation),
+					location+" - concert location",
+					"/search?q="+location,
+					0,
+				))
+				seen[locationKey] = true
+			}
+		}
+
+		creationYear := strconv.Itoa(artist.CreationYear)
+		yearKey := "creation:" + creationYear
+		if !seen[yearKey] {
+			suggestions = append(suggestions, newSearchSuggestion(
+				creationYear+" - creation year",
+				string(SuggestionTypeCreation),
+				"Artists created in "+creationYear,
+				"/search?q="+creationYear,
+				0,
+			))
+			seen[yearKey] = true
+		}
+
+		albumKey := "album:" + artist.FirstAlbum
+		if !seen[albumKey] {
+			suggestions = append(suggestions, newSearchSuggestion(
+				artist.FirstAlbum+" - first album",
+				string(SuggestionTypeFirstAlbum),
+				"Albums released on "+artist.FirstAlbum,
+				"/search?q="+artist.FirstAlbum,
+				0,
+			))
+			seen[albumKey] = true
+		}
+	}
+
+	sort.Slice(suggestions, func(i, j int) bool {
+		if suggestions[i].Type != suggestions[j].Type {
+			return suggestions[i].Type < suggestions[j].Type
+		}
+		return suggestions[i].Text < suggestions[j].Text
+	})
+
+	return suggestions
+}
+
+// calculateStats computes application statistics from derived data.
+func (s *Store) calculateStats(artists []Artist, locations []Location, cachedImages, downloadedImages int) AppStats {
 	totalMembers := 0
 	totalConcerts := 0
 	countries := make(map[string]bool)
 
-	for _, artist := range s.artists {
+	for _, artist := range artists {
 		totalMembers += len(artist.Members)
 		totalConcerts += artist.ConcertCount
 
@@ -215,27 +424,27 @@ func (s *Store) computeStats() {
 		}
 	}
 
-	s.appStats = AppStats{
-		TotalArtists:   len(s.artists),
-		TotalMembers:   totalMembers,
-		TotalLocations: len(s.locations),
-		TotalConcerts:  totalConcerts,
-		TotalCountries: len(countries),
-		// Cache stats will be set by cacheImages if enabled
+	return AppStats{
+		TotalArtists:     len(artists),
+		TotalMembers:     totalMembers,
+		TotalLocations:   len(locations),
+		TotalConcerts:    totalConcerts,
+		TotalCountries:   len(countries),
+		CachedImages:     cachedImages,
+		DownloadedImages: downloadedImages,
 	}
 }
 
 // cacheImages downloads and caches artist images locally when caching is enabled.
-// Returns true if caching is successfully enabled.
-// Uses a worker pool for concurrent downloads.
-func (s *Store) cacheImages(artists []Artist) bool {
+// Returns whether caching was enabled along with cached/downloaded image counts.
+func (s *Store) cacheImages(artists []Artist) (bool, int, int) {
 	if !s.withCache {
-		return false
+		return false, 0, 0
 	}
 
 	cacheDir := "static/img/artists"
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
-		return false
+		return false, 0, 0
 	}
 
 	// Use worker pool for concurrent downloads
@@ -294,28 +503,23 @@ func (s *Store) cacheImages(artists []Artist) bool {
 					mu.Lock()
 					j.artist.Image = j.localPath
 					mu.Unlock()
-					cached++
+					atomic.AddInt32(&cached, 1)
 				} else {
 					// Download image
 					if downloadImage(j.artist.Image, j.filePath) {
 						mu.Lock()
 						j.artist.Image = j.localPath
 						mu.Unlock()
-						downloaded++
+						atomic.AddInt32(&downloaded, 1)
 					}
 				}
 			}
 		}()
 	}
 
-	// Wait for all workers to complete
 	wg.Wait()
 
-	// Update stats with cache information
-	s.appStats.CachedImages = int(cached)
-	s.appStats.DownloadedImages = int(downloaded)
-
-	return true
+	return true, int(atomic.LoadInt32(&cached)), int(atomic.LoadInt32(&downloaded))
 }
 
 // Helper functions

@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"groupie-tracker/internal/config"
-	"groupie-tracker/internal/domain"
+	"groupie-tracker/internal/data"
 	"html/template"
 	"log"
 	"math/rand"
@@ -177,8 +177,8 @@ func parseStringSlice(r *http.Request, fieldName string) []string {
 }
 
 // parseArtistFilterParams extracts artist filter parameters from form data.
-func parseArtistFilterParams(r *http.Request) domain.ArtistFilterParams {
-	var params domain.ArtistFilterParams
+func parseArtistFilterParams(r *http.Request) data.ArtistFilterParams {
+	var params data.ArtistFilterParams
 
 	// Use generic utilities to eliminate duplication
 	params.CreationYearFrom = parseIntPtr(r, "creationYearFrom")
@@ -192,8 +192,8 @@ func parseArtistFilterParams(r *http.Request) domain.ArtistFilterParams {
 }
 
 // parseLocationFilterParams extracts location filter parameters from form data.
-func parseLocationFilterParams(r *http.Request) domain.LocationFilterParams {
-	var params domain.LocationFilterParams
+func parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
+	var params data.LocationFilterParams
 
 	// Use generic utilities to eliminate duplication
 	params.ConcertCountFrom = parseIntPtr(r, "concertCountFrom")
@@ -235,13 +235,13 @@ func extractSearchTerm(input string) string {
 //
 // Returns a new slice containing up to maxCount randomly selected artists.
 // The original slice is not modified.
-func getRandomArtists(artists []domain.Artist, maxCount int) []domain.Artist {
+func getRandomArtists(artists []data.Artist, maxCount int) []data.Artist {
 	if len(artists) == 0 {
 		return artists
 	}
 
 	// Create a copy to avoid modifying the original slice
-	shuffled := make([]domain.Artist, len(artists))
+	shuffled := make([]data.Artist, len(artists))
 	copy(shuffled, artists)
 
 	// Shuffle the copy

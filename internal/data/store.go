@@ -1,4 +1,4 @@
-package domain
+package data
 
 import (
 	"context"
@@ -27,6 +27,9 @@ type Store struct {
 	locations       []Location
 	locationsBySlug map[string]Location
 	appStats        AppStats
+	suggestions     []SearchSuggestion
+	artistFilters   ArtistFilterOptions
+	locationFilters LocationFilterOptions
 
 	// Ensure Load is called only once
 	loadOnce sync.Once
@@ -53,10 +56,6 @@ func (s *Store) Load(ctx context.Context) error {
 // loadData performs the actual data loading (called once by Load)
 func (s *Store) loadData(ctx context.Context) error {
 	// Fetch raw data from API concurrently using goroutines
-	var apiArtists []api.Artist
-	var apiRelations api.Relation
-
-	// Channels to receive results
 	artistsCh := make(chan struct {
 		data []api.Artist
 		err  error
@@ -95,25 +94,66 @@ func (s *Store) loadData(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch relations: %w", relationsResult.err)
 	}
 
-	apiArtists = artistsResult.data
-	apiRelations = relationsResult.data
+	artists := s.processArtists(artistsResult.data, relationsResult.data)
 
-	// Transform and enrich API data into domain models
-	artists := s.processArtists(apiArtists, apiRelations)
-
-	// Build indexes for fast lookups
-	s.buildIndexes(artists)
-
-	// Cache images if enabled
+	var cachedImages, downloadedImages int
 	if s.withCache {
-		s.cacheEnabled = s.cacheImages(artists)
+		var cacheEnabled bool
+		cacheEnabled, cachedImages, downloadedImages = s.cacheImages(artists)
+		s.cacheEnabled = cacheEnabled
+	} else {
+		s.cacheEnabled = false
 	}
 
-	// Build location aggregates
-	s.buildLocations()
+	s.artists = artists
 
-	// Compute application statistics
-	s.computeStats()
+	var (
+		artistsByID     map[int]Artist
+		artistsBySlug   map[string]Artist
+		locations       []Location
+		locationsBySlug map[string]Location
+		artistFilters   ArtistFilterOptions
+		locationFilters LocationFilterOptions
+		suggestions     []SearchSuggestion
+	)
+
+	var wg sync.WaitGroup
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		artistsByID, artistsBySlug = s.createArtistIndexes(artists)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		locations, locationsBySlug = s.createLocationsData(artists)
+		locationFilters = s.calculateLocationFilterOptions(locations)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		artistFilters = s.calculateArtistFilterOptions(artists)
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		suggestions = s.generateSearchSuggestions(artists)
+	}()
+
+	wg.Wait()
+
+	s.artistsByID = artistsByID
+	s.artistsBySlug = artistsBySlug
+	s.locations = locations
+	s.locationsBySlug = locationsBySlug
+	s.artistFilters = artistFilters
+	s.locationFilters = locationFilters
+	s.suggestions = suggestions
+	s.appStats = s.calculateStats(artists, locations, cachedImages, downloadedImages)
 
 	return nil
 }
@@ -156,4 +196,19 @@ func (s *Store) Stats() AppStats {
 // CacheEnabled returns whether image caching is enabled and functional.
 func (s *Store) CacheEnabled() bool {
 	return s.cacheEnabled
+}
+
+// Suggestions returns the precomputed search suggestions for autocomplete.
+func (s *Store) Suggestions() []SearchSuggestion {
+	return s.suggestions
+}
+
+// ArtistFilterOptions returns the precomputed artist filter metadata.
+func (s *Store) ArtistFilterOptions() ArtistFilterOptions {
+	return s.artistFilters
+}
+
+// LocationFilterOptions returns the precomputed location filter metadata.
+func (s *Store) LocationFilterOptions() LocationFilterOptions {
+	return s.locationFilters
 }

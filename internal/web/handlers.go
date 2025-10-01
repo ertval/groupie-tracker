@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"groupie-tracker/internal/domain"
+	"groupie-tracker/internal/data"
 )
 
 // Home handles the home page.
@@ -23,6 +23,7 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 
 	artists := s.repo.GetArtists()
 	stats := s.repo.GetAppStats()
+	suggestions := s.repo.GenerateAllSearchSuggestions()
 
 	// Get 8 random artists for homepage display
 	artists = getRandomArtists(artists, 8)
@@ -31,15 +32,15 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		Title          string
 		ExtraCSS       string
 		ExtraJS        string
-		Suggestions    []domain.SearchSuggestion
-		Artists        []domain.Artist
+		Suggestions    []data.SearchSuggestion
+		Artists        []data.Artist
 		TotalMembers   int
 		TotalLocations int
 	}{
 		Title:          "Home",
 		ExtraCSS:       "home.css",
 		ExtraJS:        "",
-		Suggestions:    s.suggestions, // Use cached suggestions
+		Suggestions:    suggestions,
 		Artists:        artists,
 		TotalMembers:   stats.TotalMembers,
 		TotalLocations: stats.TotalLocations,
@@ -56,8 +57,9 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	artists := s.repo.GetArtists()
-	filterOptions := s.artistFilterOpts // Use cached filter options
-	var appliedFilters domain.ArtistFilterParams
+	filterOptions := s.repo.GetArtistFilterOptions()
+	suggestions := s.repo.GenerateAllSearchSuggestions()
+	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 
 	// If POST request, parse form data and apply filters
@@ -79,17 +81,17 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		Title          string
 		ExtraCSS       string
 		ExtraJS        string
-		Suggestions    []domain.SearchSuggestion
-		Artists        []domain.Artist
-		FilterOptions  domain.ArtistFilterOptions
-		AppliedFilters domain.ArtistFilterParams
+		Suggestions    []data.SearchSuggestion
+		Artists        []data.Artist
+		FilterOptions  data.ArtistFilterOptions
+		AppliedFilters data.ArtistFilterParams
 		IsFiltered     bool
 		TotalArtists   int
 	}{
 		Title:          "Artists",
 		ExtraCSS:       "artists.css",
 		ExtraJS:        "",
-		Suggestions:    s.suggestions, // Use cached suggestions
+		Suggestions:    suggestions,
 		Artists:        artists,
 		FilterOptions:  filterOptions,
 		AppliedFilters: appliedFilters,
@@ -123,20 +125,21 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Get navigation artists using on-demand lookup
 	prevArtist, nextArtist := s.repo.GetAdjacentArtists(artist.ID)
+	suggestions := s.repo.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title       string
 		ExtraCSS    string
 		ExtraJS     string
-		Suggestions []domain.SearchSuggestion
-		Artist      domain.Artist
-		PrevArtist  *domain.Artist
-		NextArtist  *domain.Artist
+		Suggestions []data.SearchSuggestion
+		Artist      data.Artist
+		PrevArtist  *data.Artist
+		NextArtist  *data.Artist
 	}{
 		Title:       artist.Name,
 		ExtraCSS:    "artist_detail.css",
 		ExtraJS:     "",
-		Suggestions: s.suggestions, // Use cached suggestions
+		Suggestions: suggestions,
 		Artist:      artist,
 		PrevArtist:  prevArtist,
 		NextArtist:  nextArtist,
@@ -153,8 +156,8 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var searchQuery string
-	var appliedFilters domain.ArtistFilterParams
-	var searchResults domain.SearchResult
+	var appliedFilters data.ArtistFilterParams
+	var searchResults data.SearchResult
 
 	// Handle search submission
 	if r.Method == http.MethodPost {
@@ -171,7 +174,7 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 		normalizedQuery := strings.ToLower(strings.TrimSpace(searchQuery))
 		cacheKey := normalizedQuery
 
-		var cachedResults []domain.Artist
+		var cachedResults []data.Artist
 		var cacheHit bool
 
 		// Only use cache for simple searches (no filters applied)
@@ -181,14 +184,14 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 
 		if cacheHit {
 			// Use cached results
-			searchResults = domain.SearchResult{
+			searchResults = data.SearchResult{
 				Artists:      cachedResults,
 				Query:        searchQuery,
 				TotalResults: len(cachedResults),
 			}
 		} else {
 			// Perform search
-			searchParams := domain.SearchParams{
+			searchParams := data.SearchParams{
 				Query:   searchQuery,
 				Filters: appliedFilters,
 			}
@@ -201,20 +204,20 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	filterOptions := s.artistFilterOpts // Use cached filter options
+	filterOptions := s.repo.GetArtistFilterOptions()
 
 	// Generate all search suggestions for datalist
-	allSuggestions := s.suggestions // Use cached suggestions
+	allSuggestions := s.repo.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title          string
 		ExtraCSS       string
 		ExtraJS        string
-		Suggestions    []domain.SearchSuggestion
+		Suggestions    []data.SearchSuggestion
 		Query          string
-		Results        domain.SearchResult
-		FilterOptions  domain.ArtistFilterOptions
-		AppliedFilters domain.ArtistFilterParams
+		Results        data.SearchResult
+		FilterOptions  data.ArtistFilterOptions
+		AppliedFilters data.ArtistFilterParams
 		IsSearch       bool
 	}{
 		Title:          "Search",
@@ -239,8 +242,9 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	locations := s.repo.GetLocations()
-	filterOptions := s.locationFilterOpts // Use cached filter options
-	var appliedFilters domain.LocationFilterParams
+	filterOptions := s.repo.GetLocationFilterOptions()
+	suggestions := s.repo.GenerateAllSearchSuggestions()
+	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
 	stats := s.repo.GetAppStats()
 
@@ -278,10 +282,10 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		Title                 string
 		ExtraCSS              string
 		ExtraJS               string
-		Suggestions           []domain.SearchSuggestion
-		Locations             []domain.Location
-		LocationFilterOptions domain.LocationFilterOptions
-		AppliedFilters        domain.LocationFilterParams
+		Suggestions           []data.SearchSuggestion
+		Locations             []data.Location
+		LocationFilterOptions data.LocationFilterOptions
+		AppliedFilters        data.LocationFilterParams
 		IsFiltered            bool
 		FilterDescription     string
 		TotalLocations        int
@@ -291,7 +295,7 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		Title:                 "Locations",
 		ExtraCSS:              "locations.css",
 		ExtraJS:               "",
-		Suggestions:           s.suggestions, // Use cached suggestions
+		Suggestions:           suggestions,
 		Locations:             locations,
 		LocationFilterOptions: filterOptions,
 		AppliedFilters:        appliedFilters,
@@ -319,20 +323,22 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	suggestions := s.repo.GenerateAllSearchSuggestions()
+
 	data := struct {
 		Title        string
 		ExtraCSS     string
 		ExtraJS      string
-		Suggestions  []domain.SearchSuggestion
-		Location     domain.Location
-		Artists      []domain.ArtistAtLocation
-		PrevLocation *domain.Location `json:"prevLocation,omitempty"`
-		NextLocation *domain.Location `json:"nextLocation,omitempty"`
+		Suggestions  []data.SearchSuggestion
+		Location     data.Location
+		Artists      []data.ArtistAtLocation
+		PrevLocation *data.Location `json:"prevLocation,omitempty"`
+		NextLocation *data.Location `json:"nextLocation,omitempty"`
 	}{
 		Title:        fmt.Sprintf("%s - Location", location.Name),
 		ExtraCSS:     "location_detail.css",
 		ExtraJS:      "",
-		Suggestions:  s.suggestions, // Use cached suggestions
+		Suggestions:  suggestions,
 		Location:     location,
 		Artists:      location.Artists,
 		PrevLocation: nil, // Could be implemented later for location navigation
@@ -352,17 +358,19 @@ func (s *Server) DevIndex(w http.ResponseWriter, r *http.Request) {
 		{"/health", "Health Check (/health)"},
 	}
 
+	suggestions := s.repo.GenerateAllSearchSuggestions()
+
 	data := struct {
 		Title       string
 		ExtraCSS    string
 		ExtraJS     string
-		Suggestions []domain.SearchSuggestion
+		Suggestions []data.SearchSuggestion
 		Links       []struct{ Href, Text string }
 	}{
 		Title:       "Developer Tools",
 		ExtraCSS:    "dev.css",
 		ExtraJS:     "",
-		Suggestions: s.suggestions, // Use cached suggestions
+		Suggestions: suggestions,
 		Links:       links,
 	}
 
@@ -375,7 +383,7 @@ func (s *Server) Error(w http.ResponseWriter, r *http.Request, status int, messa
 		Title        string
 		ExtraCSS     string
 		ExtraJS      string
-		Suggestions  []domain.SearchSuggestion
+		Suggestions  []data.SearchSuggestion
 		ErrorCode    int
 		RequestedURL string
 		Message      string
@@ -412,7 +420,8 @@ func (s *Server) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Use optimized filtering with reasonable limits
 	const maxSuggestions = 15 // Limit to avoid overwhelming the UI
-	matchingSuggestions := domain.FilterSuggestionsOptimized(s.suggestions, query, maxSuggestions)
+	suggestions := s.repo.GenerateAllSearchSuggestions()
+	matchingSuggestions := data.FilterSuggestionsOptimized(suggestions, query, maxSuggestions)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(matchingSuggestions)
@@ -490,7 +499,7 @@ func (s *Server) StaticFiles(w http.ResponseWriter, r *http.Request) {
 }
 
 // isEmptyArtistFilters checks if filter parameters are empty.
-func isEmptyArtistFilters(filters domain.ArtistFilterParams) bool {
+func isEmptyArtistFilters(filters data.ArtistFilterParams) bool {
 	return filters.CreationYearFrom == nil &&
 		filters.CreationYearTo == nil &&
 		filters.FirstAlbumYearFrom == nil &&

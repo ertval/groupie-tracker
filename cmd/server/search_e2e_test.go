@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"groupie-tracker/internal/domain"
+	"groupie-tracker/internal/data"
 	"io"
 	"net/http"
 	"net/url"
@@ -68,7 +68,7 @@ func TestSearchEndToEnd(t *testing.T) {
 			query:        "queen",
 			expectedCode: http.StatusOK,
 			checkResponse: func(t *testing.T, body string) {
-				var suggestions []domain.SearchSuggestion
+				var suggestions []data.SearchSuggestion
 				if err := json.Unmarshal([]byte(body), &suggestions); err != nil {
 					t.Errorf("Failed to parse suggestions JSON: %v", err)
 					return
@@ -82,7 +82,7 @@ func TestSearchEndToEnd(t *testing.T) {
 				// Check for Queen artist suggestion
 				found := false
 				for _, s := range suggestions {
-					if s.Text == "Queen" && s.Type == domain.SuggestionTypeArtist {
+					if s.Text == "Queen" && s.Type == data.SuggestionTypeArtist {
 						found = true
 						break
 					}
@@ -325,7 +325,7 @@ func TestSearchAuditCompliance(t *testing.T) {
 				return
 			}
 
-			var suggestions []domain.SearchSuggestion
+			var suggestions []data.SearchSuggestion
 			if err := json.NewDecoder(suggestResp.Body).Decode(&suggestions); err != nil {
 				t.Errorf("Failed to decode suggestions: %v", err)
 				return
