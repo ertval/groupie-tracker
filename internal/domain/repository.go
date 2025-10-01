@@ -1,8 +1,7 @@
-package data
+package domain
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,35 +11,16 @@ import (
 	"sort"
 	"strings"
 
-	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/api"
 )
 
 // Repository provides centralized data management for the Groupie Tracker application.
-//
-// This is the core data access layer that coordinates all data operations:
-//
-// Data Loading:
-//   - Fetches raw data from the external Groupie Tracker API
-//   - Transforms API responses into rich domain models
-//   - Builds searchable indexes for efficient lookups
-//
-// Performance Optimization:
-//   - Pre-computes derived fields (concert counts, country lists, etc.)
-//   - Creates slug-based indexes for SEO-friendly URLs
-//   - Optionally caches artist images locally to reduce external requests
-//
-// Thread Safety:
-//   - All data is loaded once during initialization
-//   - After LoadData(), all access methods are read-only and thread-safe
-//   - No mutating operations allowed after initial load
-//
-// The repository follows a "load once, read many" pattern that optimizes
-// for the typical web application access pattern.
 type Repository struct {
+	// API client for external data fetching
+	apiClient *api.Client
+
 	// Configuration fields
-	apiEndpoint string       // Base URL for the Groupie Tracker API
-	apiClient   *http.Client // HTTP client with configured timeout
-	withCache   bool         // Controls whether image caching is enabled
+	withCache bool // Controls whether image caching is enabled
 
 	// Simple cache enabled flag replaces complex CacheStatus enum
 	cacheEnabled bool // True if image caching is enabled and functional
@@ -55,58 +35,25 @@ type Repository struct {
 	appStats        AppStats            // Type-safe application statistics
 }
 
-// NewRepository creates a new repository instance configured from the global config package.
-//
-// This constructor uses values from `internal/config` rather than accepting parameters,
-// which centralizes configuration management and simplifies testing. Tests can modify
-// config package variables directly to customize repository behavior.
-//
-// The returned repository is ready for data loading via LoadData().
-func NewRepository() *Repository {
+// NewRepository creates a new repository instance with the provided API client.
+func NewRepository(apiClient *api.Client, withCache bool) *Repository {
 	return &Repository{
-		apiEndpoint: config.APIBaseURL,
-		apiClient: &http.Client{
-			Timeout: config.APIRequestTimeout,
-		},
-		withCache: config.WithCache,
+		apiClient: apiClient,
+		withCache: withCache,
 	}
 }
 
 // LoadData orchestrates the complete data loading and processing pipeline.
-//
-// This method performs all necessary operations to prepare the application for serving requests:
-//
-// 1. API Data Fetching:
-//   - Retrieves artist records from /api/artists endpoint
-//   - Retrieves concert relations from /api/relation endpoint
-//   - Handles network errors and API response validation
-//
-// 2. Data Processing:
-//   - Transforms API models to rich domain models
-//   - Cross-references artist and relation data
-//   - Computes derived fields (concert counts, country lists, navigation links)
-//
-// 3. Performance Optimization:
-//   - Optionally downloads and caches artist images locally
-//   - Builds fast lookup indexes (by ID, by slug)
-//   - Pre-computes global statistics for dashboard display
-//
-// 4. Location Analysis:
-//   - Extracts unique concert venues from artist data
-//   - Aggregates venue statistics (concert counts, artist counts, date ranges)
-//   - Sorts venues by popularity for location browsing
-//
-// After LoadData() completes successfully, all repository getter methods are
-// ready to serve data efficiently. The method is designed to be called once
-// during application startup.
-//
-// Returns an error if any part of the pipeline fails. The repository should
-// not be used if LoadData() returns an error.
 func (r *Repository) LoadData(ctx context.Context) error {
-	// Fetch raw data from API
-	apiArtists, apiRelations, err := r.fetchAPIData(ctx)
+	// Fetch raw data from API using injected client
+	apiArtists, err := r.apiClient.FetchArtists(ctx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to fetch artists: %w", err)
+	}
+
+	apiRelations, err := r.apiClient.FetchRelations(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to fetch relations: %w", err)
 	}
 
 	// Process artists with their concert data
@@ -220,121 +167,15 @@ func (r *Repository) GetAppStats() AppStats {
 // These methods implement the data loading and transformation pipeline.
 // They are called internally by LoadData() and should not be used directly.
 
-// fetchAPIData retrieves raw JSON data from the external Groupie Tracker API endpoints.
-//
-// This method coordinates concurrent fetching of two API endpoints using goroutines:
-//   - /api/artists: Complete artist information (name, members, creation year, etc.)
-//   - /api/relation: Concert location and date mappings for all artists
-//
-// The method uses goroutines to fetch both endpoints concurrently, improving performance
-// by reducing total wait time from sequential (time1 + time2) to concurrent (max(time1, time2)).
-// It uses the repository's configured HTTP client with timeout to prevent hanging requests.
-//
-// Returns the complete API datasets ready for processing, or an error if any
-// network or parsing issues occur. Both endpoints must succeed for the method to succeed.
-func (r *Repository) fetchAPIData(ctx context.Context) ([]APIArtist, APIRelation, error) {
-	// Result structures for concurrent fetching
-	type artistsResult struct {
-		data []APIArtist
-		err  error
-	}
-	type relationsResult struct {
-		data APIRelation
-		err  error
-	}
-
-	// Channels for goroutine communication
-	artistsChan := make(chan artistsResult, 1)
-	relationsChan := make(chan relationsResult, 1)
-
-	// Launch concurrent API requests
-	go func() {
-		var apiArtists []APIArtist
-		err := r.fetchJSON(ctx, "/api/artists", &apiArtists)
-		artistsChan <- artistsResult{data: apiArtists, err: err}
-	}()
-
-	go func() {
-		var apiRelations APIRelation
-		err := r.fetchJSON(ctx, "/api/relation", &apiRelations)
-		relationsChan <- relationsResult{data: apiRelations, err: err}
-	}()
-
-	// Collect results from both goroutines
-	artistsRes := <-artistsChan
-	relationsRes := <-relationsChan
-
-	// Check for errors from either request
-	if artistsRes.err != nil {
-		return nil, APIRelation{}, fmt.Errorf("failed to fetch artists: %w", artistsRes.err)
-	}
-	if relationsRes.err != nil {
-		return nil, APIRelation{}, fmt.Errorf("failed to fetch relations: %w", relationsRes.err)
-	}
-
-	return artistsRes.data, relationsRes.data, nil
-}
-
-// fetchJSON performs HTTP GET requests with JSON response parsing.
-//
-// This low-level helper method handles the standard API request pattern:
-//  1. Creates HTTP request with context for cancellation support
-//  2. Executes request using repository's configured HTTP client
-//  3. Validates HTTP response status (must be 200 OK)
-//  4. Parses JSON response into the provided destination struct
-//
-// The method provides consistent error handling and request patterns for all
-// API endpoints. Context cancellation is supported for timeout handling.
-//
-// Parameters:
-//   - ctx: Request context for cancellation and timeout
-//   - path: API endpoint path (e.g., "/api/artists")
-//   - dest: Pointer to struct for JSON unmarshaling
-//
-// Returns an error if any step fails (network, HTTP status, or JSON parsing).
-func (r *Repository) fetchJSON(ctx context.Context, path string, dest any) error {
-	req, err := http.NewRequestWithContext(ctx, "GET", r.apiEndpoint+path, nil)
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-
-	resp, err := r.apiClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("making request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("API returned status %d", resp.StatusCode)
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
-		return fmt.Errorf("decoding response: %w", err)
-	}
-
-	return nil
-}
-
 // processArtists transforms raw API data into enriched Artist domain models.
-//
-// This method performs the core business logic transformation using focused
-// helper methods that each handle a single responsibility:
-// - transformAPIArtists: converts API data to domain models
-// - addConcertData: enriches artists with concert information
-//
-// Navigation links are now computed on-demand via GetAdjacentArtists()
-// to reduce memory usage and complexity.
-//
-// Returns a complete slice of processed Artist objects sorted by name.
-func (r *Repository) processArtists(apiArtists []APIArtist, apiRelations APIRelation) []Artist {
+func (r *Repository) processArtists(apiArtists []api.Artist, apiRelations api.Relation) []Artist {
 	artists := r.transformAPIArtists(apiArtists)
 	artists = r.addConcertData(artists, apiRelations)
 	return artists
 }
 
 // transformAPIArtists converts raw API artist data to domain Artist objects.
-// This creates the basic artist structure with core fields but no concert data.
-func (r *Repository) transformAPIArtists(apiArtists []APIArtist) []Artist {
+func (r *Repository) transformAPIArtists(apiArtists []api.Artist) []Artist {
 	artists := make([]Artist, 0, len(apiArtists))
 
 	for _, apiArtist := range apiArtists {
@@ -355,10 +196,9 @@ func (r *Repository) transformAPIArtists(apiArtists []APIArtist) []Artist {
 }
 
 // addConcertData enriches artists with concert information from API relations.
-// This method handles concert data integration, country extraction, and sorting.
-func (r *Repository) addConcertData(artists []Artist, apiRelations APIRelation) []Artist {
+func (r *Repository) addConcertData(artists []Artist, apiRelations api.Relation) []Artist {
 	// Index relations by artist ID for efficient lookup
-	relationMap := make(map[int]APIRelationIndex)
+	relationMap := make(map[int]api.RelationIndex)
 	for _, rel := range apiRelations.Index {
 		relationMap[rel.ID] = rel
 	}
@@ -526,20 +366,14 @@ func (r *Repository) cacheImages(artists []Artist) (cached, downloaded int) {
 //   - Validates the source URL is not empty
 //   - Creates HTTP GET request for the image
 //   - Validates successful HTTP response (200 OK)
-//   - Streams image data directly to local file
-//   - Handles all error conditions gracefully
 //
-// The method uses streaming copy to handle large images efficiently without
-// loading entire image into memory. It returns boolean success status rather
-// than errors to simplify cache management logic.
-//
-// Returns true if image was successfully downloaded and saved, false otherwise.
+// downloadImage fetches an artist image and saves it to the local cache.
 func (r *Repository) downloadImage(url, path string) bool {
 	if strings.TrimSpace(url) == "" {
 		return false
 	}
 
-	resp, err := r.apiClient.Get(url)
+	resp, err := http.Get(url)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		if resp != nil {
 			resp.Body.Close()

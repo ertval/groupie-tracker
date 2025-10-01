@@ -2,17 +2,22 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net/http"
 
-	"groupie-tracker/internal/server"
+	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/web"
 )
 
 func main() {
 	log.Println("Starting Groupie Tracker server...")
 
-	server, err := server.NewServer()
+	// Create API client
+	apiClient := api.NewClient(config.APIBaseURL, config.APIRequestTimeout)
+
+	// Create server with injected dependencies
+	server, err := web.NewServer(apiClient, config.WithCache)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}
@@ -20,6 +25,6 @@ func main() {
 	// Start server (blocking)
 	err = server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
-		log.Fatalf("Server failed to start: %v", fmt.Errorf("server failed to start: %w", err))
+		log.Fatalf("Server failed: %v", err)
 	}
 }

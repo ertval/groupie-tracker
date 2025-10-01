@@ -1,10 +1,10 @@
-package server
+package web
 
 import (
 	"bytes"
 	"fmt"
 	"groupie-tracker/internal/config"
-	"groupie-tracker/internal/data"
+	"groupie-tracker/internal/domain"
 	"html/template"
 	"log"
 	"math/rand"
@@ -224,8 +224,8 @@ func parseStringSlice(r *http.Request, fieldName string) []string {
 // that need conversion to appropriate Go types for the business logic layer.
 //
 // Returns a populated ArtistFilterParams struct ready for use with repository filtering.
-func parseArtistFilterParams(r *http.Request) data.ArtistFilterParams {
-	var params data.ArtistFilterParams
+func parseArtistFilterParams(r *http.Request) domain.ArtistFilterParams {
+	var params domain.ArtistFilterParams
 
 	// Use generic utilities to eliminate duplication
 	params.CreationYearFrom = parseIntPtr(r, "creationYearFrom")
@@ -247,8 +247,8 @@ func parseArtistFilterParams(r *http.Request) data.ArtistFilterParams {
 //   - Countries: geographical filtering by country names
 //
 // Returns a populated LocationFilterParams struct for location-based queries.
-func parseLocationFilterParams(r *http.Request) data.LocationFilterParams {
-	var params data.LocationFilterParams
+func parseLocationFilterParams(r *http.Request) domain.LocationFilterParams {
+	var params domain.LocationFilterParams
 
 	// Use generic utilities to eliminate duplication
 	params.ConcertCountFrom = parseIntPtr(r, "concertCountFrom")
@@ -292,13 +292,13 @@ func extractSearchTerm(input string) string {
 //
 // Returns a new slice containing up to maxCount randomly selected artists.
 // The original slice is not modified.
-func getRandomArtists(artists []data.Artist, maxCount int) []data.Artist {
+func getRandomArtists(artists []domain.Artist, maxCount int) []domain.Artist {
 	if len(artists) == 0 {
 		return artists
 	}
 
 	// Create a copy to avoid modifying the original slice
-	shuffled := make([]data.Artist, len(artists))
+	shuffled := make([]domain.Artist, len(artists))
 	copy(shuffled, artists)
 
 	// Shuffle the copy

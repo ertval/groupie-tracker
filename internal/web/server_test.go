@@ -1,8 +1,7 @@
-package server
+package web
 
 import (
 	"fmt"
-	"groupie-tracker/internal/config"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -10,6 +9,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/config"
 )
 
 // createTestServer creates a test server with mock API data for testing
@@ -74,8 +76,11 @@ func createTestServer(t *testing.T) *Server {
 		config.WithCache = originalCache
 	})
 
+	// Create API client for testing
+	apiClient := api.NewClient(mockServer.URL, 5*time.Second)
+
 	// Create server with dependency injection
-	server, err := NewServer()
+	server, err := NewServer(apiClient, false)
 	if err != nil {
 		t.Fatalf("Failed to create test server: %v", err)
 	}

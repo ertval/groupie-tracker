@@ -91,7 +91,7 @@ Follow **test driven development**, strict **Idiomatic GO** and KISS principles 
 Read the codebase carefully. Check for redundant, dublicate or overly complex code. Check the package and folder/file structure. Then Propose a restructuring/refactoring plan. Think ultrahard and :
 - Use only idiomatic go best practices and kiss priciple in your refactoring. 
 - Try to find a golden ration between complexity and simplicity (break functionality into smaller parts/packages/files but not overly so). 
-- Focus on reducing LOC while maintaining readability, testability and simplicity.
+- Focus on reducing LOC while maintaining functionality, readability, testability and simplicity.
 - Store your plan in a md file that starts with your name.
 
 ---

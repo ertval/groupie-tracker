@@ -1,33 +1,35 @@
-package server
+package web
 
 import (
 	"context"
 	"fmt"
-	"groupie-tracker/internal/config"
-	"groupie-tracker/internal/data"
 	"html/template"
 	"log"
 	"net/http"
 	"time"
+
+	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/domain"
 )
 
 // Server encapsulates all server dependencies with direct repository access
 // and cached expensive computations for optimal performance.
 type Server struct {
 	// Direct repository access (eliminates service layer facade)
-	repo *data.Repository
+	repo *domain.Repository
 
 	// Pre-compiled templates for rendering
 	templates map[string]*template.Template
 
 	// Cached expensive computations (computed once at startup)
-	suggestions        []data.SearchSuggestion    // All search suggestions cached
-	artistFilterOpts   data.ArtistFilterOptions   // Artist filter options cached
-	locationFilterOpts data.LocationFilterOptions // Location filter options cached
+	suggestions        []domain.SearchSuggestion    // All search suggestions cached
+	artistFilterOpts   domain.ArtistFilterOptions   // Artist filter options cached
+	locationFilterOpts domain.LocationFilterOptions // Location filter options cached
 
 	// Lightweight search query cache (for frequent searches)
-	searchCache map[string][]data.Artist // Key: normalized query, Value: search results
-	cacheSize   int                      // Maximum number of cached queries
+	searchCache map[string][]domain.Artist // Key: normalized query, Value: search results
+	cacheSize   int                        // Maximum number of cached queries
 
 	// HTTP server instance
 	httpServer *http.Server
@@ -38,26 +40,14 @@ type Server struct {
 }
 
 // NewServer creates and fully initializes a Server with dependency injection.
-//
-// This function performs the complete server bootstrap process:
-//   - Initializes the data repository and loads all API data
-//   - Compiles all HTML templates with custom helper functions
-//   - Configures HTTP timeouts and middleware chain
-//   - Logs startup performance and cache statistics
-//
-// The server follows dependency injection pattern where dependencies
-// are explicitly managed within the Server struct.
-//
-// Returns a configured *Server ready to call ListenAndServe(), or an error
-// if data loading or template compilation fails.
-func NewServer() (*Server, error) {
+func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
 	start := time.Now()
 
 	// Create server instance
 	server := &Server{}
 
-	// Initialize repository - reads config internally, no parameters needed
-	server.repo = data.NewRepository()
+	// Initialize repository with injected API client
+	server.repo = domain.NewRepository(apiClient, withCache)
 
 	// Load all data from external API with timeout protection
 	log.Println("Loading initial data...")
@@ -76,11 +66,11 @@ func NewServer() (*Server, error) {
 	server.loadTemplates()
 
 	// Log startup summary with cache status and performance metrics
-	stats := server.repo.GetStats()
+	stats := server.repo.GetAppStats()
 	if !server.repo.IsCacheEnabled() {
-		log.Printf("Data loaded successfully - %d artists (Image caching is disabled, serving from API)", stats["total_artists"])
+		log.Printf("Data loaded - %d artists (caching disabled)", stats.TotalArtists)
 	} else {
-		log.Printf("Data loaded successfully with cache - %d artists", stats["total_artists"])
+		log.Printf("Data loaded with cache - %d artists", stats.TotalArtists)
 	}
 
 	// Assemble middleware chain and route handlers
@@ -119,13 +109,13 @@ func (s *Server) initializeCaches() {
 	s.locationFilterOpts = s.repo.GetLocationFilterOptions()
 
 	// Initialize search query cache (lightweight LRU-style cache)
-	s.searchCache = make(map[string][]data.Artist)
+	s.searchCache = make(map[string][]domain.Artist)
 	s.cacheSize = 50 // Reasonable cache size for frequent searches
 }
 
 // getCachedSearchResults retrieves cached search results for a normalized query.
 // Returns cached results and true if found, nil and false if not cached.
-func (s *Server) getCachedSearchResults(normalizedQuery string) ([]data.Artist, bool) {
+func (s *Server) getCachedSearchResults(normalizedQuery string) ([]domain.Artist, bool) {
 	if results, found := s.searchCache[normalizedQuery]; found {
 		return results, true
 	}
@@ -134,11 +124,11 @@ func (s *Server) getCachedSearchResults(normalizedQuery string) ([]data.Artist, 
 
 // setCachedSearchResults stores search results in cache with simple eviction.
 // Uses a basic LRU-style eviction when cache reaches capacity.
-func (s *Server) setCachedSearchResults(normalizedQuery string, results []data.Artist) {
+func (s *Server) setCachedSearchResults(normalizedQuery string, results []domain.Artist) {
 	// Simple cache eviction: if at capacity, clear cache (could be more sophisticated)
 	if len(s.searchCache) >= s.cacheSize {
 		// Clear half the cache to make room (simple eviction strategy)
-		newCache := make(map[string][]data.Artist, s.cacheSize)
+		newCache := make(map[string][]domain.Artist, s.cacheSize)
 		count := 0
 		for key, value := range s.searchCache {
 			if count >= s.cacheSize/2 {

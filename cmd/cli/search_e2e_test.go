@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"groupie-tracker/internal/data"
+	"groupie-tracker/internal/domain"
 )
 
 // TestSearchEndToEnd tests the search functionality with the actual server

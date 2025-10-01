@@ -1,8 +1,8 @@
-package server
+package web
 
 import (
 	"fmt"
-	"groupie-tracker/internal/data"
+	"groupie-tracker/internal/domain"
 	"strings"
 )
 
@@ -49,7 +49,7 @@ type TemplateLocation struct {
 	YearRangeText    string `json:"year_range_text"`    // "1970 - 1990" or "2020"
 }
 
-// TemplateFilterOptions contains pre-formatted filter option data.
+// TemplateFilterOptions contains pre-formatted filter option domain.
 type TemplateFilterOptions struct {
 	// Raw data
 	CreationYearMin   int      `json:"creation_year_min"`
@@ -83,7 +83,7 @@ type TemplateAppliedFilters struct {
 	IsActive           bool   `json:"is_active"`             // True if any filters applied
 }
 
-// TemplateSearchResult contains pre-formatted search result data.
+// TemplateSearchResult contains pre-formatted search result domain.
 type TemplateSearchResult struct {
 	Artists      []TemplateArtist `json:"artists"`
 	TotalResults int              `json:"total_results"`
@@ -93,7 +93,7 @@ type TemplateSearchResult struct {
 }
 
 // --- Template Data Formatters ---
-// These functions convert raw data models into template-specific structs with pre-formatted display data.
+// These functions convert raw data models into template-specific structs with pre-formatted display domain.
 
 // toTitleCase converts a string to title case, replacing hyphens with spaces.
 // This replaces the deprecated strings.Title function.
@@ -108,8 +108,8 @@ func toTitleCase(s string) string {
 	return strings.Join(words, " ")
 }
 
-// FormatArtistForTemplate converts a data.Artist into a TemplateArtist with pre-formatted display fields.
-func FormatArtistForTemplate(artist data.Artist) TemplateArtist {
+// FormatArtistForTemplate converts a domain.Artist into a TemplateArtist with pre-formatted display fields.
+func FormatArtistForTemplate(artist domain.Artist) TemplateArtist {
 	memberCount := len(artist.Members)
 	memberCountText := fmt.Sprintf("%d member", memberCount)
 	if memberCount != 1 {
@@ -139,8 +139,8 @@ func FormatArtistForTemplate(artist data.Artist) TemplateArtist {
 	}
 }
 
-// FormatArtistsForTemplate converts a slice of data.Artist into TemplateArtist structs.
-func FormatArtistsForTemplate(artists []data.Artist) []TemplateArtist {
+// FormatArtistsForTemplate converts a slice of domain.Artist into TemplateArtist structs.
+func FormatArtistsForTemplate(artists []domain.Artist) []TemplateArtist {
 	templateArtists := make([]TemplateArtist, len(artists))
 	for i, artist := range artists {
 		templateArtists[i] = FormatArtistForTemplate(artist)
@@ -148,8 +148,8 @@ func FormatArtistsForTemplate(artists []data.Artist) []TemplateArtist {
 	return templateArtists
 }
 
-// FormatLocationForTemplate converts a data.Location into a TemplateLocation with pre-formatted display fields.
-func FormatLocationForTemplate(location data.Location) TemplateLocation {
+// FormatLocationForTemplate converts a domain.Location into a TemplateLocation with pre-formatted display fields.
+func FormatLocationForTemplate(location domain.Location) TemplateLocation {
 	artistCountText := fmt.Sprintf("%d artist", location.ArtistCount)
 	if location.ArtistCount != 1 {
 		artistCountText += "s"
@@ -179,8 +179,8 @@ func FormatLocationForTemplate(location data.Location) TemplateLocation {
 	}
 }
 
-// FormatFilterOptionsForTemplate converts data.ArtistFilterOptions into TemplateFilterOptions with pre-formatted display.
-func FormatFilterOptionsForTemplate(options data.ArtistFilterOptions) TemplateFilterOptions {
+// FormatFilterOptionsForTemplate converts domain.ArtistFilterOptions into TemplateFilterOptions with pre-formatted display.
+func FormatFilterOptionsForTemplate(options domain.ArtistFilterOptions) TemplateFilterOptions {
 	memberCountOptions := make([]string, len(options.MemberCounts))
 	for i, count := range options.MemberCounts {
 		if count == 1 {
@@ -203,8 +203,8 @@ func FormatFilterOptionsForTemplate(options data.ArtistFilterOptions) TemplateFi
 	}
 }
 
-// FormatAppliedFiltersForTemplate converts data.ArtistFilterParams into TemplateAppliedFilters with pre-formatted display.
-func FormatAppliedFiltersForTemplate(filters data.ArtistFilterParams) TemplateAppliedFilters {
+// FormatAppliedFiltersForTemplate converts domain.ArtistFilterParams into TemplateAppliedFilters with pre-formatted display.
+func FormatAppliedFiltersForTemplate(filters domain.ArtistFilterParams) TemplateAppliedFilters {
 	template := TemplateAppliedFilters{
 		CreationYearFrom:   filters.CreationYearFrom,
 		CreationYearTo:     filters.CreationYearTo,
@@ -254,8 +254,8 @@ func FormatAppliedFiltersForTemplate(filters data.ArtistFilterParams) TemplateAp
 	return template
 }
 
-// FormatSearchResultForTemplate converts data.SearchResult into TemplateSearchResult with pre-formatted display.
-func FormatSearchResultForTemplate(result data.SearchResult) TemplateSearchResult {
+// FormatSearchResultForTemplate converts domain.SearchResult into TemplateSearchResult with pre-formatted display.
+func FormatSearchResultForTemplate(result domain.SearchResult) TemplateSearchResult {
 	resultCountText := fmt.Sprintf("Found %d artist", result.TotalResults)
 	if result.TotalResults != 1 {
 		resultCountText += "s"

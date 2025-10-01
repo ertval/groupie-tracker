@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"groupie-tracker/internal/config"
-	serverpkg "groupie-tracker/internal/server"
+	serverpkg "groupie-tracker/internal/web"
 )
 
 // TestE2ECompleteUserFlow tests the complete user journey through the application

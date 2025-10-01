@@ -1,7 +1,8 @@
-package data
+package domain
 
 import (
 	"context"
+	"groupie-tracker/internal/api"
 	"groupie-tracker/internal/config"
 	"net/http"
 	"net/http/httptest"
@@ -34,12 +35,9 @@ func TestRepository_LoadData_Success(t *testing.T) {
 	}))
 	defer server.Close()
 
-	// Disable image caching for tests to avoid creating files on disk
-	config.WithCache = false
-	// Point repository to the mock server and set a short timeout for tests
-	config.APIBaseURL = server.URL
-	config.APIRequestTimeout = 5 * time.Second
-	repo := NewRepository()
+	// Create API client pointing to mock server
+	apiClient := api.NewClient(server.URL, 5*time.Second)
+	repo := NewRepository(apiClient, false)
 
 	// Load the data
 	if err := repo.LoadData(context.Background()); err != nil {
@@ -137,10 +135,8 @@ func TestRepository_LoadData_Failure_InvalidJSON(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config.WithCache = false
-	config.APIBaseURL = server.URL
-	config.APIRequestTimeout = 5 * time.Second
-	repo := NewRepository()
+	apiClient := api.NewClient(server.URL, 5*time.Second)
+	repo := NewRepository(apiClient, false)
 
 	// Load the data - should fail with JSON error
 	err := repo.LoadData(context.Background())
@@ -159,10 +155,8 @@ func TestRepository_LoadData_Failure_HTTPError(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config.WithCache = false
-	config.APIBaseURL = server.URL
-	config.APIRequestTimeout = 5 * time.Second
-	repo := NewRepository()
+	apiClient := api.NewClient(server.URL, 5*time.Second)
+	repo := NewRepository(apiClient, false)
 
 	// Load the data - should fail with HTTP error
 	err := repo.LoadData(context.Background())
@@ -183,10 +177,8 @@ func TestRepository_LoadData_Timeout(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config.WithCache = false
-	config.APIBaseURL = server.URL
-	config.APIRequestTimeout = 10 * time.Millisecond // Very short timeout
-	repo := NewRepository()
+	apiClient := api.NewClient(server.URL, 10*time.Millisecond)
+	repo := NewRepository(apiClient, false)
 
 	// Load the data - should fail with timeout
 	err := repo.LoadData(context.Background())
@@ -200,7 +192,8 @@ func TestRepository_LoadData_Timeout(t *testing.T) {
 
 func TestRepository_GetMethods_EmptyData(t *testing.T) {
 	// Test getter methods when no data is loaded
-	repo := NewRepository()
+	apiClient := api.NewClient("", 5*time.Second)
+	repo := NewRepository(apiClient, false)
 
 	// Test GetArtists with empty repository
 	artists := repo.GetArtists()
@@ -261,10 +254,8 @@ func TestRepository_LoadData_WithImageCaching(t *testing.T) {
 	defer server.Close()
 
 	// Enable image caching for this test
-	config.WithCache = true
-	config.APIBaseURL = server.URL
-	config.APIRequestTimeout = 5 * time.Second
-	repo := NewRepository()
+	apiClient := api.NewClient(server.URL, 5*time.Second)
+	repo := NewRepository(apiClient, true)
 
 	// Load the data
 	err := repo.LoadData(context.Background())
@@ -304,10 +295,8 @@ func TestRepository_InvalidAPIData(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config.WithCache = false
-	config.APIBaseURL = server.URL
-	config.APIRequestTimeout = 5 * time.Second
-	repo := NewRepository()
+	apiClient := api.NewClient(server.URL, 5*time.Second)
+	repo := NewRepository(apiClient, false)
 
 	// Load the data - should fail due to invalid relation structure
 	err := repo.LoadData(context.Background())
@@ -341,10 +330,8 @@ func TestRepository_EdgeCaseData(t *testing.T) {
 	}))
 	defer server.Close()
 
-	config.WithCache = false
-	config.APIBaseURL = server.URL
-	config.APIRequestTimeout = 5 * time.Second
-	repo := NewRepository()
+	apiClient := api.NewClient(server.URL, 5*time.Second)
+	repo := NewRepository(apiClient, false)
 
 	// Load the data
 	err := repo.LoadData(context.Background())
