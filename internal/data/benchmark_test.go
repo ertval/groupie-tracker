@@ -48,9 +48,10 @@ func BenchmarkFetchAPIData_Concurrent(b *testing.B) {
 		// Simulate network latency
 		time.Sleep(50 * time.Millisecond)
 
-		if r.URL.Path == "/api/artists" {
+		switch r.URL.Path {
+		case "/api/artists":
 			w.Write([]byte(`[{"id": 1, "name": "Test Artist", "members": ["Member1"], "creationDate": 2000, "firstAlbum": "01-01-2001", "image": "test.jpg"}]`))
-		} else if r.URL.Path == "/api/relation" {
+		case "/api/relation":
 			w.Write([]byte(`{"index": [{"id": 1, "datesLocations": {"test-location": ["01-01-2020"]}}]}`))
 		}
 	}))
