@@ -5,8 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"groupie-tracker/internal/api"
 	"groupie-tracker/internal/config"
-	"groupie-tracker/internal/data"
+	"groupie-tracker/internal/domain"
 )
 
 func TestAuditCompliance(t *testing.T) {
@@ -15,7 +16,8 @@ func TestAuditCompliance(t *testing.T) {
 	// Use configured API base URL and timeout for the repository
 	config.APIBaseURL = "https://groupietrackers.herokuapp.com"
 	config.APIRequestTimeout = 30 * time.Second
-	store := data.NewRepository()
+	apiClient := api.NewClient(config.APIBaseURL, config.APIRequestTimeout)
+	store := domain.NewRepository(apiClient, config.WithCache)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"groupie-tracker/internal/api"
 	"groupie-tracker/internal/config"
 	serverpkg "groupie-tracker/internal/web"
 )
@@ -452,7 +453,9 @@ func createTestServerWithAPI(t *testing.T, apiURL string) *httptest.Server {
 	config.WithCache = false
 
 	// Create server using the real server creation logic
-	srv, err := serverpkg.NewServer()
+	// Create API client pointing at the provided mock API URL and construct server
+	apiClient := api.NewClient(apiURL, config.APIRequestTimeout)
+	srv, err := serverpkg.NewServer(apiClient, config.WithCache)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}

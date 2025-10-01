@@ -101,3 +101,11 @@ Read carefully the refactoring plan and the codebase. then:
 - Always dont forget to use Idiomatic GO best practeces and KISS principle
 - In the end clean up the repo to reflect all changes removing old code and files folders.
 - Update all documentation and readme files to reflect the current state of the project.
+
+---
+
+Read the codebase carefully. Then Propose a restructuring/refactoring plan that will simplify and optimize the codebase. Think ultrahard and :
+- Use only idiomatic go best practices and kiss priciple in your refactoring. 
+- Add concurrency where it makes sense and improves performance.
+- Try to find a golden ration between complexity and simplicity.
+- Store your plan in a md file that starts with your name.

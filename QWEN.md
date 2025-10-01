@@ -68,9 +68,9 @@ API Fetch → Process & Normalize → Cache Images → Build Indexes → Store i
 
 Step 1: fetchAPIData(ctx)
   ├── GET /api/artists → []APIArtist
-  ├── GET /api/locations → APILocation{Index: [...]}
-  ├── GET /api/dates → APIDate{Index: [...]}
-  └── GET /api/relation → APIRelation{Index: [...]}
+  ├── GET /api/locations → APILocation{Index: [...]})
+  ├── GET /api/dates → APIDate{Index: [...]})
+  └── GET /api/relation → APIRelation{Index: [...]})
 
 Step 2: processArtists(apiArtists, apiRelations)
   ├── Merge artist data with concert dates/locations
