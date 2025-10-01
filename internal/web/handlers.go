@@ -22,7 +22,7 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	artists := s.repo.GetArtists()
-	stats := s.repo.GetStats()
+	stats := s.repo.GetAppStats()
 
 	// Get 8 random artists for homepage display
 	artists = getRandomArtists(artists, 8)
@@ -41,8 +41,8 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		ExtraJS:        "",
 		Suggestions:    s.suggestions, // Use cached suggestions
 		Artists:        artists,
-		TotalMembers:   stats["total_members"],
-		TotalLocations: stats["total_locations"],
+		TotalMembers:   stats.TotalMembers,
+		TotalLocations: stats.TotalLocations,
 	}
 
 	s.render(w, r, "home.tmpl", data)
@@ -242,7 +242,7 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 	filterOptions := s.locationFilterOpts // Use cached filter options
 	var appliedFilters domain.LocationFilterParams
 	totalLocations := len(locations)
-	stats := s.repo.GetStats()
+	stats := s.repo.GetAppStats()
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
@@ -298,8 +298,8 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		IsFiltered:            isFiltered,
 		FilterDescription:     filterDescription,
 		TotalLocations:        totalLocations,
-		TotalCountries:        stats["total_countries"],
-		TotalConcerts:         stats["total_concerts"],
+		TotalCountries:        stats.TotalCountries,
+		TotalConcerts:         stats.TotalConcerts,
 	}
 
 	s.render(w, r, "locations.tmpl", data)
@@ -399,7 +399,7 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     s.repo.GetStats(),
+		"stats":     s.repo.GetAppStats(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -489,8 +489,7 @@ func (s *Server) StaticFiles(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, target)
 }
 
-// isEmptyArtistFilters checks if artist filter parameters are empty/unset.
-// Used to determine if search results can be cached (only cache simple searches).
+// isEmptyArtistFilters checks if filter parameters are empty.
 func isEmptyArtistFilters(filters domain.ArtistFilterParams) bool {
 	return filters.CreationYearFrom == nil &&
 		filters.CreationYearTo == nil &&
@@ -502,9 +501,7 @@ func isEmptyArtistFilters(filters domain.ArtistFilterParams) bool {
 
 // --- Centralized Error Handling Utilities ---
 
-// Common error handling utilities to reduce repetition and ensure consistency.
-
-// NotFoundError sends a standardized 404 error response.
+// NotFoundError sends a 404 error response.
 func (s *Server) NotFoundError(w http.ResponseWriter, r *http.Request, message string) {
 	if message == "" {
 		message = "Page not found"
@@ -520,8 +517,7 @@ func (s *Server) BadRequestError(w http.ResponseWriter, r *http.Request, message
 	s.Error(w, r, http.StatusBadRequest, message)
 }
 
-// validateExactPath checks if the request path matches exactly, returns true if valid.
-// If invalid, automatically sends a 404 error and returns false.
+// validateExactPath checks if request path matches expected path.
 func (s *Server) validateExactPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
 	if r.URL.Path != expectedPath {
 		s.NotFoundError(w, r, "")
@@ -530,8 +526,7 @@ func (s *Server) validateExactPath(w http.ResponseWriter, r *http.Request, expec
 	return true
 }
 
-// parseFormOrError attempts to parse form data, returning true on success.
-// If parsing fails, automatically sends a 400 error and returns false.
+// parseFormOrError parses form data and handles errors.
 func (s *Server) parseFormOrError(w http.ResponseWriter, r *http.Request) bool {
 	if err := r.ParseForm(); err != nil {
 		s.BadRequestError(w, r, "Failed to parse form data")

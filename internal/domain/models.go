@@ -1,101 +1,56 @@
 package domain
 
-// --- External API Data Structures ---
-//
-// These models represent the exact JSON structure returned by the Groupie Tracker API.
-// They are used only for initial data loading and are converted to rich domain models
-// immediately after parsing. Field names and types match the API specification exactly.
-
-// APIArtist represents the raw artist data structure from the /api/artists endpoint.
-//
-// This is a direct mapping of the external API response with minimal processing.
-// The CreationYear field is mapped from the API's "creationDate" for consistency.
-// These records are converted to the richer Artist domain model after loading.
+// APIArtist represents raw artist data from the API.
 type APIArtist struct {
-	ID           int      `json:"id"`           // Unique artist identifier from API
-	Name         string   `json:"name"`         // Artist/band name as provided by API
-	Members      []string `json:"members"`      // Current band member names
-	CreationYear int      `json:"creationDate"` // Band formation year (note JSON name mapping)
-	FirstAlbum   string   `json:"firstAlbum"`   // First album release date string
-	Image        string   `json:"image"`        // Artist image URL from API
+	ID           int      `json:"id"`
+	Name         string   `json:"name"`
+	Members      []string `json:"members"`
+	CreationYear int      `json:"creationDate"`
+	FirstAlbum   string   `json:"firstAlbum"`
+	Image        string   `json:"image"`
 }
 
-// APIRelationIndex represents a single artist's concert data from the /api/relation endpoint.
-//
-// The DatesLocations map structure directly reflects the API format where:
-//   - Keys are location strings (e.g., "london-uk", "new-york-usa")
-//   - Values are arrays of date strings for concerts at that location
-//
-// This nested structure is flattened into Concert objects during processing.
+// APIRelationIndex represents concert data for a single artist from the API.
 type APIRelationIndex struct {
-	ID             int                 `json:"id"`             // Artist ID matching APIArtist.ID
-	DatesLocations map[string][]string `json:"datesLocations"` // Raw concert location->dates mapping
+	ID             int                 `json:"id"`
+	DatesLocations map[string][]string `json:"datesLocations"`
 }
 
-// APIRelation wraps the complete concert relations dataset from the /api/relation endpoint.
-//
-// The API returns relations in an "index" wrapper array. This structure mirrors
-// that exact format and is used only during initial data loading.
+// APIRelation wraps the complete concert relations dataset from the API.
 type APIRelation struct {
-	Index []APIRelationIndex `json:"index"` // Array of all artist concert relations
+	Index []APIRelationIndex `json:"index"`
 }
 
-// --- Core Domain Models ---
-//
-// These structures represent the internal business logic of the application.
-// They are enriched versions of the API data with computed fields, indexing,
-// and application-specific functionality for filtering, navigation, and display.
-
-// Artist represents the complete internal model of a music artist/band.
-//
-// This is the rich domain model used throughout the application, containing both
-// original API data and computed fields for enhanced functionality:
-//
-// Performance: Pre-computed fields like ConcertCount avoid repeated calculations
-// Filtering: Countries slice enables efficient country-based filtering
-// SEO: Slug field provides URL-friendly artist identification
-// Caching: DatesAtLocation map enables fast location-specific concert lookups
-// Navigation: On-demand adjacent artist lookup via GetAdjacentArtists()
+// Artist represents the complete internal model of a music artist.
 type Artist struct {
-	ID              int                 // Unique identifier matching API data
-	Name            string              // Artist/band name for display
-	Slug            string              // URL-friendly identifier (e.g., "queen", "led-zeppelin")
-	Members         []string            // Current band member names
-	CreationYear    int                 // Band formation year
-	FirstAlbum      string              // First album date string (various formats)
-	Image           string              // Artist image URL for display
-	Concerts        []Concert           // Structured concert events (processed from API relations)
-	DatesAtLocation map[string][]string // Pre-indexed concert dates by location slug for fast lookups
-	ConcertCount    int                 // Total number of concerts (computed field)
-	Countries       []string            // Unique countries where artist performed (sorted, for filtering)
+	ID              int
+	Name            string
+	Slug            string // URL-friendly identifier (e.g., "queen")
+	Members         []string
+	CreationYear    int
+	FirstAlbum      string
+	Image           string
+	Concerts        []Concert
+	DatesAtLocation map[string][]string // Concert dates indexed by location slug
+	ConcertCount    int                 // Computed field
+	Countries       []string            // Unique countries where artist performed
 }
 
 // ArtistAtLocation represents an artist's concert activity at a specific venue.
-//
-// This structure is used in Location objects to track which artists have performed
-// at each venue and how many times. Enables efficient queries like "top artists at venue"
-// and supports location detail pages with artist statistics.
 type ArtistAtLocation struct {
-	Artist       Artist // Full artist information for display
-	ConcertCount int    // Number of concerts this artist held at the location
+	Artist       Artist
+	ConcertCount int
 }
 
 // Location represents the complete internal model of a concert venue.
-//
-// Like Artist, this is a rich domain model with both source data and computed fields:
-//
-// Performance: Pre-computed aggregates like TotalConcerts and ArtistCount
-// Temporal: EarliestYear/LatestYear enable decade-based filtering
-// SEO: Slug field provides URL-friendly location identification
-// Analysis: Artists slice enables detailed venue analytics and rankings
 type Location struct {
-	Name          string             // Human-readable location name (e.g., "London UK")
-	Slug          string             // URL-friendly identifier (e.g., "london-uk")
-	Artists       []ArtistAtLocation // Artists who performed here with concert counts
-	ArtistCount   int                // Number of unique artists (computed field)
-	TotalConcerts int                // Total concerts held here (computed field)
-	EarliestYear  int                // Year of first concert at this location
-	LatestYear    int                // Year of most recent concert at this location
+	Name          string
+	Slug          string // URL-friendly identifier (e.g., "london-uk")
+	Artists       []ArtistAtLocation
+	ArtistCount   int // Computed field
+	TotalConcerts int // Computed field
+	EarliestYear  int
+	LatestYear    int
 }
 
 // Concert represents a single concert event in structured form.
@@ -142,105 +97,64 @@ type ArtistFilterParams struct {
 
 // ArtistFilterOptions represents the complete set of available filter options for artists.
 //
-// This structure is computed by analyzing the current artist dataset to determine:
-//   - Realistic bounds for range sliders (no impossible values)
-//   - Available discrete options for checkboxes (only values present in data)
-//
-// Frontend components use this data to configure filter UI elements dynamically,
-// ensuring users can't set filter combinations that would return empty results.
+// ArtistFilterOptions represents available filter options computed from the dataset.
 type ArtistFilterOptions struct {
-	// Range bounds for dual-range slider components
-	CreationYearMin   int `json:"creationYearMin"`   // Earliest band formation year in dataset
-	CreationYearMax   int `json:"creationYearMax"`   // Latest band formation year in dataset
-	FirstAlbumYearMin int `json:"firstAlbumYearMin"` // Earliest first album year in dataset
-	FirstAlbumYearMax int `json:"firstAlbumYearMax"` // Latest first album year in dataset
-
-	// Available options for checkbox components
-	MemberCounts []int    `json:"memberCounts"` // All member counts found in dataset (sorted)
-	Countries    []string `json:"countries"`    // All countries from concert locations (sorted)
+	CreationYearMin   int      `json:"creationYearMin"`
+	CreationYearMax   int      `json:"creationYearMax"`
+	FirstAlbumYearMin int      `json:"firstAlbumYearMin"`
+	FirstAlbumYearMax int      `json:"firstAlbumYearMax"`
+	MemberCounts      []int    `json:"memberCounts"`
+	Countries         []string `json:"countries"`
 }
 
-// LocationFilterParams represents all possible filter criteria for location searches.
-//
-// Similar structure to ArtistFilterParams but with location-specific criteria:
-//   - Concert volume: How many concerts were held at the location
-//   - Artist diversity: How many different artists performed there
-//   - Temporal range: When concerts occurred at the location
-//   - Geographic: Country-based location filtering
-//
-// Enables complex location queries like "venues with 10+ concerts by 5+ artists in the 1980s".
+// LocationFilterParams represents filter criteria for location searches.
 type LocationFilterParams struct {
-	// Range filters for location characteristics
-	ConcertCountFrom *int `json:"concertCountFrom,omitempty"` // Minimum total concerts held (inclusive)
-	ConcertCountTo   *int `json:"concertCountTo,omitempty"`   // Maximum total concerts held (inclusive)
-
-	ArtistCountFrom *int `json:"artistCountFrom,omitempty"` // Minimum unique artists performed (inclusive)
-	ArtistCountTo   *int `json:"artistCountTo,omitempty"`   // Maximum unique artists performed (inclusive)
-
-	ConcertYearFrom *int `json:"concertYearFrom,omitempty"` // Earliest concert year (inclusive)
-	ConcertYearTo   *int `json:"concertYearTo,omitempty"`   // Latest concert year (inclusive)
-
-	// Geographic filtering
-	Countries []string `json:"countries,omitempty"` // Countries where location must be situated
+	ConcertCountFrom *int     `json:"concertCountFrom,omitempty"`
+	ConcertCountTo   *int     `json:"concertCountTo,omitempty"`
+	ArtistCountFrom  *int     `json:"artistCountFrom,omitempty"`
+	ArtistCountTo    *int     `json:"artistCountTo,omitempty"`
+	ConcertYearFrom  *int     `json:"concertYearFrom,omitempty"`
+	ConcertYearTo    *int     `json:"concertYearTo,omitempty"`
+	Countries        []string `json:"countries,omitempty"`
 }
 
-// LocationFilterOptions represents the complete set of available filter options for locations.
-//
-// Computed by analyzing current location dataset to provide realistic filter bounds
-// and available geographic options. Used to configure location filtering UI components.
+// LocationFilterOptions represents available filter options for locations.
 type LocationFilterOptions struct {
-	// Range bounds for slider components
-	ConcertCountMin int `json:"concertCountMin"` // Minimum concert count across all locations
-	ConcertCountMax int `json:"concertCountMax"` // Maximum concert count across all locations
-	ArtistCountMin  int `json:"artistCountMin"`  // Minimum artist count across all locations
-	ArtistCountMax  int `json:"artistCountMax"`  // Maximum artist count across all locations
-	ConcertYearMin  int `json:"concertYearMin"`  // Earliest concert year across all locations
-	ConcertYearMax  int `json:"concertYearMax"`  // Latest concert year across all locations
-
-	// Available options for checkbox components
-	Countries []string `json:"countries"` // All countries from location names (sorted)
+	ConcertCountMin int      `json:"concertCountMin"`
+	ConcertCountMax int      `json:"concertCountMax"`
+	ArtistCountMin  int      `json:"artistCountMin"`
+	ArtistCountMax  int      `json:"artistCountMax"`
+	ConcertYearMin  int      `json:"concertYearMin"`
+	ConcertYearMax  int      `json:"concertYearMax"`
+	Countries       []string `json:"countries"`
 }
-
-// --- Search Data Structures ---
-//
-// These models define the search functionality that allows users to search across
-// all data types with suggestions and type identification. The search system
-// provides case-insensitive matching across artists, members, locations, and dates.
 
 // SearchSuggestionType represents the type of search result for categorization.
 type SearchSuggestionType string
 
 const (
-	SuggestionTypeArtist     SearchSuggestionType = "artist"      // Artist/band name
-	SuggestionTypeMember     SearchSuggestionType = "member"      // Band member name
-	SuggestionTypeLocation   SearchSuggestionType = "location"    // Concert location
-	SuggestionTypeFirstAlbum SearchSuggestionType = "first-album" // First album date
-	SuggestionTypeCreation   SearchSuggestionType = "creation"    // Band creation date
+	SuggestionTypeArtist     SearchSuggestionType = "artist"
+	SuggestionTypeMember     SearchSuggestionType = "member"
+	SuggestionTypeLocation   SearchSuggestionType = "location"
+	SuggestionTypeFirstAlbum SearchSuggestionType = "first-album"
+	SuggestionTypeCreation   SearchSuggestionType = "creation"
 )
 
 // SearchSuggestion represents a single search suggestion with type identification.
-//
-// This structure provides the frontend with enough information to display
-// meaningful suggestions with context about what type of data was matched.
-// The URL field enables direct navigation to relevant detail pages.
 type SearchSuggestion struct {
-	Text        string               `json:"text"`        // Display text for the suggestion
-	Type        SearchSuggestionType `json:"type"`        // Type of match for categorization
-	Description string               `json:"description"` // Additional context (e.g., "Queen - artist")
-	URL         string               `json:"url"`         // Direct link to detail page
-	ArtistID    int                  `json:"artistId"`    // Related artist ID for context
-	// Optimization fields for faster searching (not serialized to JSON)
-	normalizedText string `json:"-"` // Lowercase version for efficient matching
+	Text           string               `json:"text"`
+	Type           SearchSuggestionType `json:"type"`
+	Description    string               `json:"description"`
+	URL            string               `json:"url"`
+	ArtistID       int                  `json:"artistId"`
+	normalizedText string               `json:"-"` // Lowercase for efficient matching
 }
 
 // SearchResult represents a comprehensive search result with matched items.
-//
-// Contains all matching artists and the search parameters used. This structure
-// supports both direct search results and integration with existing filter system.
 type SearchResult struct {
-	Artists      []Artist `json:"artists"`      // Artists matching search criteria
-	Query        string   `json:"query"`        // Original search query
-	TotalResults int      `json:"totalResults"` // Number of matching results
+	Artists      []Artist `json:"artists"`
+	Query        string   `json:"query"`
+	TotalResults int      `json:"totalResults"`
 }
 
 // SearchParams represents search query parameters from user input.
@@ -265,18 +179,4 @@ type AppStats struct {
 	TotalCountries   int `json:"total_countries"`   // Number of unique countries with concerts
 	CachedImages     int `json:"cached_images"`     // Number of artist images served from local cache
 	DownloadedImages int `json:"downloaded_images"` // Number of artist images downloaded this session
-}
-
-// ToMap converts the type-safe stats structure to the legacy map format.
-// This method provides backward compatibility while maintaining type safety internally.
-func (s AppStats) ToMap() map[string]int {
-	return map[string]int{
-		"total_artists":     s.TotalArtists,
-		"total_members":     s.TotalMembers,
-		"total_locations":   s.TotalLocations,
-		"total_concerts":    s.TotalConcerts,
-		"total_countries":   s.TotalCountries,
-		"cached_images":     s.CachedImages,
-		"downloaded_images": s.DownloadedImages,
-	}
 }

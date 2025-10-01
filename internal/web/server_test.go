@@ -116,8 +116,8 @@ func TestNewServer(t *testing.T) {
 	}
 
 	// Verify stats are available
-	stats := server.repo.GetStats()
-	if stats["total_artists"] == 0 {
+	stats := server.repo.GetAppStats()
+	if stats.TotalArtists == 0 {
 		t.Error("Expected stats to be computed")
 	}
 }
@@ -310,8 +310,8 @@ func TestDirectRepositoryAccess(t *testing.T) {
 	}
 
 	// Test direct repository access for stats
-	stats := server.repo.GetStats()
-	if stats["total_artists"] == 0 {
+	stats := server.repo.GetAppStats()
+	if stats.TotalArtists == 0 {
 		t.Error("Repository should return stats")
 	}
 

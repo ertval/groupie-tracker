@@ -19,21 +19,7 @@ import (
 
 // --- Template Rendering System ---
 
-// render executes an HTML template with the provided data and sends response to client.
-//
-// This is the core template rendering function that handles:
-//   - Template lookup and validation
-//   - Template execution with error recovery
-//   - HTTP status code management
-//   - Graceful fallback to error pages on template failures
-//
-// The function uses a two-phase rendering approach: templates are first executed
-// into a buffer to catch errors before sending any response to the client.
-//
-// Parameters:
-//   - name: template filename (e.g., "home.tmpl")
-//   - data: template data (can be any type)
-//   - status: optional HTTP status code (defaults to 200)
+// render executes a template and sends the response.
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
 	code := http.StatusOK
 	if len(status) > 0 {
@@ -71,19 +57,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 	buf.WriteTo(w)
 }
 
-// loadTemplates discovers, compiles, and caches all HTML templates from the templates directory.
-//
-// This function performs template initialization at server startup:
-//   - Registers custom template functions (add, sub, join, upper, title)
-//   - Discovers all .tmpl files in the templates directory
-//   - Compiles each template with the base.tmpl wrapper for template inheritance
-//   - Stores compiled templates in the global templates map
-//
-// The template system uses inheritance where each page template defines "title" and "body" blocks
-// that are injected into the base.tmpl wrapper. Custom functions provide common operations
-// like arithmetic and string manipulation directly in templates.
-//
-// Panics on any error since templates are required for basic server functionality.
+// loadTemplates compiles and caches all HTML templates.
 func (s *Server) loadTemplates() {
 	s.templates = make(map[string]*template.Template)
 
@@ -154,13 +128,7 @@ func (s *Server) loadTemplates() {
 	}
 }
 
-// getPort determines the HTTP server port from environment or configuration.
-//
-// Checks the PORT environment variable first (for cloud deployments like Heroku),
-// then falls back to the configured default port. Ensures the port has a leading
-// colon prefix required by http.Server.
-//
-// Returns a port string like ":8080" ready for use with http.Server.
+// getPort determines HTTP server port from environment or config.
 func getPort() string {
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -177,10 +145,7 @@ func getPort() string {
 
 // --- Form Data Processing ---
 
-// Generic form parsing utilities to eliminate duplication across form handlers
-
-// parseIntPtr parses an integer form field and returns a pointer to the value.
-// Returns nil for empty or invalid values, which allows distinguishing between 0 and unset.
+// parseIntPtr parses integer form field and returns pointer.
 func parseIntPtr(r *http.Request, fieldName string) *int {
 	if str := r.FormValue(fieldName); str != "" {
 		if val, err := strconv.Atoi(str); err == nil {
@@ -190,8 +155,7 @@ func parseIntPtr(r *http.Request, fieldName string) *int {
 	return nil
 }
 
-// parseIntSlice parses multiple checkbox values into an integer slice.
-// Used for form fields like member counts where multiple selections are allowed.
+// parseIntSlice parses multiple checkbox values into integer slice.
 func parseIntSlice(r *http.Request, fieldName string) []int {
 	var results []int
 	if values := r.Form[fieldName]; len(values) > 0 {
@@ -204,8 +168,7 @@ func parseIntSlice(r *http.Request, fieldName string) []int {
 	return results
 }
 
-// parseStringSlice parses multiple form values into a string slice.
-// Used for form fields like countries where multiple selections are allowed.
+// parseStringSlice parses multiple form values into string slice.
 func parseStringSlice(r *http.Request, fieldName string) []string {
 	if values := r.Form[fieldName]; len(values) > 0 {
 		return values
@@ -213,17 +176,7 @@ func parseStringSlice(r *http.Request, fieldName string) []string {
 	return nil
 }
 
-// parseArtistFilterParams extracts and validates artist filter parameters from HTML form submission.
-//
-// Converts form values into structured filter parameters with proper type handling:
-//   - Year ranges: converted to integers with nil for empty values
-//   - Member counts: parsed as integer slice from checkbox selections
-//   - Countries: used directly as string slice from checkbox selections
-//
-// This function handles the common pattern of form data being submitted as strings
-// that need conversion to appropriate Go types for the business logic layer.
-//
-// Returns a populated ArtistFilterParams struct ready for use with repository filtering.
+// parseArtistFilterParams extracts artist filter parameters from form data.
 func parseArtistFilterParams(r *http.Request) domain.ArtistFilterParams {
 	var params domain.ArtistFilterParams
 
@@ -238,15 +191,7 @@ func parseArtistFilterParams(r *http.Request) domain.ArtistFilterParams {
 	return params
 }
 
-// parseLocationFilterParams extracts and validates location filter parameters from HTML form submission.
-//
-// Similar to parseFilterParams but for location-specific filtering criteria:
-//   - Concert count range: number of concerts held at the location
-//   - Artist count range: number of unique artists who performed there
-//   - Concert year range: temporal filtering of concert dates
-//   - Countries: geographical filtering by country names
-//
-// Returns a populated LocationFilterParams struct for location-based queries.
+// parseLocationFilterParams extracts location filter parameters from form data.
 func parseLocationFilterParams(r *http.Request) domain.LocationFilterParams {
 	var params domain.LocationFilterParams
 
@@ -262,9 +207,7 @@ func parseLocationFilterParams(r *http.Request) domain.LocationFilterParams {
 	return params
 }
 
-// extractSearchTerm extracts the actual search term from datalist suggestion format.
-// Converts "Artist Name - artist" or "Member Name - member" back to "Artist Name" or "Member Name"
-// for proper search processing. Returns the original string if no pattern is found.
+// extractSearchTerm extracts search term from datalist suggestion format.
 func extractSearchTerm(input string) string {
 	if input == "" {
 		return input

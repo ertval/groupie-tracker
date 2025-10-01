@@ -31,7 +31,6 @@ type Repository struct {
 	artistsBySlug   map[string]Artist   // Fast artist lookup by URL slug
 	locations       []Location          // All locations sorted by concert count (descending)
 	locationsBySlug map[string]Location // Fast location lookup by URL slug
-	globalStats     map[string]int      // Pre-computed application statistics (legacy)
 	appStats        AppStats            // Type-safe application statistics
 }
 
@@ -71,101 +70,38 @@ func (r *Repository) LoadData(ctx context.Context) error {
 	return nil
 }
 
-// --- Public Data Access Methods ---
-//
-// These methods provide thread-safe read-only access to the loaded data.
-// All methods return pre-processed, ready-to-use data structures.
-
-// GetArtists returns the complete artist collection sorted alphabetically by name.
-//
-// The returned slice contains fully populated Artist objects with:
-//   - Basic information (name, members, creation year, etc.)
-//   - Concert data and derived statistics
-//   - Navigation links (next/previous artist IDs)
-//   - SEO-friendly slugs for URL generation
-//
-// This method is commonly used for artist listing pages and search operations.
+// GetArtists returns all artists sorted by name.
 func (r *Repository) GetArtists() []Artist {
 	return r.artists
 }
 
-// GetArtistByID performs fast artist lookup by unique identifier.
-//
-// Uses an internal map index for O(1) lookup performance. The ID parameter
-// should match the original API artist ID.
-//
-// Returns the complete Artist object and a boolean indicating if the artist was found.
+// GetArtistByID returns an artist by ID with O(1) lookup.
 func (r *Repository) GetArtistByID(id int) (Artist, bool) {
 	artist, found := r.artistsByID[id]
 	return artist, found
 }
 
-// GetArtistBySlug performs fast artist lookup by URL-friendly slug.
-//
-// Slugs are generated from artist names using URL-safe characters (e.g., "queen", "led-zeppelin").
-// This enables SEO-friendly URLs like /artists/queen instead of /artists/28.
-//
-// Returns the complete Artist object and a boolean indicating if the slug was found.
+// GetArtistBySlug returns an artist by URL slug (e.g., "queen").
 func (r *Repository) GetArtistBySlug(slug string) (Artist, bool) {
 	artist, found := r.artistsBySlug[slug]
 	return artist, found
 }
 
-// GetLocations returns the complete location collection sorted by popularity.
-//
-// Locations are sorted by total concert count in descending order, so the most
-// popular venues appear first. Each Location contains:
-//   - Venue information and geographic data
-//   - Artist performance statistics
-//   - Concert date ranges and counts
-//   - SEO-friendly slugs for URL generation
-//
-// This method is used for location listing pages and geographic analysis.
+// GetLocations returns all locations sorted by concert count (descending).
 func (r *Repository) GetLocations() []Location {
 	return r.locations
 }
 
-// GetLocationBySlug performs fast location lookup by URL-friendly slug.
-//
-// Slugs are generated from location names using URL-safe characters (e.g., "london-uk").
-// This enables SEO-friendly URLs like /locations/london-uk.
-//
-// Returns the complete Location object and a boolean indicating if the slug was found.
+// GetLocationBySlug returns a location by URL slug (e.g., "london-uk").
 func (r *Repository) GetLocationBySlug(slug string) (Location, bool) {
 	location, found := r.locationsBySlug[slug]
 	return location, found
 }
 
-// GetStats returns pre-computed global application statistics.
-//
-// The statistics map includes comprehensive metrics computed during data loading:
-//   - "total_artists": Number of artists in the dataset
-//   - "total_members": Sum of all band members across all artists
-//   - "total_locations": Number of unique concert venues
-//   - "total_concerts": Total number of concert events
-//   - "total_countries": Number of unique countries with concerts
-//   - "cached_images": Number of artist images served from local cache
-//   - "downloaded_images": Number of artist images downloaded during this session
-//
-// These statistics are used for dashboard displays and system monitoring.
-// The cache-related statistics help track image optimization effectiveness.
-func (r *Repository) GetStats() map[string]int {
-	return r.globalStats
-}
-
 // GetAppStats returns type-safe application statistics.
-//
-// This method provides the same statistical information as GetStats() but
-// with compile-time type safety and better API documentation. Prefer using
-// this method for new code while maintaining GetStats() for backward compatibility.
 func (r *Repository) GetAppStats() AppStats {
 	return r.appStats
 }
-
-// --- Private Data Processing Pipeline ---
-//
-// These methods implement the data loading and transformation pipeline.
-// They are called internally by LoadData() and should not be used directly.
 
 // processArtists transforms raw API data into enriched Artist domain models.
 func (r *Repository) processArtists(apiArtists []api.Artist, apiRelations api.Relation) []Artist {
@@ -260,9 +196,7 @@ func (r *Repository) convertCountriesMapToSlice(countriesMap map[string]bool) []
 	return countries
 }
 
-// GetAdjacentArtists finds the previous and next artists in the collection
-// based on alphabetical order by name. This replaces pre-computed navigation IDs
-// with on-demand lookup to reduce memory usage and complexity.
+// GetAdjacentArtists finds the previous and next artists in alphabetical order.
 func (r *Repository) GetAdjacentArtists(currentID int) (prev, next *Artist) {
 	if len(r.artists) == 0 {
 		return nil, nil
@@ -278,7 +212,7 @@ func (r *Repository) GetAdjacentArtists(currentID int) (prev, next *Artist) {
 	}
 
 	if currentIndex == -1 {
-		return nil, nil // Artist not found
+		return nil, nil
 	}
 
 	// Get previous artist (if not first)
@@ -299,31 +233,7 @@ func (r *Repository) IsCacheEnabled() bool {
 	return r.cacheEnabled
 }
 
-// cacheImages handles local image caching optimization for artist photos.
-//
-// When image caching is enabled (config.WithCache = true), this method:
-//
-// Cache Management:
-//   - Creates local cache directory (static/img/artists/) if needed
-//   - Checks for existing cached images to avoid re-downloading
-//   - Downloads missing images from original URLs
-//   - Updates Artist.Image URLs to point to local cached versions
-//
-// Performance Optimization:
-//   - Reduces external HTTP requests during normal operation
-//   - Improves page load times by serving images locally
-//   - Tracks cache hit/miss statistics for monitoring
-//
-// Cache State Tracking:
-//   - Sets cacheEnabled flag based on successful cache initialization
-//   - Simplified boolean approach replaces complex status enum
-//
-// The method modifies Artist objects in-place to update image URLs. It gracefully
-// handles download failures by leaving original URLs intact. Cache statistics
-// are used for monitoring and dashboard display.
-//
-// Returns counts of cached and newly downloaded images for statistics.
-// Returns counts of cached and newly downloaded images for statistics.
+// cacheImages downloads and caches artist images locally when caching is enabled.
 func (r *Repository) cacheImages(artists []Artist) (cached, downloaded int) {
 	if !r.withCache {
 		r.cacheEnabled = false
@@ -392,35 +302,7 @@ func (r *Repository) downloadImage(url, path string) bool {
 	return err == nil
 }
 
-// createLocations analyzes artist concert data to build comprehensive location models.
-//
-// This method performs venue analysis and aggregation:
-//
-// Venue Discovery:
-//   - Extracts unique concert locations from all artist concert data
-//   - Normalizes location names for consistent identification
-//   - Creates SEO-friendly slugs for location URLs
-//
-// Statistical Analysis:
-//   - Counts total concerts held at each venue
-//   - Tracks which artists performed at each venue and how often
-//   - Computes temporal ranges (earliest/latest concert years)
-//   - Ranks venues by total concert activity
-//
-// Data Organization:
-//   - Sorts artists within each venue by performance frequency
-//   - Sorts all venues by total concerts (most active first)
-//   - Pre-computes aggregate fields for efficient display
-//
-// Performance Optimization:
-//   - Uses maps for efficient concert counting during processing
-//   - Converts to final slice format for consistent ordering
-//   - Enables fast venue-based queries without real-time aggregation
-//
-// The resulting Location objects contain complete venue analytics ready for
-// location detail pages and geographic visualizations.
-//
-// Returns a slice of Location objects sorted by concert volume (descending).
+// createLocations builds location models from artist concert data.
 func (r *Repository) createLocations(artists []Artist) []Location {
 	// Build lookup map once - O(n) instead of O(n²)
 	artistMap := make(map[int]Artist, len(artists))
@@ -567,15 +449,9 @@ func (r *Repository) loadProcessedData(artists []Artist, locations []Location, c
 		CachedImages:     cachedCount,
 		DownloadedImages: downloadedCount,
 	}
-	// Maintain legacy map format for backward compatibility
-	r.globalStats = r.appStats.ToMap()
 }
 
-// --- Test Helper Methods ---
-
 // SetTestData allows tests to populate the repository with test data.
-// This method is only intended for use in test files and bypasses
-// the normal data loading pipeline.
 func (r *Repository) SetTestData(artists []Artist, locations []Location) {
 	r.artists = artists
 	r.locations = locations
@@ -603,47 +479,16 @@ func (r *Repository) SetTestData(artists []Artist, locations []Location) {
 		CachedImages:     0,
 		DownloadedImages: 0,
 	}
-	// Maintain legacy map format for backward compatibility
-	r.globalStats = r.appStats.ToMap()
 }
 
-// --- String Processing Utilities ---
-//
-// These helper functions provide consistent text transformation across the application.
-
-// createSlug converts display names into URL-friendly identifiers.
-//
-// The slug generation process:
-//  1. Converts name to lowercase for case-insensitive URLs
-//  2. Replaces non-alphanumeric characters with hyphens
-//  3. Removes leading/trailing hyphens for clean URLs
-//  4. Handles special characters and spaces consistently
-//
-// Examples:
-//   - "Queen" → "queen"
-//   - "Led Zeppelin" → "led-zeppelin"
-//   - "AC/DC" → "ac-dc"
-//   - "Guns N' Roses" → "guns-n-roses"
-//
-// Used for both artist and location URL generation to maintain consistency.
+// createSlug converts display names into URL-friendly slugs.
 func createSlug(name string) string {
 	reg := regexp.MustCompile(`[^a-z0-9]+`)
 	slug := reg.ReplaceAllString(strings.ToLower(name), "-")
 	return strings.Trim(slug, "-")
 }
 
-// normalizeLocation converts raw API location strings to consistent internal format.
-//
-// The normalization process:
-//   - Removes leading/trailing whitespace
-//   - Converts to lowercase for consistent processing
-//   - Replaces underscores with hyphens for URL compatibility
-//   - Maintains original location structure (city-state-country)
-//
-// This ensures consistent location identification across the application,
-// regardless of minor formatting variations in the source API data.
-//
-// Example: "New_York-USA" → "new-york-usa"
+// normalizeLocation converts raw API location strings to consistent format.
 func normalizeLocation(location string) string {
 	return strings.ToLower(strings.ReplaceAll(strings.TrimSpace(location), "_", "-"))
 }

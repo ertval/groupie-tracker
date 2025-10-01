@@ -18,18 +18,7 @@ func newSearchSuggestion(text, suggestionType, description, url string, artistID
 	}
 }
 
-// SearchArtists performs comprehensive search across all artist data.
-//
-// This method combines text search with optional filtering to provide
-// powerful search capabilities. It searches across:
-// - Artist names (case-insensitive)
-// - Band member names (case-insensitive)
-// - Concert locations (case-insensitive)
-// - Creation years (exact match)
-// - First album dates (substring match)
-//
-// The search can be combined with existing filter parameters for
-// refined results (e.g., "Phil Collins created after 1980").
+// SearchArtists performs search across artist data with optional filtering.
 func (r *Repository) SearchArtists(params SearchParams) SearchResult {
 	query := normalizeSearchQuery(params.Query)
 	var matchingArtists []Artist
@@ -64,30 +53,12 @@ func (r *Repository) SearchArtists(params SearchParams) SearchResult {
 	}
 }
 
-// normalizeSearchQuery standardizes search input for consistent matching.
-//
-// This function handles common search input variations:
-// - Converts to lowercase for case-insensitive search
-// - Trims whitespace from beginning and end
-// - Preserves internal spaces and special characters
-//
-// The normalization ensures that "Queen", "QUEEN", and " Queen " all
-// produce identical search results.
+// normalizeSearchQuery converts query to lowercase and trims whitespace.
 func normalizeSearchQuery(query string) string {
 	return strings.ToLower(strings.TrimSpace(query))
 }
 
-// matchesSearchQuery checks if an artist matches the given search query.
-//
-// This function implements the core search logic by checking if the query
-// appears in any of the artist's searchable fields:
-// - Artist name
-// - Any band member name
-// - Creation year (as string)
-// - First album date (substring match)
-// - Any country where they performed
-//
-// All text matching is case-insensitive via normalizeSearchQuery.
+// matchesSearchQuery checks if an artist matches the search query in any field.
 func matchesSearchQuery(artist Artist, normalizedQuery string) bool {
 	if normalizedQuery == "" {
 		return true
@@ -133,11 +104,7 @@ func matchesSearchQuery(artist Artist, normalizedQuery string) bool {
 	return false
 }
 
-// isEmptyFilter checks if filter parameters are empty/unset.
-//
-// This helper function determines whether any filter criteria have been
-// specified, allowing the search to skip filter processing when no
-// additional filtering is needed.
+// isEmptyFilter checks if filter parameters are empty.
 func isEmptyFilter(filters ArtistFilterParams) bool {
 	return filters.CreationYearFrom == nil &&
 		filters.CreationYearTo == nil &&
@@ -147,9 +114,7 @@ func isEmptyFilter(filters ArtistFilterParams) bool {
 		len(filters.Countries) == 0
 }
 
-// GenerateAllSearchSuggestions creates a comprehensive list of all possible search suggestions
-// for use in HTML datalist elements. This provides all available search options upfront
-// for client-side autocomplete without requiring JavaScript.
+// GenerateAllSearchSuggestions creates search suggestions for autocomplete.
 func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
 	var suggestions []SearchSuggestion
 	seenSuggestions := make(map[string]bool)
@@ -237,16 +202,7 @@ func (r *Repository) GenerateAllSearchSuggestions() []SearchSuggestion {
 	return suggestions
 }
 
-// locationMatches checks if a location name matches a search query using various formats.
-//
-// This function handles multiple location search patterns for locations in "city-country" format:
-// - Direct match: "london-uk" matches query "london"
-// - Country match: "london-uk" matches query "uk"
-// - Hyphenated match: "london-uk" matches query "london-uk"
-// - Space match: "london-uk" matches query "london uk" (converts spaces to hyphens)
-// - Partial city match: "new-york-usa" matches query "new york"
-//
-// All matching is case-insensitive to provide user-friendly search experience.
+// locationMatches checks if a location name matches a search query.
 func locationMatches(locationName, query string) bool {
 	normalizedLocation := normalizeSearchQuery(locationName)
 	normalizedQuery := normalizeSearchQuery(query)
@@ -289,13 +245,7 @@ func locationMatches(locationName, query string) bool {
 	return false
 }
 
-// FilterSuggestionsOptimized provides optimized suggestion filtering with prioritization and limits.
-//
-// This function implements several performance optimizations:
-// 1. Uses pre-computed normalized text to avoid repeated string.ToLower() calls
-// 2. Implements match prioritization (exact > prefix > contains)
-// 3. Limits results to prevent overwhelming the UI
-// 4. Stops early when enough results are found
+// FilterSuggestionsOptimized filters and prioritizes search suggestions.
 func FilterSuggestionsOptimized(suggestions []SearchSuggestion, query string, maxResults int) []SearchSuggestion {
 	if query == "" || len(suggestions) == 0 {
 		return []SearchSuggestion{}

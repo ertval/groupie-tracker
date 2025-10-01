@@ -108,15 +108,15 @@ func TestRepository_LoadData_Success(t *testing.T) {
 	}
 
 	// Check global stats
-	stats := repo.GetStats()
-	if stats["total_artists"] != 2 {
-		t.Errorf("expected total_artists to be 2, got %d", stats["total_artists"])
+	stats := repo.GetAppStats()
+	if stats.TotalArtists != 2 {
+		t.Errorf("expected TotalArtists to be 2, got %d", stats.TotalArtists)
 	}
-	if stats["total_locations"] != 2 {
-		t.Errorf("expected total_locations to be 2, got %d", stats["total_locations"])
+	if stats.TotalLocations != 2 {
+		t.Errorf("expected TotalLocations to be 2, got %d", stats.TotalLocations)
 	}
-	if stats["total_concerts"] != 3 {
-		t.Errorf("expected total_concerts to be 3, got %d", stats["total_concerts"])
+	if stats.TotalConcerts != 3 {
+		t.Errorf("expected TotalConcerts to be 3, got %d", stats.TotalConcerts)
 	}
 }
 
@@ -225,10 +225,10 @@ func TestRepository_GetMethods_EmptyData(t *testing.T) {
 		t.Error("expected GetLocationBySlug to return false for empty repo")
 	}
 
-	// Test GetStats with empty repository
-	stats := repo.GetStats()
-	if stats != nil {
-		t.Errorf("expected nil stats map, got %v", stats)
+	// Test GetAppStats with empty repository
+	stats := repo.GetAppStats()
+	if stats.TotalArtists != 0 {
+		t.Errorf("expected TotalArtists to be 0, got %d", stats.TotalArtists)
 	}
 }
 

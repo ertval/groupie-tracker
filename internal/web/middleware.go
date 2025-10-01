@@ -53,9 +53,7 @@ func withSecureHeaders(next http.Handler) http.Handler {
 	})
 }
 
-// restrictMethod wraps a handler to only allow specific HTTP methods.
-// This eliminates duplication of method validation across handlers.
-// Updated to use server's Error method for consistent error handling.
+// restrictMethod restricts handler to specific HTTP methods.
 func (s *Server) restrictMethod(handler http.HandlerFunc, allowedMethods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		allowed := slices.Contains(allowedMethods, r.Method)

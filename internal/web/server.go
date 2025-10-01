@@ -13,8 +13,7 @@ import (
 	"groupie-tracker/internal/domain"
 )
 
-// Server encapsulates all server dependencies with direct repository access
-// and cached expensive computations for optimal performance.
+// Server encapsulates server dependencies with repository and cached data.
 type Server struct {
 	// Direct repository access (eliminates service layer facade)
 	repo *domain.Repository
@@ -113,8 +112,7 @@ func (s *Server) initializeCaches() {
 	s.cacheSize = 50 // Reasonable cache size for frequent searches
 }
 
-// getCachedSearchResults retrieves cached search results for a normalized query.
-// Returns cached results and true if found, nil and false if not cached.
+// getCachedSearchResults retrieves cached search results.
 func (s *Server) getCachedSearchResults(normalizedQuery string) ([]domain.Artist, bool) {
 	if results, found := s.searchCache[normalizedQuery]; found {
 		return results, true
@@ -122,8 +120,7 @@ func (s *Server) getCachedSearchResults(normalizedQuery string) ([]domain.Artist
 	return nil, false
 }
 
-// setCachedSearchResults stores search results in cache with simple eviction.
-// Uses a basic LRU-style eviction when cache reaches capacity.
+// setCachedSearchResults stores search results in cache.
 func (s *Server) setCachedSearchResults(normalizedQuery string, results []domain.Artist) {
 	// Simple cache eviction: if at capacity, clear cache (could be more sophisticated)
 	if len(s.searchCache) >= s.cacheSize {
