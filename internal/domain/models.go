@@ -1,26 +1,5 @@
 package domain
 
-// APIArtist represents raw artist data from the API.
-type APIArtist struct {
-	ID           int      `json:"id"`
-	Name         string   `json:"name"`
-	Members      []string `json:"members"`
-	CreationYear int      `json:"creationDate"`
-	FirstAlbum   string   `json:"firstAlbum"`
-	Image        string   `json:"image"`
-}
-
-// APIRelationIndex represents concert data for a single artist from the API.
-type APIRelationIndex struct {
-	ID             int                 `json:"id"`
-	DatesLocations map[string][]string `json:"datesLocations"`
-}
-
-// APIRelation wraps the complete concert relations dataset from the API.
-type APIRelation struct {
-	Index []APIRelationIndex `json:"index"`
-}
-
 // Artist represents the complete internal model of a music artist.
 type Artist struct {
 	ID              int

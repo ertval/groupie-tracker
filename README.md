@@ -13,37 +13,38 @@ Groupie Tracker is a Go-based web application that:
 - Provides robust error handling with proper HTTP status codes and graceful fallbacks
 - Features panic recovery middleware for server stability
 - Maintains test coverage with comprehensive unit and integration tests (data: 69.8% coverage)
-- **Built with Go 1.24.3 following Test-Driven Development principles and Zero JavaScript Dependencies**
+- **Built with Go 1.24.3 standard library only - no external dependencies**
+- **Concurrent data loading**: Parallel API fetching and worker pool for image caching
 
-## � Recent Refactoring (Phase 0-3 Complete)
+## 🚀 Recent Refactoring (Oct 2025 - Phases 1-3 Complete)
 
-This project recently underwent comprehensive refactoring to improve code quality and maintainability:
+This project underwent comprehensive refactoring to improve performance, code quality, and maintainability:
 
-### Phase 0: Package Restructuring & Dependency Injection
-- **Created `internal/api` package**: Separated external API concerns from business logic
-- **Renamed packages**: `data` → `domain` (business logic), `server` → `web` (HTTP layer)
-- **Implemented dependency injection**: Repository and Server now accept injected dependencies
-- **Result**: Better separation of concerns, improved testability
+### Phase 1: Store-Service-Repository Architecture
+- **Created `Store` struct**: Immutable in-memory data storage with thread-safe read-only access
+- **Created `Service` layer**: Clean business logic facade for web handlers
+- **Refactored `Repository`**: Now a compatibility wrapper around Store
+- **Removed duplicate API models**: Consolidated to use `api.Artist` and `api.Relation` directly
+- **Result**: Cleaner separation of data storage and business logic
 
-### Phase 1: Documentation Reduction
-- **Domain package**: Reduced verbose comments by 420 lines (repository.go, models.go, filtering.go, search.go)
-- **Web package**: Reduced verbose comments by 70 lines (handlers.go, server.go, middleware.go, templates.go)
-- **Result**: 490 lines removed while maintaining essential documentation
+### Phase 2: Concurrent Data Loading
+- **Parallel API fetching**: Artists and relations fetched concurrently using goroutines and channels
+- **Worker pool for images**: 4 concurrent workers for downloading/caching artist images
+- **Standard library only**: Uses goroutines, channels, sync.WaitGroup, sync.Mutex - no external dependencies
+- **Result**: Improved startup time and performance without adding dependencies
 
-### Phase 2: Remove Template Wrappers
-- **Deleted `template_data.go`**: Removed 269 lines of unnecessary template wrapper structs
-- **Direct domain model usage**: Templates now use domain models directly with helper functions
-- **Result**: Simplified data flow, eliminated data transformation layer
-
-### Phase 3: Consolidate Statistics
-- **Removed legacy `GetStats()`**: Eliminated map-based statistics in favor of type-safe `AppStats` struct
-- **Updated handlers and tests**: All code now uses `GetAppStats()` for type safety
-- **Result**: 24 lines removed, improved type safety throughout codebase
+### Phase 3: Service Layer
+- **Business logic facade**: Clean API wrapping Store operations
+- **Backward compatibility**: Repository maintains existing API for tests and handlers
+- **Ready for future enhancements**: Service layer can be used directly by new code
+- **Result**: Cleaner architecture with multiple access patterns
 
 ### Overall Impact
-- **Total line reduction**: ~783 lines removed (3,700 → 2,917 lines)
-- **Test coverage maintained**: All tests passing with 100% functionality preservation
-- **Code quality improved**: Better separation of concerns, type safety, and maintainability
+- **Performance**: Concurrent loading improves startup time
+- **Code quality**: Better separation of concerns (Store/Service/Repository)
+- **Maintainability**: Clear data flow and responsibilities
+- **Test coverage**: All tests passing, standard library only
+- **Architecture**: Ready for future scaling and enhancements
 
 ## �🔍 Search Features
 

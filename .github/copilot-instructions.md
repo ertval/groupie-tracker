@@ -1,21 +1,38 @@
 # Groupie Tracker - AI Coding Agent Instructions
 
 ## Project Overview
-Go web application (Go 1.24.3) consuming the Groupie Trackers API. **Zero JavaScript dependencies** - all filtering, search, and interactivity handled server-side via HTML forms and POST requests.
+Go web application (Go 1.24.3) consuming the Groupie Trackers API. **Zero JavaScript dependencies** - all filtering, search, and interactivity handled server-side via HTML forms and POST requests. **Standard library only** - no external dependencies.
 
-## Architecture: Three-Layer Clean Architecture
+## Architecture: Three-Layer Clean Architecture with Concurrent Loading
 
 ### Layer 1: `internal/api` - External API Client
 - **Single responsibility**: Fetch raw JSON from external API
 - Uses `api.Client` with dependency injection
 - Raw models: `api.Artist`, `api.Relation` (match API JSON exactly)
-- Entry point: `cmd/server/main.go` creates client → passes to Repository
+- Entry point: `cmd/server/main.go` creates client → passes to Service/Repository
 
-### Layer 2: `internal/domain` - Business Logic
-- **Core**: `Repository` struct - all data operations, caching, filtering, search
-- **31 public methods** including `GetArtists()`, `FilterArtists()`, `SearchArtists()`, `GetArtistBySlug()`
-- Domain models enriched with computed fields: `Artist.Countries`, `Artist.ConcertCount`, `Location.ArtistCount`
-- **Thread-safe**: All data loaded once at startup, read-only after initialization
+### Layer 2: `internal/domain` - Business Logic & Data Storage
+**New architecture (Oct 2025)**: Store-Service-Repository pattern
+
+- **`Store`**: Immutable in-memory data storage after Load()
+  - Concurrent API fetching using goroutines + channels (artists and relations in parallel)
+  - Worker pool (4 workers) for concurrent image downloads
+  - Thread-safe read-only access after initialization
+  - Files: `store.go`, `loader.go`
+
+- **`Service`**: Business logic facade (new, optional layer)
+  - Clean API for web layer
+  - Delegates to Repository for backward compatibility
+  - File: `service.go`
+
+- **`Repository`**: Compatibility layer wrapping Store
+  - Maintains existing API for tests and web handlers
+  - Exposes internal fields for filtering/search
+  - **31 public methods**: `GetArtists()`, `FilterArtists()`, `SearchArtists()`, `GetArtistBySlug()`
+  - File: `repository.go`
+
+- **Domain models** enriched with computed fields: `Artist.Countries`, `Artist.ConcertCount`, `Location.ArtistCount`
+- **Filtering & Search**: `filtering.go`, `search.go`
 - No database - in-memory storage with map indexes for O(1) lookups
 
 ### Layer 3: `internal/web` - HTTP Layer  
@@ -26,7 +43,26 @@ Go web application (Go 1.24.3) consuming the Groupie Trackers API. **Zero JavaSc
 
 ## Critical Patterns
 
-### 1. Server-Side Form Processing (Zero JavaScript)
+### 1. Concurrent Data Loading (Oct 2025 Update)
+```go
+// Store.loadData() - parallel API fetching
+artistsCh := make(chan result, 1)
+relationsCh := make(chan result, 1)
+
+go func() { artistsCh <- fetchArtists() }()
+go func() { relationsCh <- fetchRelations() }()
+
+// Worker pool for image caching (4 workers)
+jobs := make(chan job, len(artists))
+var wg sync.WaitGroup
+for w := 0; w < 4; w++ {
+    wg.Add(1)
+    go worker(jobs, &wg)
+}
+```
+**Standard library only** - uses goroutines, channels, sync.WaitGroup, sync.Mutex
+
+### 2. Server-Side Form Processing (Zero JavaScript)
 ```go
 // ALL filters/search use POST + form parsing
 func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
@@ -40,19 +76,19 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 ```
 **Never add JavaScript interactivity** - maintain HTML form submission pattern.
 
-### 2. Template Rendering with Error Protection
+### 3. Template Rendering with Error Protection
 ```go
 // Always use s.render() - never template.Execute() directly
 s.render(w, r, "artists.tmpl", data) // executes to buffer first
 ```
 Template helpers in `funcMap`: `add`, `sub`, `join`, `upper`, `title`, `contains`, `toSlice`
 
-### 3. SEO-Friendly URL Slugs
+### 4. SEO-Friendly URL Slugs
 - Artists: `/artists/queen` (not `/artists/28`)
 - Locations: `/locations/london-uk` (not `/locations/42`)
-- Slug generation: `generateSlug(name)` in `repository.go` - lowercase, hyphenated
+- Slug generation: `createSlug(name)` in `loader.go` - lowercase, hyphenated
 
-### 4. Dependency Injection at Startup
+### 5. Dependency Injection at Startup
 ```go
 // main.go pattern
 apiClient := api.NewClient(config.APIBaseURL, timeout)
@@ -136,15 +172,18 @@ go build -o groupie-tracker ./cmd/server/
 
 ## Recent Refactoring Context (Oct 2025)
 - **Phase 0**: Created `internal/api` package, renamed `data`→`domain`, `server`→`web`
-- **Phase 1**: Removed 490 lines of verbose documentation
-- **Phase 2**: Deleted template wrapper layer (269 lines), templates use domain models directly
-- **Phase 3**: Consolidated to type-safe `AppStats` struct (removed map-based `GetStats()`)
-- **Result**: ~783 lines removed, improved separation of concerns, all tests passing
+- **Phase 1**: Store-Service-Repository architecture - separated data storage (Store) from business logic (Service/Repository)
+- **Phase 2**: Concurrent data loading - parallel API fetching with goroutines, worker pool for image downloads (4 workers)
+- **Phase 3**: Service layer - clean facade for business operations, maintains backward compatibility through Repository
+- **Result**: Improved performance with concurrent loading, cleaner separation of concerns, all tests passing, standard library only
 
 ## Key Files Reference
 - Entry point: `cmd/server/main.go`
 - Routing: `internal/web/routes.go`
-- Core data ops: `internal/domain/repository.go` (495 lines)
+- Data storage: `internal/domain/store.go` (immutable after Load)
+- Data loading: `internal/domain/loader.go` (concurrent API fetching, image caching)
+- Business logic: `internal/domain/service.go` (clean API facade)
+- Compatibility: `internal/domain/repository.go` (wraps Store for backward compatibility)
 - Handlers: `internal/web/handlers.go` (537 lines)
 - Filters: `internal/domain/filtering.go` (332 lines)
 - Search: `internal/domain/search.go` (303 lines)
