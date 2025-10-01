@@ -22,15 +22,6 @@ type Suggestion struct {
 	Description string
 }
 
-// getBasePage returns a BasePage with common fields
-func (s *Server) getBasePage(title, extraCSS string) BasePage {
-	return BasePage{
-		Title:       title,
-		ExtraCSS:    extraCSS,
-		Suggestions: []Suggestion{}, // Empty for now, can be populated if needed
-	}
-}
-
 // Home handles the home page.
 func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
@@ -112,7 +103,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 
 // ArtistDetail handles individual artist pages.
 func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
-	slug := strings.TrimPrefix(r.URL.Path, "/artist/")
+	slug := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if slug == "" {
 		s.errorHandler(w, r, http.StatusNotFound, "Artist not found")
 		return
@@ -183,7 +174,7 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 
 // LocationDetail handles individual location pages.
 func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
-	slug := strings.TrimPrefix(r.URL.Path, "/location/")
+	slug := strings.TrimPrefix(r.URL.Path, "/locations/")
 	if slug == "" {
 		s.errorHandler(w, r, http.StatusNotFound, "Location not found")
 		return
@@ -227,8 +218,11 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 
 	data := struct {
 		BasePage
-		Query   string
-		Results data.SearchResults
+		Query          string
+		Results        data.SearchResults
+		IsSearch       bool
+		FilterOptions  data.ArtistFilterOptions
+		AppliedFilters data.ArtistFilterParams
 	}{
 		BasePage: BasePage{
 			Title:       "Search",
@@ -236,8 +230,11 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 			ExtraJS:     "",
 			Suggestions: []Suggestion{},
 		},
-		Query:   query,
-		Results: results,
+		Query:          query,
+		Results:        results,
+		IsSearch:       query != "",
+		FilterOptions:  s.store.GetArtistFilterOptions(),
+		AppliedFilters: data.ArtistFilterParams{},
 	}
 
 	s.render(w, "search.tmpl", data)

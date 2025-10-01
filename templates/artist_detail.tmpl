@@ -38,8 +38,8 @@
                 </div>
                 {{if .Artist.Concerts}}
                 <div class="stat-item">
-                    <span class="stat-number">{{len .Artist.DatesAtLocation}}</span>
-                    <span class="stat-label">Locations</span>
+                    <span class="stat-number">{{len .Artist.Countries}}</span>
+                    <span class="stat-label">Countries</span>
                 </div>
                 <div class="stat-item">
                     <span class="stat-number">{{.Artist.ConcertCount}}</span>
@@ -55,20 +55,13 @@
 
         {{if .Artist.Concerts}}
         <section class="concert-info">
-            <div class="concerts-grid">
-                {{range $slug, $dates := .Artist.DatesAtLocation}}
-                <a href="/locations/{{$slug}}" class="concert-card-link">
-                    <div class="concert-card">
-                        <h3 class="location-name">
-                            {{$slug | title}}
-                            <div class="dates-list">
-                                {{range $dates}}
-                                <span class="concert-date">{{.}}</span>
-                                {{end}}
-                            </div>
-                        </h3>
-                    </div>
-                </a>
+            <h2>Concert History</h2>
+            <div class="concerts-list">
+                {{range .Artist.Concerts}}
+                <div class="concert-item">
+                    <span class="concert-date">{{.Date}}</span>
+                    <span class="concert-location">{{.Location}}</span>
+                </div>
                 {{end}}
             </div>
         </section>
@@ -80,14 +73,6 @@
         {{end}}
 
         <div class="navigation-links">
-            <div class="artist-nav-buttons">
-                {{if .PrevArtist}}
-                <a href="/artists/{{.PrevArtist.Slug}}" class="nav-btn">← {{.PrevArtist.Name}}</a>
-                {{end}}
-                {{if .NextArtist}}
-                <a href="/artists/{{.NextArtist.Slug}}" class="nav-btn">{{.NextArtist.Name}} →</a>
-                {{end}}
-            </div>
             <div class="back-to-artists">
                 <a href="/artists" class="btn btn-secondary">← Back to Artists</a>
             </div>

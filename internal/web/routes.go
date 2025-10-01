@@ -8,19 +8,19 @@ import (
 // routes configures and returns the HTTP router.
 func (s *Server) routes() http.Handler {
 	mux := http.NewServeMux()
-	
+
 	// Static files
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
-	
+
 	// Page routes
 	mux.HandleFunc("/", s.Home)
 	mux.HandleFunc("/artists", s.Artists)
-	mux.HandleFunc("/artist/", s.ArtistDetail)
+	mux.HandleFunc("/artists/", s.ArtistDetail)
 	mux.HandleFunc("/locations", s.Locations)
-	mux.HandleFunc("/location/", s.LocationDetail)
+	mux.HandleFunc("/locations/", s.LocationDetail)
 	mux.HandleFunc("/search", s.Search)
 	mux.HandleFunc("/health", s.Health)
-	
+
 	// Apply middleware
 	return s.withMiddleware(mux)
 }
@@ -44,12 +44,12 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-		
+
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-		
+
 		next.ServeHTTP(w, r)
 	})
 }

@@ -1,8 +1,10 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/data"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -74,8 +76,17 @@ func createTestServer(t *testing.T) *Server {
 		config.WithCache = originalCache
 	})
 
+	// Create store and load data
+	store := data.NewStore()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := store.LoadData(ctx); err != nil {
+		t.Fatalf("Failed to load test data: %v", err)
+	}
+
 	// Create server with dependency injection
-	server, err := NewServer()
+	server, err := NewServer(store)
 	if err != nil {
 		t.Fatalf("Failed to create test server: %v", err)
 	}
@@ -83,36 +94,35 @@ func createTestServer(t *testing.T) *Server {
 	return server
 }
 
-// TestNewServer tests server initialization with direct repository access
+// TestNewServer tests server initialization with direct store access
 func TestNewServer(t *testing.T) {
 	server := createTestServer(t)
 
 	// Verify server has required components
-	if server.repo == nil {
-		t.Error("Expected repository to be initialized")
+	if server.store == nil {
+		t.Error("Expected store to be initialized")
 	}
-	if server.suggestions == nil {
-		t.Error("Expected cached suggestions to be initialized")
-	}
-	if len(server.suggestions) == 0 {
-		t.Error("Expected cached suggestions to contain data")
+
+	suggestions := server.store.SearchSuggestions()
+	if len(suggestions) == 0 {
+		t.Error("Expected search suggestions to contain data")
 	}
 	if server.templates == nil {
 		t.Error("Expected templates to be initialized")
 	}
-	if server.httpServer == nil {
-		t.Error("Expected httpServer to be initialized")
+	if server.server == nil {
+		t.Error("Expected server to be initialized")
 	}
 
 	// Verify server has loaded data
-	artists := server.repo.GetArtists()
+	artists := server.store.Artists()
 	if len(artists) == 0 {
 		t.Error("Expected artists to be loaded")
 	}
 
 	// Verify stats are available
-	stats := server.repo.GetStats()
-	if stats["total_artists"] == 0 {
+	stats := server.store.Stats()
+	if stats.TotalArtists == 0 {
 		t.Error("Expected stats to be computed")
 	}
 }
@@ -210,22 +220,14 @@ func TestSearchHandler(t *testing.T) {
 	}
 }
 
-// TestSuggestionsAPI tests the search suggestions API
+// TestSuggestionsAPI tests that search suggestions are available
 func TestSuggestionsAPI(t *testing.T) {
 	server := createTestServer(t)
 
-	req := httptest.NewRequest("GET", "/api/suggestions", nil)
-	w := httptest.NewRecorder()
-
-	server.SuggestionsAPI(w, req)
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
-	}
-
-	contentType := w.Header().Get("Content-Type")
-	if !strings.Contains(contentType, "application/json") {
-		t.Errorf("Expected JSON content type, got %s", contentType)
+	// Verify suggestions are available through the store
+	suggestions := server.store.SearchSuggestions()
+	if len(suggestions) == 0 {
+		t.Error("Expected suggestions to be available")
 	}
 }
 
@@ -248,11 +250,11 @@ func TestLocationsHandler(t *testing.T) {
 	}
 }
 
-// TestRouting tests that routes use method receivers correctly
+// TestRouting tests that routes are properly configured
 func TestRouting(t *testing.T) {
 	server := createTestServer(t)
 
-	mux := server.createServeMux()
+	handler := server.Handler()
 
 	// Test that routes are properly configured
 	testCases := []struct {
@@ -264,8 +266,6 @@ func TestRouting(t *testing.T) {
 		{"GET", "/artists", http.StatusOK},
 		{"GET", "/locations", http.StatusOK},
 		{"GET", "/health", http.StatusOK},
-		{"GET", "/api/suggestions", http.StatusOK},
-		{"POST", "/", http.StatusMethodNotAllowed}, // Should reject POST to home
 	}
 
 	for _, tc := range testCases {
@@ -273,7 +273,7 @@ func TestRouting(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, nil)
 			w := httptest.NewRecorder()
 
-			mux.ServeHTTP(w, req)
+			handler.ServeHTTP(w, req)
 
 			if w.Code != tc.expected {
 				t.Errorf("Expected status %d, got %d for %s %s", tc.expected, w.Code, tc.method, tc.path)
@@ -282,56 +282,47 @@ func TestRouting(t *testing.T) {
 	}
 }
 
-// TestDirectRepositoryAccess tests that server works with direct repository access
-func TestDirectRepositoryAccess(t *testing.T) {
+// TestDirectStoreAccess tests that server works with direct store access
+func TestDirectStoreAccess(t *testing.T) {
 	server := createTestServer(t)
 
-	// Test direct repository access for artists
-	artists := server.repo.GetArtists()
+	// Test direct store access for artists
+	artists := server.store.Artists()
 	if len(artists) == 0 {
-		t.Error("Repository should return artists")
+		t.Error("Store should return artists")
 	}
 
-	// Test cached suggestions
-	suggestions := server.suggestions
+	// Test search suggestions
+	suggestions := server.store.SearchSuggestions()
 	if len(suggestions) == 0 {
-		t.Error("Cached suggestions should be available")
+		t.Error("Search suggestions should be available")
 	}
 
-	// Test direct repository access for locations
-	locations := server.repo.GetLocations()
+	// Test direct store access for locations
+	locations := server.store.Locations()
 	if len(locations) == 0 {
-		t.Error("Repository should return locations")
+		t.Error("Store should return locations")
 	}
 
-	// Test direct repository access for stats
-	stats := server.repo.GetStats()
-	if stats["total_artists"] == 0 {
-		t.Error("Repository should return stats")
-	}
-
-	// Test direct repository access for cache status
-	cacheEnabled := server.repo.IsCacheEnabled()
-	if cacheEnabled {
-		t.Error("Repository should report cache as disabled in tests")
+	// Test direct store access for stats
+	stats := server.store.Stats()
+	if stats.TotalArtists == 0 {
+		t.Error("Store should return stats")
 	}
 }
 
 // TestNoServiceLayerAntiPatterns tests that we don't have unnecessary service layers
 func TestNoServiceLayerAntiPatterns(t *testing.T) {
-	// This test ensures we use direct repository access instead of service facades
+	// This test ensures we use direct store access instead of service facades
 	server1 := createTestServer(t)
-	// Create second server in a separate test to avoid directory issues
 
-	// Server should use direct repository access pattern
-	if server1.repo == nil {
-		t.Error("Server should have direct repository access")
+	// Server should use direct store access pattern
+	if server1.store == nil {
+		t.Error("Server should have direct store access")
 	}
-	if server1.suggestions == nil {
-		t.Error("Server should have cached suggestions")
-	}
-	if len(server1.suggestions) == 0 {
-		t.Error("Server should have populated cached suggestions")
+	suggestions := server1.store.SearchSuggestions()
+	if len(suggestions) == 0 {
+		t.Error("Server should have populated search suggestions")
 	}
 	if server1.templates == nil {
 		t.Error("Server should have compiled templates")

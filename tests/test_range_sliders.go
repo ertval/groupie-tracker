@@ -1,3 +1,8 @@
+//go:build manual
+
+// Package tests provides standalone test utilities for manual testing.
+// This file contains a standalone program for testing range slider functionality.
+// Run with: go run tests/test_range_sliders.go
 package tests
 
 import (

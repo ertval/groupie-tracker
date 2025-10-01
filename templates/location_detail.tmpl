@@ -5,35 +5,21 @@
     <header class="page-header">
         <h1 class="gradient-text">{{.Location.Name | title}}</h1>
         <div class="location-meta">
-            <p><strong>{{.Location.ArtistCount}}</strong> Artists performed here across <strong>{{.Location.TotalConcerts}}</strong> Concerts.</p>
+            <p><strong>{{len .Location.Artists}}</strong> Artists performed here across <strong>{{.Location.ConcertCount}}</strong> Concerts.</p>
           </div>
     </header>
 
     <main class="page-body">
         <section class="artists-section">
             <div class="artists-grid">
-                {{range .Artists}}
+                {{range .Location.Artists}}
                 <div class="artist-card">
-                    <a href="/artists/{{.Artist.Slug}}" class="artist-link">
-                        <div class="artist-image-container">
-                            <img src="{{.Artist.Image}}" alt="{{.Artist.Name}}" class="artist-image">
-                        </div>
+                    <a href="/artists/{{.Slug}}" class="artist-link">
                         <div class="artist-info">
-                            <h3 class="artist-name">{{.Artist.Name}}</h3>
+                            <h3 class="artist-name">{{.Name}}</h3>
                             <p class="artist-details">
-                                {{len .Artist.Members}} member{{if ne (len .Artist.Members) 1}}s{{end}} • 
-                                Founded {{.Artist.CreationYear}} • 
-                                {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}}
+                                {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}} at this location
                             </p>
-                            {{if .Artist.Countries}}
-                            <p class="artist-countries">
-                                Performed in: {{join .Artist.Countries ", "}}
-                            </p>
-                            {{end}}
-                            {{$dates := index .Artist.DatesAtLocation $.Location.Slug}}
-                            {{if $dates}}
-                            <p class="dates-list"><strong>Dates performed here:</strong> {{join $dates ", "}}</p>
-                            {{end}}
                         </div>
                     </a>
                 </div>
