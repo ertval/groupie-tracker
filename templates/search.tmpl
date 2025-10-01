@@ -115,30 +115,6 @@
                 </div>
             </div>
 
-            <div class="filter-group">
-                <h4>First Album Year</h4>
-                <div class="range-inputs">
-                    <label>
-                        From:
-                        <input type="number" 
-                               name="firstAlbumYearFrom" 
-                               min="{{.FilterOptions.FirstAlbumYearMin}}" 
-                               max="{{.FilterOptions.FirstAlbumYearMax}}" 
-                               value="{{if .AppliedFilters.FirstAlbumYearFrom}}{{.AppliedFilters.FirstAlbumYearFrom}}{{end}}"
-                               placeholder="{{.FilterOptions.FirstAlbumYearMin}}">
-                    </label>
-                    <label>
-                        To:
-                        <input type="number" 
-                               name="firstAlbumYearTo" 
-                               min="{{.FilterOptions.FirstAlbumYearMin}}" 
-                               max="{{.FilterOptions.FirstAlbumYearMax}}" 
-                               value="{{if .AppliedFilters.FirstAlbumYearTo}}{{.AppliedFilters.FirstAlbumYearTo}}{{end}}"
-                               placeholder="{{.FilterOptions.FirstAlbumYearMax}}">
-                    </label>
-                </div>
-            </div>
-
             <!-- Member Count Filter -->
             <div class="filter-group">
                 <h4>Number of Members</h4>

@@ -58,6 +58,7 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 // Artists handles the artists listing page.
 func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 	artists := s.store.Artists()
+	totalArtists := len(artists)
 	filterOptions := s.store.GetArtistFilterOptions()
 	var appliedFilters data.ArtistFilterParams
 	isFiltered := false
@@ -85,6 +86,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		FilterOptions  data.ArtistFilterOptions
 		AppliedFilters data.ArtistFilterParams
 		IsFiltered     bool
+		TotalArtists   int
 	}{
 		BasePage: BasePage{
 			Title:       "Artists",
@@ -96,6 +98,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		FilterOptions:  filterOptions,
 		AppliedFilters: appliedFilters,
 		IsFiltered:     isFiltered,
+		TotalArtists:   totalArtists,
 	}
 
 	s.render(w, "artists.tmpl", data)

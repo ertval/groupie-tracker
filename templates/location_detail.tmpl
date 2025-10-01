@@ -28,14 +28,6 @@
         </section>
 
         <div class="navigation-links">
-            <div class="location-nav-buttons">
-                {{if .PrevLocation}}
-                <a href="/locations/{{.PrevLocation.Slug}}" class="nav-btn">← {{.PrevLocation.Name}}</a>
-                {{end}}
-                {{if .NextLocation}}
-                <a href="/locations/{{.NextLocation.Slug}}" class="nav-btn">{{.NextLocation.Name}} →</a>
-                {{end}}
-            </div>
             <div class="back-to-locations">
                 <a href="/locations" class="btn btn-secondary">← Back to Locations</a>
             </div>
