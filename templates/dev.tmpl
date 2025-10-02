@@ -13,6 +13,15 @@
             <li><a href="{{.Href}}" class="btn btn-outline">{{.Text}}</a></li>
             {{end}}
         </ul>
+
+        <!-- Manual refresh form: posts to /api/refresh to trigger an async data refresh -->
+        <section class="dev-refresh" style="margin-top:1.5rem;">
+            <h2>Data Refresh</h2>
+            <p class="muted">Trigger an immediate data refresh. This calls the server's <code>POST /api/refresh</code> endpoint and returns a 202 Accepted if started.</p>
+            <form action="/api/refresh" method="post" style="display:inline-block;">
+                <button type="submit" class="btn btn-primary">Trigger Manual Refresh</button>
+            </form>
+        </section>
     </main>
 </div>
 {{end}}

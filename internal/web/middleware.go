@@ -2,8 +2,11 @@ package web
 
 import (
 	"log"
+	"net"
 	"net/http"
 	"slices"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -71,6 +74,83 @@ func withSecureHeaders(next http.Handler) http.Handler {
 		// w.Header().Set("Content-Security-Policy",
 		// "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:;
 		// font-src 'self'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self';")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ============================================================================
+// RATE LIMITER
+// ============================================================================
+// Simple per-client token-bucket rate limiter. Keyed by client IP (X-Forwarded-For or RemoteAddr).
+// Not distributed: suitable for a single-process deployment. Uses per-client mutex and a sync.Map
+// to avoid global locks.
+
+type tokenBucket struct {
+	mu       sync.Mutex
+	tokens   float64
+	last     time.Time
+	rate     float64 // tokens per second
+	capacity float64
+}
+
+// allow attempts to consume a token; returns true if allowed.
+func (b *tokenBucket) allow() bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	now := time.Now()
+	// Refill tokens
+	elapsed := now.Sub(b.last).Seconds()
+	if elapsed > 0 {
+		b.tokens += elapsed * b.rate
+		if b.tokens > b.capacity {
+			b.tokens = b.capacity
+		}
+		b.last = now
+	}
+	if b.tokens >= 1.0 {
+		b.tokens -= 1.0
+		return true
+	}
+	return false
+}
+
+var limiterStore sync.Map // map[string]*tokenBucket
+
+// getClientIP returns the client's IP using X-Forwarded-For or RemoteAddr.
+func getClientIP(r *http.Request) string {
+	if h := r.Header.Get("X-Forwarded-For"); h != "" {
+		// X-Forwarded-For may be a comma-separated list; take the first
+		parts := strings.Split(h, ",")
+		ip := strings.TrimSpace(parts[0])
+		if ip != "" {
+			return ip
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}
+
+// withRateLimit wraps handlers with a per-client token-bucket limiter.
+// If limit exceeded, returns 429 Too Many Requests with Retry-After header.
+func withRateLimit(next http.Handler, rate float64, burst float64) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key := getClientIP(r)
+		v, _ := limiterStore.LoadOrStore(key, &tokenBucket{
+			tokens:   burst,
+			last:     time.Now(),
+			rate:     rate,
+			capacity: burst,
+		})
+		b := v.(*tokenBucket)
+		if !b.allow() {
+			// Too many requests
+			w.Header().Set("Retry-After", "1")
+			http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
+			return
+		}
 		next.ServeHTTP(w, r)
 	})
 }

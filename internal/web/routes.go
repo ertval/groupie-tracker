@@ -2,6 +2,8 @@ package web
 
 import (
 	"net/http"
+
+	"groupie-tracker/internal/conf"
 )
 
 // createServeMux initializes and configures the HTTP router with all application routes.
@@ -18,8 +20,13 @@ func (app *App) createServeMux() *http.ServeMux {
 	router.HandleFunc("/health", app.get(app.Health))
 
 	// API endpoints
-	router.HandleFunc("/api/suggestions", app.get(app.SuggestionsAPI))
-	router.HandleFunc("/api/refresh", app.post(app.RefreshData))
+	// Suggestions endpoint is rate-limited per-client to protect autocomplete from abuse
+	suggestionsHandler := withRateLimit(http.HandlerFunc(app.get(app.SuggestionsAPI)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
+	router.Handle("/api/suggestions", suggestionsHandler)
+
+	// Refresh endpoint - protect with rate limiting too (manual admin endpoint)
+	refreshHandler := withRateLimit(http.HandlerFunc(app.post(app.RefreshData)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
+	router.Handle("/api/refresh", refreshHandler)
 
 	// Search endpoints (supports both GET and POST)
 	router.HandleFunc("/search", app.getPost(app.Search))
