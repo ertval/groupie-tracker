@@ -9,7 +9,7 @@ import (
 // TestPlaywrightBrowserAutomation runs automated browser tests using Playwright
 func TestPlaywrightBrowserAutomation(t *testing.T) {
 	// Check if server is running
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080 - start with: go run ./cmd/server")
 	}
 
@@ -62,7 +62,7 @@ func testHomePageBrowser(t *testing.T) {
 	}
 
 	// For now, just verify the server responds
-	if isServerRunning("http://localhost:8080") {
+	if visualIsServerRunning("http://localhost:8080") {
 		t.Log("✅ Homepage is accessible via browser")
 	} else {
 		t.Error("❌ Homepage is not accessible")
@@ -88,7 +88,7 @@ func testArtistsPageBrowser(t *testing.T) {
 		t.Logf("  ✓ %s → %s", step.action, step.expected)
 	}
 
-	if isServerRunning("http://localhost:8080/artists") {
+	if visualIsServerRunning("http://localhost:8080/artists") {
 		t.Log("✅ Artists page is accessible via browser")
 	} else {
 		t.Error("❌ Artists page is not accessible")
@@ -124,7 +124,7 @@ func testNavigationBrowser(t *testing.T) {
 
 	allAccessible := true
 	for _, endpoint := range endpoints {
-		if !isServerRunning(endpoint) {
+		if !visualIsServerRunning(endpoint) {
 			t.Errorf("❌ Navigation endpoint not accessible: %s", endpoint)
 			allAccessible = false
 		}
@@ -182,7 +182,7 @@ func testResponsiveDesignBrowser(t *testing.T) {
 
 // TestPlaywrightRealBrowser demonstrates actual Playwright usage
 func TestPlaywrightRealBrowser(t *testing.T) {
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080")
 	}
 
@@ -259,7 +259,7 @@ func TestPlaywrightRealBrowser(t *testing.T) {
 
 // TestAccessibilityWithBrowser tests accessibility using browser tools
 func TestAccessibilityWithBrowser(t *testing.T) {
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080")
 	}
 
@@ -287,7 +287,7 @@ func TestAccessibilityWithBrowser(t *testing.T) {
 
 // TestPerformanceWithBrowser tests performance using browser tools
 func TestPerformanceWithBrowser(t *testing.T) {
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080")
 	}
 

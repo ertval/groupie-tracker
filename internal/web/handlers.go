@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,19 +15,62 @@ import (
 )
 
 // ============================================================================
+// STATIC FILES
+// ============================================================================
+
+// StaticFiles serves static assets like CSS, JS, images, and favicon.
+func (app *App) StaticFiles(w http.ResponseWriter, r *http.Request) {
+	const staticDir = "static"
+
+	// Handle favicon.ico requests
+	if r.URL.Path == "/favicon.ico" {
+		target := filepath.Join(staticDir, "favicon.ico")
+		if fi, err := os.Stat(target); err != nil || fi.IsDir() {
+			app.NotFoundError(w, r, "Favicon not found")
+			return
+		}
+		http.ServeFile(w, r, target)
+		return
+	}
+
+	// Only allow /static/ prefix
+	if !strings.HasPrefix(r.URL.Path, "/static/") {
+		app.NotFoundError(w, r, "")
+		return
+	}
+
+	// Extract relative path and prevent directory traversal
+	rel := strings.TrimPrefix(r.URL.Path, "/static/")
+	if rel == "" || strings.Contains(rel, "..") || strings.HasPrefix(rel, "/") {
+		app.NotFoundError(w, r, "")
+		return
+	}
+
+	// Build target path and verify it's a regular file
+	target := filepath.Join(staticDir, rel)
+	if fi, err := os.Stat(target); err != nil || fi.IsDir() {
+		app.NotFoundError(w, r, "")
+		return
+	}
+
+	// Serve the file (Go's http.ServeFile handles content-type automatically)
+	http.ServeFile(w, r, target)
+}
+
+// ============================================================================
 // HOME PAGE
 // ============================================================================
 
 // Home handles the home page.
-func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
+func (app *App) Home(w http.ResponseWriter, r *http.Request) {
 	// Validate path using centralized utility
-	if !s.validateExactPath(w, r, "/") {
+	if !app.validateExactPath(w, r, "/") {
 		return
 	}
 
-	artists := s.store.Artists()
-	stats := s.store.Stats()
-	suggestions := s.store.GenerateAllSearchSuggestions()
+	artists := app.store.Artists()
+	stats := app.store.Stats()
+	suggestions := app.store.GenerateAllSearchSuggestions()
 
 	// Get 8 random artists for homepage display
 	artists = getRandomArtists(artists, 8)
@@ -48,7 +93,7 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		TotalLocations: stats.TotalLocations,
 	}
 
-	s.render(w, r, "home.tmpl", data)
+	app.render(w, r, "home.tmpl", data)
 }
 
 // ============================================================================
@@ -56,26 +101,26 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // Artists handles the artists listing page.
-func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
+func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 	// Validate path for both GET and POST using centralized utility
-	if !s.validateExactPath(w, r, "/artists") {
+	if !app.validateExactPath(w, r, "/artists") {
 		return
 	}
 
-	artists := s.store.Artists()
-	filterOptions := s.store.GetArtistFilterOptions()
-	suggestions := s.store.GenerateAllSearchSuggestions()
+	artists := app.store.Artists()
+	filterOptions := app.store.GetArtistFilterOptions()
+	suggestions := app.store.GenerateAllSearchSuggestions()
 	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
-		if !s.parseFormOrError(w, r) {
+		if !app.parseFormOrError(w, r) {
 			return
 		}
 
 		appliedFilters = parseArtistFilterParams(r)
-		artists = s.store.FilterArtists(appliedFilters)
+		artists = app.store.FilterArtists(appliedFilters)
 	}
 
 	// Sort artists by concert count (descending) for main display
@@ -105,33 +150,33 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		TotalArtists:   totalArtists,
 	}
 
-	s.render(w, r, "artists.tmpl", data)
+	app.render(w, r, "artists.tmpl", data)
 }
 
 // ArtistDetail handles individual artist pages.
-func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
+func (app *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	// Validate path
 	path := strings.TrimPrefix(r.URL.Path, "/artists/")
 	if path == "" {
-		s.NotFoundError(w, r, "")
+		app.NotFoundError(w, r, "")
 		return
 	}
 
 	// Try slug first, then ID
-	artist, found := s.store.ArtistBySlug(path)
+	artist, found := app.store.ArtistBySlug(path)
 	if !found {
 		if id, err := strconv.Atoi(path); err == nil {
-			artist, found = s.store.ArtistByID(id)
+			artist, found = app.store.ArtistByID(id)
 		}
 		if !found {
-			s.NotFoundError(w, r, "Artist not found")
+			app.NotFoundError(w, r, "Artist not found")
 			return
 		}
 	}
 
 	// Get navigation artists using on-demand lookup
-	prevArtist, nextArtist := s.store.GetAdjacentArtists(artist.ID)
-	suggestions := s.store.GenerateAllSearchSuggestions()
+	prevArtist, nextArtist := app.store.GetAdjacentArtists(artist.ID)
+	suggestions := app.store.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title       string
@@ -151,7 +196,7 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		NextArtist:  nextArtist,
 	}
 
-	s.render(w, r, "artist_detail.tmpl", data)
+	app.render(w, r, "artist_detail.tmpl", data)
 }
 
 // ============================================================================
@@ -159,27 +204,27 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // Locations handles the locations listing page.
-func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
+func (app *App) Locations(w http.ResponseWriter, r *http.Request) {
 	// Validate path for both GET and POST using centralized utility
-	if !s.validateExactPath(w, r, "/locations") {
+	if !app.validateExactPath(w, r, "/locations") {
 		return
 	}
 
-	locations := s.store.Locations()
-	filterOptions := s.store.GetLocationFilterOptions()
-	suggestions := s.store.GenerateAllSearchSuggestions()
+	locations := app.store.Locations()
+	filterOptions := app.store.GetLocationFilterOptions()
+	suggestions := app.store.GenerateAllSearchSuggestions()
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
-	stats := s.store.Stats()
+	stats := app.store.Stats()
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
-		if !s.parseFormOrError(w, r) {
+		if !app.parseFormOrError(w, r) {
 			return
 		}
 
 		appliedFilters = parseLocationFilterParams(r)
-		locations = s.store.FilterLocations(appliedFilters)
+		locations = app.store.FilterLocations(appliedFilters)
 	}
 
 	// Check if any filter is applied
@@ -230,24 +275,24 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		TotalConcerts:         stats.TotalConcerts,
 	}
 
-	s.render(w, r, "locations.tmpl", data)
+	app.render(w, r, "locations.tmpl", data)
 }
 
 // LocationDetail handles individual location pages.
-func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
+func (app *App) LocationDetail(w http.ResponseWriter, r *http.Request) {
 	slug := strings.TrimPrefix(r.URL.Path, "/locations/")
 	if slug == "" {
-		s.NotFoundError(w, r, "")
+		app.NotFoundError(w, r, "")
 		return
 	}
 
-	location, found := s.store.LocationBySlug(slug)
+	location, found := app.store.LocationBySlug(slug)
 	if !found {
-		s.NotFoundError(w, r, "Location not found")
+		app.NotFoundError(w, r, "Location not found")
 		return
 	}
 
-	suggestions := s.store.GenerateAllSearchSuggestions()
+	suggestions := app.store.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title        string
@@ -269,7 +314,7 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		NextLocation: nil, // Could be implemented later for location navigation
 	}
 
-	s.render(w, r, "location_detail.tmpl", data)
+	app.render(w, r, "location_detail.tmpl", data)
 }
 
 // ============================================================================
@@ -277,9 +322,9 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // Search handles search requests for artists.
-func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
+func (app *App) Search(w http.ResponseWriter, r *http.Request) {
 	// Validate path using centralized utility
-	if !s.validateExactPath(w, r, "/search") {
+	if !app.validateExactPath(w, r, "/search") {
 		return
 	}
 
@@ -289,7 +334,7 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 
 	// Handle search submission
 	if r.Method == http.MethodPost {
-		if !s.parseFormOrError(w, r) {
+		if !app.parseFormOrError(w, r) {
 			return
 		}
 
@@ -302,13 +347,13 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 			Query:   searchQuery,
 			Filters: appliedFilters,
 		}
-		searchResults = s.store.SearchArtists(searchParams)
+		searchResults = app.store.SearchArtists(searchParams)
 	}
 
-	filterOptions := s.store.GetArtistFilterOptions()
+	filterOptions := app.store.GetArtistFilterOptions()
 
 	// Generate all search suggestions for datalist
-	allSuggestions := s.store.GenerateAllSearchSuggestions()
+	allSuggestions := app.store.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title          string
@@ -332,16 +377,16 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 		IsSearch:       r.Method == http.MethodPost && searchQuery != "",
 	}
 
-	s.render(w, r, "search.tmpl", data)
+	app.render(w, r, "search.tmpl", data)
 }
 
 // SuggestionsAPI provides search suggestions for autocomplete functionality.
-func (s *Server) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
+func (app *App) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 
 	// Use optimized filtering with reasonable limits
 	const maxSuggestions = 15 // Limit to avoid overwhelming the UI
-	matchingSuggestions := s.store.FilterSearchSuggestions(query, maxSuggestions)
+	matchingSuggestions := app.store.FilterSearchSuggestions(query, maxSuggestions)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(matchingSuggestions)
@@ -352,11 +397,11 @@ func (s *Server) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // Health provides a health check endpoint.
-func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
+func (app *App) Health(w http.ResponseWriter, r *http.Request) {
 	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     s.store.Stats(),
+		"stats":     app.store.Stats(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -368,7 +413,7 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 // ============================================================================
 
 // DevIndex renders a small developer page with quick links.
-func (s *Server) DevIndex(w http.ResponseWriter, r *http.Request) {
+func (app *App) DevIndex(w http.ResponseWriter, r *http.Request) {
 	links := []struct{ Href, Text string }{
 		{"/dev/panic", "Trigger Panic (/dev/panic)"},
 		{"/dev/404", "Simulate 404 (/dev/404)"},
@@ -377,7 +422,7 @@ func (s *Server) DevIndex(w http.ResponseWriter, r *http.Request) {
 		{"/health", "Health Check (/health)"},
 	}
 
-	suggestions := s.store.GenerateAllSearchSuggestions()
+	suggestions := app.store.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title       string
@@ -393,16 +438,16 @@ func (s *Server) DevIndex(w http.ResponseWriter, r *http.Request) {
 		Links:       links,
 	}
 
-	s.render(w, r, "dev.tmpl", data)
+	app.render(w, r, "dev.tmpl", data)
 }
 
 // DevPanic is a development endpoint to test panic recovery.
-func (s *Server) DevPanic(w http.ResponseWriter, r *http.Request) {
+func (app *App) DevPanic(w http.ResponseWriter, r *http.Request) {
 	panic("Development panic triggered")
 }
 
 // Dev404 is a development endpoint to test 404 error template.
-func (s *Server) Dev404(w http.ResponseWriter, r *http.Request) {
+func (app *App) Dev404(w http.ResponseWriter, r *http.Request) {
 	// Simulate a realistic 404 by mutating a shallow copy of the request
 	// so that template rendering sees a non-existent requested URL.
 	// We keep the original request untouched and pass the modified copy
@@ -415,16 +460,79 @@ func (s *Server) Dev404(w http.ResponseWriter, r *http.Request) {
 
 	// Call Home with the modified request so the Error template is rendered
 	// using the realistic requested URL stored in nr.URL.Path.
-	s.Home(w, nr)
+	app.Home(w, nr)
 }
 
 // Dev500 is a development endpoint to test 500 error template.
-func (s *Server) Dev500(w http.ResponseWriter, r *http.Request) {
-	s.Error(w, r, http.StatusInternalServerError, "This is a simulated 500 error.")
+func (app *App) Dev500(w http.ResponseWriter, r *http.Request) {
+	app.Error(w, r, http.StatusInternalServerError, "This is a simulated 500 error.")
 }
 
 // Dev500Tmpl is a development endpoint to test template failure.
-func (s *Server) Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
+func (app *App) Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
 	// To simulate a template error, we can try to render a template that doesn't exist.
-	s.render(w, r, "nonexistent.tmpl", nil)
+	app.render(w, r, "nonexistent.tmpl", nil)
+}
+
+// ============================================================================
+// ERROR HANDLING
+// ============================================================================
+
+// Error handles all errors (4xx and 5xx) in a centralized way.
+func (app *App) Error(w http.ResponseWriter, r *http.Request, status int, message string) {
+	data := struct {
+		Title        string
+		ExtraCSS     string
+		ExtraJS      string
+		Suggestions  []data.SearchSuggestion
+		ErrorCode    int
+		RequestedURL string
+		Message      string
+		Timestamp    string
+	}{
+		Title:        fmt.Sprintf("%d %s", status, http.StatusText(status)),
+		ExtraCSS:     "errors.css",
+		ExtraJS:      "",
+		Suggestions:  nil, // Error pages don't need search suggestions
+		ErrorCode:    status,
+		RequestedURL: r.URL.Path,
+		Message:      message,
+		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
+	}
+
+	app.render(w, r, "error.tmpl", data, status)
+}
+
+// NotFoundError sends a 404 error response.
+func (app *App) NotFoundError(w http.ResponseWriter, r *http.Request, message string) {
+	if message == "" {
+		message = "Page not found"
+	}
+	app.Error(w, r, http.StatusNotFound, message)
+}
+
+// BadRequestError sends a standardized 400 error response.
+func (app *App) BadRequestError(w http.ResponseWriter, r *http.Request, message string) {
+	if message == "" {
+		message = "Bad request"
+	}
+	app.Error(w, r, http.StatusBadRequest, message)
+}
+
+// validateExactPath checks if request path matches expected path.
+func (app *App) validateExactPath(w http.ResponseWriter, r *http.Request, expectedPath string) bool {
+	if r.URL.Path != expectedPath {
+		app.NotFoundError(w, r, "")
+		return false
+	}
+	return true
+}
+
+// parseFormOrError parses form data and handles errors.
+func (app *App) parseFormOrError(w http.ResponseWriter, r *http.Request) bool {
+	if err := r.ParseForm(); err != nil {
+		app.BadRequestError(w, r, "Failed to parse form data")
+		return false
+	}
+	return true
 }

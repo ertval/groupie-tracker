@@ -12,75 +12,77 @@ import (
 	"groupie-tracker/internal/api"
 )
 
-// Store holds the immutable in-memory data for the application.
-// After Load() completes, all fields are read-only and thread-safe.
+// Store is the central data repository holding all precomputed application data.
+// All collections become immutable after Load() completes, enabling safe concurrent reads without locking.
+// This design trades memory for performance - we precompute indexes, suggestions, and metadata at startup
+// rather than computing them on every request.
 type Store struct {
-	// API client for external data fetching
-	apiClient *api.Client
+	apiClient *api.Client // External API client for fetching raw artist and relation data
+	withCache bool        // Whether to enable local image caching (set at initialization, never changes)
 
-	// Configuration
-	withCache bool
+	cacheEnabled bool // Actual cache status after initialization (may differ from withCache if caching fails)
 
-	// Cache status
-	cacheEnabled bool
+	// Core data collections - immutable after Load() completes, safe for concurrent reads
+	artists         []Artist              // All artists sorted alphabetically by name
+	artistsByID     map[int]Artist        // O(1) lookup by artist ID
+	artistsBySlug   map[string]Artist     // O(1) lookup by URL-friendly slug (e.g., "pink-floyd")
+	artistPositions map[int]int           // Maps artist ID to its index in the sorted artists slice (for navigation)
+	locations       []Location            // All concert locations aggregated from artist data
+	locationsBySlug map[string]Location   // O(1) lookup by location slug (e.g., "london-uk")
+	appStats        AppStats              // Precomputed statistics (total artists, locations, members, concerts, etc.)
+	suggestions     []SearchSuggestion    // Precomputed search suggestions for autocomplete (artist names, members, locations)
+	artistFilters   ArtistFilterOptions   // Available filter values (creation years, album years, member counts, countries)
+	locationFilters LocationFilterOptions // Available location filter values (concert ranges, year ranges, countries)
 
-	// Core data collections (immutable after Load)
-	artists         []Artist
-	artistsByID     map[int]Artist
-	artistsBySlug   map[string]Artist
-	artistPositions map[int]int
-	locations       []Location
-	locationsBySlug map[string]Location
-	appStats        AppStats
-	suggestions     []SearchSuggestion
-	artistFilters   ArtistFilterOptions
-	locationFilters LocationFilterOptions
+	// Search result cache (LRU-style) - protects performance on repeated identical queries
+	searchCacheMu   sync.Mutex          // Mutex protects concurrent access to cache maps
+	searchCache     map[string][]Artist // Maps normalized query strings to cached result slices
+	searchOrder     []string            // Tracks query insertion order for LRU eviction
+	searchCacheSize int                 // Maximum cache entries (50) before LRU eviction kicks in
 
-	// Search cache (LRU-style)
-	searchCacheMu   sync.Mutex
-	searchCache     map[string][]Artist
-	searchOrder     []string
-	searchCacheSize int
-
-	// Ensure Load is called only once
-	loadOnce sync.Once
-	loadErr  error
+	loadOnce sync.Once // Ensures Load() executes exactly once even if called concurrently
+	loadErr  error     // Stores any error from the single Load() execution for return to all callers
 }
 
-// NewStore creates a new Store instance with the provided API client.
+// NewStore initializes an empty Store with the given API client and caching preference.
+// The Store is not usable until Load() successfully completes.
 func NewStore(apiClient *api.Client, withCache bool) *Store {
 	return &Store{
 		apiClient:       apiClient,
 		withCache:       withCache,
-		searchCache:     make(map[string][]Artist, 50),
-		searchOrder:     make([]string, 0, 50),
-		searchCacheSize: 50,
+		searchCache:     make(map[string][]Artist, 50), // Pre-allocate for 50 entries (LRU cache size)
+		searchOrder:     make([]string, 0, 50),         // Pre-allocate for 50 entries (LRU cache size)
+		searchCacheSize: 50,                            // Max cached searches before eviction
 	}
 }
 
-// Load fetches and processes all data from the API.
-// This method is thread-safe and will only execute once.
+// Load orchestrates the entire data loading pipeline: fetch API data, process into domain models,
+// build indexes, compute metadata, and cache images if enabled. This method is thread-safe and
+// executes exactly once via sync.Once, even if called concurrently from multiple goroutines.
 func (s *Store) Load(ctx context.Context) error {
 	s.loadOnce.Do(func() {
-		s.loadErr = s.loadData(ctx)
+		s.loadErr = s.loadData(ctx) // Actual loading happens in loadData
 	})
-	return s.loadErr
+	return s.loadErr // Return the stored result from the single execution
 }
 
-// loadData performs the actual data loading (called once by Load)
+// loadData performs the multi-stage data loading pipeline with concurrent API fetching and processing.
+// Stage 1: Fetch artists and relations concurrently using goroutines and channels
+// Stage 2: Transform raw API data into rich domain models with computed fields
+// Stage 3: Optionally cache images using adaptive worker pool (scales with CPU cores)
+// Stage 4: Build indexes, metadata, and search suggestions concurrently for fast startup
 func (s *Store) loadData(ctx context.Context) error {
-	// Fetch raw data from API concurrently using goroutines
+	// Stage 1: Concurrent API fetching - artists and relations fetched in parallel to minimize wait time
 	artistsCh := make(chan struct {
 		data []api.Artist
 		err  error
-	}, 1)
+	}, 1) // Buffered channel prevents goroutine blocking
 	relationsCh := make(chan struct {
 		data api.Relation
 		err  error
-	}, 1)
+	}, 1) // Buffered channel prevents goroutine blocking
 
-	// Fetch artists in parallel
-	go func() {
+	go func() { // Goroutine 1: Fetch artists in parallel with relations fetch
 		data, err := s.apiClient.FetchArtists(ctx)
 		artistsCh <- struct {
 			data []api.Artist
@@ -88,8 +90,7 @@ func (s *Store) loadData(ctx context.Context) error {
 		}{data, err}
 	}()
 
-	// Fetch relations in parallel
-	go func() {
+	go func() { // Goroutine 2: Fetch relations in parallel with artists fetch
 		data, err := s.apiClient.FetchRelations(ctx)
 		relationsCh <- struct {
 			data api.Relation
@@ -97,7 +98,7 @@ func (s *Store) loadData(ctx context.Context) error {
 		}{data, err}
 	}()
 
-	// Wait for both fetches to complete and check for errors
+	// Wait for both fetches to complete - order doesn't matter, both must succeed
 	artistsResult := <-artistsCh
 	relationsResult := <-relationsCh
 
@@ -108,19 +109,23 @@ func (s *Store) loadData(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch relations: %w", relationsResult.err)
 	}
 
+	// Stage 2: Transform raw API models into rich domain models with computed fields
 	artists := s.processArtists(artistsResult.data, relationsResult.data)
 
+	// Stage 3: Optional image caching with adaptive worker pool (scales with CPU cores for efficiency)
 	var cachedImages, downloadedImages int
 	if s.withCache {
 		var cacheEnabled bool
-		cacheEnabled, cachedImages, downloadedImages = s.cacheImages(artists)
-		s.cacheEnabled = cacheEnabled
+		cacheEnabled, cachedImages, downloadedImages = s.cacheImages(artists) // Returns stats for logging
+		s.cacheEnabled = cacheEnabled                                         // May be false if caching setup failed
 	} else {
 		s.cacheEnabled = false
 	}
 
-	s.artists = artists
+	s.artists = artists // Store the processed artists (sorted alphabetically by name)
 
+	// Stage 4: Build all indexes, metadata, and suggestions concurrently for fast startup
+	// These computations are CPU-bound and independent, so parallelizing them reduces total startup time
 	var (
 		artistsByID     map[int]Artist
 		artistsBySlug   map[string]Artist
@@ -132,35 +137,36 @@ func (s *Store) loadData(ctx context.Context) error {
 		suggestions     []SearchSuggestion
 	)
 
-	var wg sync.WaitGroup
+	var wg sync.WaitGroup // Wait for all concurrent processing to complete
 
 	wg.Add(1)
-	go func() {
+	go func() { // Goroutine 1: Build artist lookup indexes (ID, slug, position)
 		defer wg.Done()
 		artistsByID, artistsBySlug, artistPositions = s.createArtistIndexes(artists)
 	}()
 
 	wg.Add(1)
-	go func() {
+	go func() { // Goroutine 2: Aggregate location data from all artists and build location indexes
 		defer wg.Done()
 		locations, locationsBySlug = s.createLocationsData(artists)
-		locationFilters = s.calculateLocationFilterOptions(locations)
+		locationFilters = s.calculateLocationFilterOptions(locations) // Dependent on locations, so done in same goroutine
 	}()
 
 	wg.Add(1)
-	go func() {
+	go func() { // Goroutine 3: Calculate available filter options for artist filtering UI
 		defer wg.Done()
 		artistFilters = s.calculateArtistFilterOptions(artists)
 	}()
 
 	wg.Add(1)
-	go func() {
+	go func() { // Goroutine 4: Generate search suggestions for autocomplete (artist names, members, locations)
 		defer wg.Done()
 		suggestions = s.generateSearchSuggestions(artists)
 	}()
 
-	wg.Wait()
+	wg.Wait() // Block until all goroutines complete
 
+	// Store all computed data - from this point forward, all fields are immutable and thread-safe
 	s.artistsByID = artistsByID
 	s.artistsBySlug = artistsBySlug
 	s.artistPositions = artistPositions
@@ -169,33 +175,38 @@ func (s *Store) loadData(ctx context.Context) error {
 	s.artistFilters = artistFilters
 	s.locationFilters = locationFilters
 	s.suggestions = suggestions
-	s.appStats = s.calculateStats(artists, locations, cachedImages, downloadedImages)
+	s.appStats = s.calculateStats(artists, locations, cachedImages, downloadedImages) // Final stats computation
 
 	return nil
 }
 
 // ============================================================================
-// READ-ONLY ACCESSORS
+// READ-ONLY ACCESSORS - Thread-safe after Load() completes
 // ============================================================================
 
-// Artists returns all artists sorted by name.
+// Artists returns the complete artist collection sorted alphabetically by name.
+// Safe for concurrent access after Load() completes since the slice is immutable.
 func (s *Store) Artists() []Artist {
 	return s.artists
 }
 
-// ArtistByID returns an artist by ID, or false if not found.
+// ArtistByID performs O(1) lookup of an artist by their unique ID.
+// Returns the artist and true if found, or zero-value artist and false if not found.
 func (s *Store) ArtistByID(id int) (Artist, bool) {
 	artist, ok := s.artistsByID[id]
 	return artist, ok
 }
 
-// ArtistBySlug returns an artist by URL slug, or false if not found.
+// ArtistBySlug performs O(1) lookup of an artist by their URL-friendly slug (e.g., "pink-floyd").
+// Returns the artist and true if found, or zero-value artist and false if not found.
 func (s *Store) ArtistBySlug(slug string) (Artist, bool) {
 	artist, ok := s.artistsBySlug[slug]
 	return artist, ok
 }
 
-// ArtistPosition returns the index of the artist within the sorted slice.
+// ArtistPosition returns the zero-based index position of an artist within the sorted artists slice.
+// Useful for implementing "previous/next artist" navigation in the UI.
+// Returns the index and true if found, or -1 and false if the artist ID doesn't exist.
 func (s *Store) ArtistPosition(id int) (int, bool) {
 	index, ok := s.artistPositions[id]
 	return index, ok

@@ -1,13 +1,13 @@
 # Refactoring Summary - October 2025
 **Project**: Groupie Tracker  
 **Date**: October 2, 2025  
-**Scope**: Phases 1-4 Complete (Architecture Simplification & Performance Optimization)
+**Scope**: Phases 1-6 Complete (Architecture Simplification, Performance Optimization & Test Consolidation)
 
 ---
 
 ## Executive Summary
 
-Successfully refactored Groupie Tracker from a 5-layer architecture to a streamlined 3-layer design, reducing codebase by **688 lines (-23%)** while improving performance through adaptive concurrency. All tests passing, zero external dependencies maintained.
+Successfully refactored Groupie Tracker from a 5-layer architecture to a streamlined 3-layer design, reducing codebase by **688 lines (-23%)** while improving performance through adaptive concurrency. Consolidated all test files into package-level test files with table-driven tests. All tests passing, zero external dependencies maintained.
 
 ---
 
@@ -246,16 +246,79 @@ ok      groupie-tracker/tests           4.194s  coverage: 0.0% of statements
 
 ---
 
+## Phase 6: Test Consolidation (October 2, 2025)
+**Objective**: Consolidate test files into package-level test files, improve organization  
+**Changes**:
+
+### Unit Test Consolidation
+- **internal/data**: Merged `filter_test.go` (308 LOC) + `search_test.go` (292 LOC) → `data_test.go` (560 LOC)
+  - All filter tests consolidated into `TestFilterArtists` with table-driven subtests
+  - All search tests consolidated into `TestSearchArtists`, `TestSearchArtistsByLocation`, `TestSearchSuggestions`, `TestSearchCache`
+  - Eliminated duplicate helper functions
+  - Improved test organization with clear test sections
+
+- **internal/web**: Renamed `server_test.go` → `web_test.go` (335 LOC)
+  - Follows package naming convention (package name = test file prefix)
+  - No functional changes, just consistency improvement
+
+### E2E Test Consolidation
+- Moved `cmd/server/e2e_test.go` (476 LOC) + `cmd/server/search_e2e_test.go` (406 LOC) → `tests/e2e_test.go` (640 LOC)
+  - Consolidated all HTTP-level E2E tests into single file
+  - Removed duplicate mock API creation code
+  - Better organization with helper functions for test scenarios
+  - Tests grouped logically: user flow, error handling, static files, security, method restrictions, search
+
+### Integration Test Consolidation
+- Consolidated `tests/audit_test.go` (33 LOC) + `tests/debug_test.go` (16 LOC, deleted) → `tests/integration_test.go` (40 LOC)
+  - Simplified to focus on core external API integration test
+  - Removed obsolete debug test
+  - Added documentation noting browser tests remain separate
+
+### Browser Test Updates
+- Fixed function name conflicts in `tests/visual_e2e_test.go` and `tests/playwright_test.go`
+  - Renamed `isServerRunning()` → `visualIsServerRunning()` 
+  - Renamed test helper functions with `visual` prefix to avoid conflicts with e2e_test.go
+  - Browser tests kept separate due to external dependencies (Playwright, live server)
+
+**Impact**:
+- **Deleted files**: `filter_test.go`, `search_test.go`, `e2e_test.go`, `search_e2e_test.go`, `audit_test.go`, `debug_test.go`
+- **Created files**: `data_test.go`, `e2e_test.go`, `integration_test.go`
+- **Renamed**: `server_test.go` → `web_test.go`
+- **Test organization**: One test file per package, cleaner structure
+- **Coverage**: 60.5% data layer, 48.3% web layer
+- **All tests passing**: Unit, E2E, and integration tests validated
+
+**Test Structure**:
+```
+internal/data/data_test.go      # All data layer unit tests
+internal/web/web_test.go         # All web layer unit tests  
+tests/e2e_test.go                # HTTP end-to-end tests
+tests/integration_test.go        # External API integration
+tests/playwright_test.go         # Browser automation (separate)
+tests/visual_e2e_test.go         # Visual regression (separate)
+```
+
+**Benefits**:
+- Easier to find tests (one file per package)
+- Less duplication (shared helpers, mock data)
+- Better organization (table-driven tests)
+- Clearer separation (unit vs E2E vs integration vs browser)
+- Improved maintainability
+
+---
+
 ## Conclusion
 
-Successfully simplified Groupie Tracker architecture from 5 layers to 3, reducing codebase by 23% while improving performance through adaptive concurrency. All tests passing, zero breaking changes, standard library only.
+Successfully simplified Groupie Tracker architecture from 5 layers to 3, reducing codebase by 23% while improving performance through adaptive concurrency and test organization. All tests passing, zero breaking changes, standard library only.
 
 **Key Metrics**:
-- **-688 LOC** (23% reduction)
+- **-688 LOC** (23% reduction in source code)
 - **3-layer architecture** (down from 5)
 - **3x faster** image caching (adaptive workers)
-- **100%** test pass rate
+- **100%** test pass rate (all consolidated tests passing)
+- **60.5%** data layer coverage, **48.3%** web layer coverage
 - **0** external dependencies
+- **Consolidated tests**: 6 test files → 4 test files (unit/E2E/integration)
 
 **Refactoring Duration**: Single session (October 2, 2025)  
 **Breaking Changes**: Zero  

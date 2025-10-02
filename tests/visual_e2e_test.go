@@ -12,41 +12,41 @@ import (
 // TestVisualE2E runs visual tests using the live server with Playwright
 func TestVisualE2E(t *testing.T) {
 	// Check if server is running on localhost:8080
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080 - start server first with 'go run ./cmd/server'")
 	}
 
 	t.Run("Visual Homepage Test", func(t *testing.T) {
-		testHomepage(t)
+		visualTestHomepage(t)
 	})
 
 	t.Run("Visual Artists Page Test", func(t *testing.T) {
-		testArtistsPage(t)
+		visualTestArtistsPage(t)
 	})
 
 	t.Run("Visual Artist Detail Test", func(t *testing.T) {
-		testArtistDetail(t)
+		visualTestArtistDetail(t)
 	})
 
 	t.Run("Visual Locations Page Test", func(t *testing.T) {
-		testLocationsPage(t)
+		visualTestLocationsPage(t)
 	})
 
 	t.Run("Visual Navigation Test", func(t *testing.T) {
-		testNavigation(t)
+		visualTestNavigation(t)
 	})
 
 	t.Run("Visual Error Pages Test", func(t *testing.T) {
-		testErrorPages(t)
+		visualTestErrorPages(t)
 	})
 
 	t.Run("Visual Responsiveness Test", func(t *testing.T) {
-		testResponsiveness(t)
+		visualTestResponsiveness(t)
 	})
 }
 
-// isServerRunning checks if the server is running
-func isServerRunning(url string) bool {
+// visualIsServerRunning checks if the server is running
+func visualIsServerRunning(url string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 
@@ -65,8 +65,8 @@ func isServerRunning(url string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// testHomepage tests the homepage visual elements and functionality
-func testHomepage(t *testing.T) {
+// visualTestHomepage tests the homepage visual elements and functionality
+func visualTestHomepage(t *testing.T) {
 	// This would be implemented using Playwright browser automation
 	// For now, we'll create a placeholder that documents what should be tested
 
@@ -90,7 +90,7 @@ func testHomepage(t *testing.T) {
 }
 
 // testArtistsPage tests the artists listing page
-func testArtistsPage(t *testing.T) {
+func visualTestArtistsPage(t *testing.T) {
 	testSteps := []string{
 		"Navigate to http://localhost:8080/artists",
 		"Verify page title contains 'Artists'",
@@ -110,7 +110,7 @@ func testArtistsPage(t *testing.T) {
 }
 
 // testArtistDetail tests individual artist detail pages
-func testArtistDetail(t *testing.T) {
+func visualTestArtistDetail(t *testing.T) {
 	testSteps := []string{
 		"Navigate to http://localhost:8080/artists/1",
 		"Verify artist name is displayed prominently",
@@ -133,7 +133,7 @@ func testArtistDetail(t *testing.T) {
 }
 
 // testLocationsPage tests the locations overview page
-func testLocationsPage(t *testing.T) {
+func visualTestLocationsPage(t *testing.T) {
 	testSteps := []string{
 		"Navigate to http://localhost:8080/locations",
 		"Verify page title contains 'Locations'",
@@ -153,7 +153,7 @@ func testLocationsPage(t *testing.T) {
 }
 
 // testNavigation tests navigation between pages
-func testNavigation(t *testing.T) {
+func visualTestNavigation(t *testing.T) {
 	testSteps := []string{
 		"Start at homepage",
 		"Click 'Artists' in navigation menu",
@@ -175,7 +175,7 @@ func testNavigation(t *testing.T) {
 }
 
 // testErrorPages tests error handling and error page display
-func testErrorPages(t *testing.T) {
+func visualTestErrorPages(t *testing.T) {
 	testSteps := []string{
 		"Navigate to http://localhost:8080/nonexistent",
 		"Verify 404 error page is displayed",
@@ -196,7 +196,7 @@ func testErrorPages(t *testing.T) {
 }
 
 // testResponsiveness tests responsive design
-func testResponsiveness(t *testing.T) {
+func visualTestResponsiveness(t *testing.T) {
 	testSteps := []string{
 		"Test desktop view (1920x1080)",
 		"Test tablet view (768x1024)",
@@ -218,7 +218,7 @@ func testResponsiveness(t *testing.T) {
 
 // TestBrowserAutomation will contain actual Playwright browser tests
 func TestBrowserAutomation(t *testing.T) {
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080")
 	}
 
@@ -242,7 +242,7 @@ func TestBrowserAutomation(t *testing.T) {
 
 // TestVisualRegression would test for visual changes
 func TestVisualRegression(t *testing.T) {
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080")
 	}
 
@@ -265,7 +265,7 @@ func TestVisualRegression(t *testing.T) {
 
 // TestJavaScriptFunctionality tests client-side JavaScript
 func TestJavaScriptFunctionality(t *testing.T) {
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080")
 	}
 
@@ -289,7 +289,7 @@ func TestJavaScriptFunctionality(t *testing.T) {
 
 // TestAccessibility tests accessibility features
 func TestAccessibility(t *testing.T) {
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080")
 	}
 
@@ -316,7 +316,7 @@ func TestAccessibility(t *testing.T) {
 
 // TestPerformanceMetrics tests performance characteristics
 func TestPerformanceMetrics(t *testing.T) {
-	if !isServerRunning("http://localhost:8080") {
+	if !visualIsServerRunning("http://localhost:8080") {
 		t.Skip("Server not running on localhost:8080")
 	}
 

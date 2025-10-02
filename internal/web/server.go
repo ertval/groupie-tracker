@@ -9,77 +9,83 @@ import (
 	"time"
 
 	"groupie-tracker/internal/api"
-	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/conf"
 	"groupie-tracker/internal/data"
 )
 
-// Server encapsulates server dependencies with data services and cached data.
-type Server struct {
-	// Data store exposing read-only operations and business logic
-	store *data.Store
+// App encapsulates the complete HTTP server with its data store, compiled templates, and HTTP server instance.
+// All dependencies are injected at initialization, and the app becomes fully operational after NewApp returns.
+type App struct {
+	store *data.Store // Data store with preloaded artists, locations, indexes, and search suggestions (immutable after Load)
 
-	// Pre-compiled templates for rendering
-	templates map[string]*template.Template
+	templates map[string]*template.Template // Pre-compiled HTML templates mapped by name (e.g., "home.tmpl", "artists.tmpl")
 
-	// HTTP server instance
-	httpServer *http.Server
-	// Handler is the http.Handler used by the server. It is exported to allow
-	// external packages (tests) to create test servers using the same handler
-	// without needing to start a full network listener.
+	httpServer *http.Server // Production HTTP server with configured timeouts and handler chain
+
+	// Handler exposes the complete middleware + routing chain for testing purposes.
+	// Tests can create httptest.Server using this handler without starting a real network listener.
 	Handler http.Handler
 }
 
-// NewServer creates and fully initializes a Server with dependency injection.
-func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
-	start := time.Now()
+// NewApp creates and fully initializes the application with all dependencies injected.
+// Initialization pipeline:
+// 1. Load all data from external API (concurrent fetching of artists and relations)
+// 2. Process data into domain models with computed fields (concerts, slugs, years, etc.)
+// 3. Build indexes and metadata (by ID, by slug, search suggestions, filter options)
+// 4. Optionally cache images using adaptive worker pool (scales with CPU cores)
+// 5. Compile all HTML templates with custom template functions
+// 6. Assemble middleware chain and route handlers
+// Returns fully initialized App ready to serve requests, or error if initialization fails.
+func NewApp(apiClient *api.Client, withCache bool) (*App, error) {
+	start := time.Now() // Track initialization time for performance monitoring
 
-	// Create server instance
-	server := &Server{}
+	app := &App{}
 
-	// Initialize store with injected API client
+	// Load all data from API with 10-second timeout to prevent hanging during startup
 	log.Println("Loading initial data...")
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
 	store := data.NewStore(apiClient, withCache)
-	if err := store.Load(loadCtx); err != nil {
+	if err := store.Load(loadCtx); err != nil { // Load blocks until all data is fetched and processed
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
-	server.store = store
+	app.store = store
 
-	// Compile all HTML templates once at startup
-	server.loadTemplates()
+	// Compile all HTML templates once at startup for performance (avoids parsing on every request)
+	app.loadTemplates()
 
-	// Log startup summary with cache status and performance metrics
-	stats := server.store.Stats()
-	if !server.store.CacheEnabled() {
+	// Log startup summary with cache status and data statistics
+	stats := app.store.Stats()
+	if !app.store.CacheEnabled() {
 		log.Printf("Data loaded - %d artists (caching disabled)", stats.TotalArtists)
 	} else {
 		log.Printf("Data loaded with cache - %d artists", stats.TotalArtists)
 	}
 
-	// Assemble middleware chain and route handlers
-	serveMux := withMiddleware(server.createServeMux())
+	// Assemble complete middleware chain and route handlers into a single http.Handler
+	serveMux := withMiddleware(app.createServeMux())
 
-	// Expose the handler so tests can reuse it directly (httptest.NewServer)
-	server.Handler = serveMux
-	port := getPort()
+	// Expose handler for testing (httptest.NewServer can use this directly)
+	app.Handler = serveMux
+	port := getPort() // Get port from config (default :8082)
 
-	// Create production-ready HTTP server with configured timeouts
-	server.httpServer = &http.Server{
+	// Create production HTTP server with proper timeouts to prevent resource exhaustion
+	app.httpServer = &http.Server{
 		Addr:         port,
 		Handler:      serveMux,
-		ReadTimeout:  config.ReadTimeout,
-		WriteTimeout: config.WriteTimeout,
-		IdleTimeout:  config.IdleTimeout,
+		ReadTimeout:  conf.ReadTimeout,  // Protects against slow client attacks
+		WriteTimeout: conf.WriteTimeout, // Prevents hanging on slow responses
+		IdleTimeout:  conf.IdleTimeout,  // Closes idle keep-alive connections
 	}
 
 	log.Printf("🚀 Server Initialized in %v and Ready to Open - %s", time.Since(start), "http://localhost"+port)
 
-	return server, nil
+	return app, nil
 }
 
-// ListenAndServe starts the HTTP server (blocking operation)
-func (s *Server) ListenAndServe() error {
+// StartApp starts the HTTP server and blocks until the server stops or encounters a fatal error.
+// This is a blocking operation - it will run until interrupted (Ctrl+C) or an error occurs.
+func (s *App) StartApp() error {
 	return s.httpServer.ListenAndServe()
 }

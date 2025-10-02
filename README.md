@@ -5,11 +5,11 @@ Groupie Tracker is a Go 1.24 web application that renders rich artist and concer
 ## Highlights
 
 - **Immutable data store**: `internal/data` loads API records concurrently, enriches them with derived metadata, and exposes read-only getters for artists, locations, statistics, and precomputed filter options.
-- **Service layer**: `internal/service` owns filtering, search, adjacency helpers, and a small LRU-style search cache implemented with the Go standard library.
+- **Unified service layer**: Business logic consolidated directly into `data.Store` methods for filtering, search, and caching—eliminating unnecessary abstractions.
 - **Web layer**: `internal/web` wires middleware, handlers, and templates. Every interaction (filters, search, pagination) posts HTML forms back to the server.
-- **Concurrency built-in**: startup fetches artists and relations in parallel, derives indices concurrently, and optionally warms an image cache with a worker pool.
+- **Concurrency built-in**: startup fetches artists and relations in parallel, derives indices concurrently, and optionally warms an image cache with an adaptive worker pool (scales with CPU cores).
 - **Standard library only**: no third-party dependencies for the backend or templates.
-- **Tested end-to-end**: unit tests cover service behaviours, while integration tests exercise the HTTP server with httptest.
+- **Comprehensive testing**: 60.5% data layer coverage, 48.3% web layer coverage, with unit, E2E, and integration tests consolidated into package-level test files.
 
 ## Architecture Overview
 
@@ -63,31 +63,65 @@ The server listens on `:8082` by default; set `PORT=<value>` to override.
 
 ### Execute Tests
 
+**Consolidated Test Structure (October 2025)**:
+
 ```bash
+# Run all tests
 go test ./...
+
+# Unit tests by package
+go test ./internal/data -v    # data layer (filters, search, cache)
+go test ./internal/web -v     # web layer (handlers, middleware)
+
+# E2E and integration tests
+go test ./tests -run "TestE2E" -v          # end-to-end HTTP tests
+go test ./tests -run "TestAudit" -v        # integration with external API
+
+# Generate coverage report
+go test ./internal/... -coverprofile=coverage.out
+go tool cover -html=coverage.out -o coverage.html
 ```
 
-Targeted suites:
+**Test Organization**:
+- `internal/data/data_test.go`: Consolidated unit tests for filtering, search, and caching (previously `filter_test.go` and `search_test.go`)
+- `internal/web/web_test.go`: Web layer tests (renamed from `server_test.go` for consistency)
+- `tests/e2e_test.go`: End-to-end HTTP tests with mock API (consolidated from `cmd/server/e2e_test.go` and `search_e2e_test.go`)
+- `tests/integration_test.go`: Integration tests with external API (consolidated from `audit_test.go`)
+- `tests/playwright_test.go`: Browser automation tests (requires Playwright)
+- `tests/visual_e2e_test.go`: Visual regression tests (requires running server)
 
-```bash
-go test ./internal/service -v    # service-layer filtering & search
-go test ./cmd/server -run TestE2E # end-to-end smoke
-```
+**Current Coverage**: 60.5% data layer, 48.3% web layer
 
 ## Project Structure (abridged)
 
 ```
-cmd/server/            # entry point, integration tests
+cmd/server/            # entry point (main.go)
 doc/                   # design notes and refactor history
 internal/
   api/                 # thin HTTP client for Groupie Trackers API
-  app/                 # dependency wiring helper (store + service)
   config/              # runtime configuration (API URL, timeouts)
-  data/                # immutable store, loaders, derived metadata
-  service/             # business logic (filters, search, caches)
+  data/                # immutable store with business logic
+    store.go           # core store, data loading, indexes (548 LOC)
+    filters.go         # filtering logic (266 LOC)
+    searches.go        # search and suggestions (322 LOC)
+    cache.go           # image and search caching (201 LOC)
+    models.go          # domain types
+    fixtures.go        # test fixtures
   web/                 # HTTP server, middleware, handlers, templates
+    server.go          # server struct and initialization
+    routes.go          # route configuration
+    handlers.go        # all HTTP handlers (475 LOC, consolidated)
+    templates.go       # template rendering helpers
+    middleware.go      # logging, recovery, security headers
+    errors.go          # error handling
+    static.go          # static file serving
 static/                # CSS and cached artist images
 templates/             # HTML templates (base + pages)
+tests/                 # E2E and integration tests
+  e2e_test.go          # HTTP end-to-end tests
+  integration_test.go  # external API integration
+  playwright_test.go   # browser automation
+  visual_e2e_test.go   # visual regression
 ```
 
 ## Key Features

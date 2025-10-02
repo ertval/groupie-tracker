@@ -2,7 +2,9 @@ package data
 
 import "sort"
 
-// FilterArtists filters artists based on criteria like creation date, album date, location, and member count.
+// FilterArtists applies user-specified filter criteria to the artist collection and returns matching artists.
+// Filters support: creation year range, first album year range, member count values, and countries.
+// All criteria are ANDed together (artist must match ALL specified filters to be included).
 func (s *Store) FilterArtists(criteria ArtistFilterParams) []Artist {
 	artists := s.Artists()
 	if len(artists) == 0 {
@@ -11,7 +13,7 @@ func (s *Store) FilterArtists(criteria ArtistFilterParams) []Artist {
 
 	var filtered []Artist
 	for _, artist := range artists {
-		if matchesArtistFilters(artist, criteria) {
+		if matchesArtistFilters(artist, criteria) { // Check if artist matches all filter criteria
 			filtered = append(filtered, artist)
 		}
 	}
@@ -19,7 +21,9 @@ func (s *Store) FilterArtists(criteria ArtistFilterParams) []Artist {
 	return filtered
 }
 
-// FilterLocations filters locations based on concert count, artist count, year range, and country.
+// FilterLocations applies user-specified filter criteria to the location collection and returns matching locations.
+// Filters support: concert count range, artist count range, year range (earliest/latest), and country.
+// All criteria are ANDed together (location must match ALL specified filters to be included).
 func (s *Store) FilterLocations(params LocationFilterParams) []Location {
 	locations := s.Locations()
 	if len(locations) == 0 {
@@ -28,7 +32,7 @@ func (s *Store) FilterLocations(params LocationFilterParams) []Location {
 
 	var filtered []Location
 	for _, location := range locations {
-		if matchesLocationFilters(location, params) {
+		if matchesLocationFilters(location, params) { // Check if location matches all filter criteria
 			filtered = append(filtered, location)
 		}
 	}
@@ -36,8 +40,10 @@ func (s *Store) FilterLocations(params LocationFilterParams) []Location {
 	return filtered
 }
 
-// matchesArtistFilters checks if an artist matches all specified filter criteria.
+// matchesArtistFilters checks whether a single artist satisfies all specified filter criteria.
+// Returns true only if the artist matches ALL non-nil/non-empty filter parameters (AND logic).
 func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
+	// Filter by creation year range (e.g., "Show bands formed between 1970-1980")
 	if params.CreationYearFrom != nil && artist.CreationYear < *params.CreationYearFrom {
 		return false
 	}
@@ -45,9 +51,10 @@ func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 		return false
 	}
 
+	// Filter by first album year range (only check if artist has a valid album year > 0)
 	if params.FirstAlbumYearFrom != nil || params.FirstAlbumYearTo != nil {
 		albumYear := artist.FirstAlbumYear
-		if albumYear > 0 {
+		if albumYear > 0 { // Only apply filter if artist has a valid first album year
 			if params.FirstAlbumYearFrom != nil && albumYear < *params.FirstAlbumYearFrom {
 				return false
 			}
@@ -57,6 +64,8 @@ func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 		}
 	}
 
+	// Filter by member count (e.g., "Show solo artists (1) or bands with 4 members")
+	// This is an OR within the member counts list, but AND with other filters
 	if len(params.MemberCounts) > 0 {
 		memberCount := artist.MemberCount
 		found := false
@@ -71,8 +80,10 @@ func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 		}
 	}
 
+	// Filter by countries (e.g., "Show artists who performed in USA or UK")
+	// Artist must have performed in at least ONE of the specified countries (OR within countries, AND with other filters)
 	if len(params.Countries) > 0 {
-		allowed := make(map[string]struct{}, len(params.Countries))
+		allowed := make(map[string]struct{}, len(params.Countries)) // Use map for O(1) lookup
 		for _, country := range params.Countries {
 			allowed[country] = struct{}{}
 		}
@@ -89,11 +100,13 @@ func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 		}
 	}
 
-	return true
+	return true // Artist passed all filter checks
 }
 
-// matchesLocationFilters checks if a location matches all specified filter criteria.
+// matchesLocationFilters checks whether a single location satisfies all specified filter criteria.
+// Returns true only if the location matches ALL non-nil/non-empty filter parameters (AND logic).
 func matchesLocationFilters(location Location, params LocationFilterParams) bool {
+	// Filter by concert count range (e.g., "Show locations with 10-50 concerts")
 	if params.ConcertCountFrom != nil && location.TotalConcerts < *params.ConcertCountFrom {
 		return false
 	}

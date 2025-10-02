@@ -11,11 +11,11 @@ import (
 	"time"
 
 	"groupie-tracker/internal/api"
-	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/conf"
 )
 
 // createTestServer creates a test server with mock API data for testing
-func createTestServer(t *testing.T) *Server {
+func createTestServer(t *testing.T) *App {
 	// Create mock API server with realistic responses
 	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -64,23 +64,23 @@ func createTestServer(t *testing.T) *Server {
 	})
 
 	// Configure test environment
-	originalAPIURL := config.APIBaseURL
-	originalCache := config.WithCache
-	config.APIBaseURL = mockServer.URL
-	config.WithCache = false
-	config.APIRequestTimeout = 5 * time.Second
+	originalAPIURL := conf.APIBaseURL
+	originalCache := conf.WithCache
+	conf.APIBaseURL = mockServer.URL
+	conf.WithCache = false
+	conf.APIRequestTimeout = 5 * time.Second
 
 	// Restore config after test
 	t.Cleanup(func() {
-		config.APIBaseURL = originalAPIURL
-		config.WithCache = originalCache
+		conf.APIBaseURL = originalAPIURL
+		conf.WithCache = originalCache
 	})
 
 	// Create API client for testing
 	apiClient := api.NewClient(mockServer.URL, 5*time.Second)
 
 	// Create server with dependency injection
-	server, err := NewServer(apiClient, false)
+	server, err := NewApp(apiClient, false)
 	if err != nil {
 		t.Fatalf("Failed to create test server: %v", err)
 	}

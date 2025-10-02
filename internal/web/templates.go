@@ -3,7 +3,7 @@ package web
 import (
 	"bytes"
 	"fmt"
-	"groupie-tracker/internal/config"
+	"groupie-tracker/internal/conf"
 	"groupie-tracker/internal/data"
 	"html/template"
 	"log"
@@ -20,13 +20,13 @@ import (
 // --- Template Rendering System ---
 
 // render executes a template and sends the response.
-func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
+func (app *App) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
 	code := http.StatusOK
 	if len(status) > 0 {
 		code = status[0]
 	}
 
-	tmpl, ok := s.templates[name]
+	tmpl, ok := app.templates[name]
 	if !ok {
 		// Prevent infinite recursion if error template itself is missing
 		if name == "error.tmpl" {
@@ -34,7 +34,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 			http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
 			return
 		}
-		s.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
+		app.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
 		return
 	}
 
@@ -47,7 +47,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 			http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
 			return
 		}
-		s.Error(w, r, http.StatusInternalServerError, err.Error())
+		app.Error(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -58,8 +58,8 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 }
 
 // loadTemplates compiles and caches all HTML templates.
-func (s *Server) loadTemplates() {
-	s.templates = make(map[string]*template.Template)
+func (app *App) loadTemplates() {
+	app.templates = make(map[string]*template.Template)
 
 	// Custom template functions for common operations
 	funcMap := template.FuncMap{
@@ -124,7 +124,7 @@ func (s *Server) loadTemplates() {
 			log.Fatalf("Failed to parse template %s: %v", name, err)
 		}
 
-		s.templates[name] = ts
+		app.templates[name] = ts
 	}
 }
 
@@ -132,7 +132,7 @@ func (s *Server) loadTemplates() {
 func getPort() string {
 	port := os.Getenv("PORT")
 	if port == "" {
-		return config.DefaultPort
+		return conf.DefaultPort
 	}
 
 	// Ensure port has colon prefix for http.Server
