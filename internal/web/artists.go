@@ -16,9 +16,9 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists := s.svc.Artists()
-	filterOptions := s.svc.GetArtistFilterOptions()
-	suggestions := s.svc.GenerateAllSearchSuggestions()
+	artists := s.store.Artists()
+	filterOptions := s.store.GetArtistFilterOptions()
+	suggestions := s.store.GenerateAllSearchSuggestions()
 	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 
@@ -29,7 +29,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 		}
 
 		appliedFilters = parseArtistFilterParams(r)
-		artists = s.svc.FilterArtists(appliedFilters)
+		artists = s.store.FilterArtists(appliedFilters)
 	}
 
 	// Sort artists by concert count (descending) for main display
@@ -72,10 +72,10 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Try slug first, then ID
-	artist, found := s.svc.ArtistBySlug(path)
+	artist, found := s.store.ArtistBySlug(path)
 	if !found {
 		if id, err := strconv.Atoi(path); err == nil {
-			artist, found = s.svc.ArtistByID(id)
+			artist, found = s.store.ArtistByID(id)
 		}
 		if !found {
 			s.NotFoundError(w, r, "Artist not found")
@@ -84,8 +84,8 @@ func (s *Server) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get navigation artists using on-demand lookup
-	prevArtist, nextArtist := s.svc.GetAdjacentArtists(artist.ID)
-	suggestions := s.svc.GenerateAllSearchSuggestions()
+	prevArtist, nextArtist := s.store.GetAdjacentArtists(artist.ID)
+	suggestions := s.store.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title       string

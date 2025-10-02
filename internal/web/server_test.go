@@ -93,8 +93,8 @@ func TestNewServer(t *testing.T) {
 	server := createTestServer(t)
 
 	// Verify server has required components
-	if server.svc == nil {
-		t.Error("Expected service to be initialized")
+	if server.store == nil {
+		t.Error("Expected store to be initialized")
 	}
 	if server.templates == nil {
 		t.Error("Expected templates to be initialized")
@@ -104,13 +104,13 @@ func TestNewServer(t *testing.T) {
 	}
 
 	// Verify server has loaded data
-	artists := server.svc.Artists()
+	artists := server.store.Artists()
 	if len(artists) == 0 {
 		t.Error("Expected artists to be loaded")
 	}
 
 	// Verify stats are available
-	stats := server.svc.Stats()
+	stats := server.store.Stats()
 	if stats.TotalArtists == 0 {
 		t.Error("Expected stats to be computed")
 	}
@@ -286,31 +286,31 @@ func TestServiceAccess(t *testing.T) {
 	server := createTestServer(t)
 
 	// Test service access for artists
-	artists := server.svc.Artists()
+	artists := server.store.Artists()
 	if len(artists) == 0 {
 		t.Error("Service should return artists")
 	}
 
 	// Test cached suggestions
-	suggestions := server.svc.GenerateAllSearchSuggestions()
+	suggestions := server.store.GenerateAllSearchSuggestions()
 	if len(suggestions) == 0 {
 		t.Error("Cached suggestions should be available")
 	}
 
 	// Test service access for locations
-	locations := server.svc.Locations()
+	locations := server.store.Locations()
 	if len(locations) == 0 {
 		t.Error("Service should return locations")
 	}
 
 	// Test service access for stats
-	stats := server.svc.Stats()
+	stats := server.store.Stats()
 	if stats.TotalArtists == 0 {
 		t.Error("Service should return stats")
 	}
 
 	// Test service access for cache status
-	cacheEnabled := server.svc.CacheEnabled()
+	cacheEnabled := server.store.CacheEnabled()
 	if cacheEnabled {
 		t.Error("Service should report cache as disabled in tests")
 	}
@@ -321,12 +321,12 @@ func TestServerServiceWiring(t *testing.T) {
 	server1 := createTestServer(t)
 	// Create second server in a separate test to avoid directory issues
 
-	// Server should expose an initialized service facade
-	if server1.svc == nil {
-		t.Error("Server should have an initialized service layer")
+	// Server should expose an initialized store
+	if server1.store == nil {
+		t.Error("Server should have an initialized store")
 	}
-	if len(server1.svc.GenerateAllSearchSuggestions()) == 0 {
-		t.Error("Service-backed suggestions should be populated")
+	if len(server1.store.GenerateAllSearchSuggestions()) == 0 {
+		t.Error("Store-backed suggestions should be populated")
 	}
 	if server1.templates == nil {
 		t.Error("Server should have compiled templates")

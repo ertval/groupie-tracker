@@ -1,14 +1,12 @@
-package service
+package data
 
 import (
 	"strings"
 	"testing"
-
-	"groupie-tracker/internal/data"
 )
 
-func TestService_ArtistLocationSearch(t *testing.T) {
-	svc := createLocationSearchService()
+func TestStore_ArtistLocationSearch(t *testing.T) {
+	store := createLocationSearchService()
 
 	tests := []struct {
 		name          string
@@ -23,8 +21,8 @@ func TestService_ArtistLocationSearch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			params := data.SearchParams{Query: tt.query}
-			result := svc.SearchArtists(params)
+			params := SearchParams{Query: tt.query}
+			result := store.SearchArtists(params)
 			if len(result.Artists) != tt.expectedCount {
 				t.Errorf("SearchArtists(%q) returned %d artists, expected %d", tt.query, len(result.Artists), tt.expectedCount)
 			}
@@ -32,54 +30,54 @@ func TestService_ArtistLocationSearch(t *testing.T) {
 	}
 }
 
-func TestService_SearchArtists(t *testing.T) {
-	svc := createTestSearchService()
+func TestStore_SearchArtists(t *testing.T) {
+	store := createTestSearchService()
 
 	tests := []struct {
 		name     string
-		params   data.SearchParams
+		params   SearchParams
 		expected []int
 	}{
 		{
 			name:     "Empty query returns all artists",
-			params:   data.SearchParams{Query: ""},
+			params:   SearchParams{Query: ""},
 			expected: []int{1, 2, 3},
 		},
 		{
 			name:     "Artist name search - case insensitive",
-			params:   data.SearchParams{Query: "queen"},
+			params:   SearchParams{Query: "queen"},
 			expected: []int{1},
 		},
 		{
 			name:     "Member name search",
-			params:   data.SearchParams{Query: "Freddie Mercury"},
+			params:   SearchParams{Query: "Freddie Mercury"},
 			expected: []int{1},
 		},
 		{
 			name:     "Partial artist name search",
-			params:   data.SearchParams{Query: "Phil"},
+			params:   SearchParams{Query: "Phil"},
 			expected: []int{2},
 		},
 		{
 			name:     "Creation year search",
-			params:   data.SearchParams{Query: "1970"},
+			params:   SearchParams{Query: "1970"},
 			expected: []int{1},
 		},
 		{
 			name:     "First album date search",
-			params:   data.SearchParams{Query: "1973"},
+			params:   SearchParams{Query: "1973"},
 			expected: []int{1},
 		},
 		{
 			name:     "No matches returns empty",
-			params:   data.SearchParams{Query: "nonexistent"},
+			params:   SearchParams{Query: "nonexistent"},
 			expected: []int{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := svc.SearchArtists(tt.params)
+			result := store.SearchArtists(tt.params)
 
 			if len(result.Artists) != len(tt.expected) {
 				t.Fatalf("SearchArtists(%q) returned %d artists, expected %d", tt.params.Query, len(result.Artists), len(tt.expected))
@@ -107,11 +105,11 @@ func TestService_SearchArtists(t *testing.T) {
 	}
 }
 
-func TestService_FilterSearchSuggestions(t *testing.T) {
-	svc := createTestSearchService()
+func TestStore_FilterSearchSuggestions(t *testing.T) {
+	store := createTestSearchService()
 
 	t.Run("returns prioritized suggestions", func(t *testing.T) {
-		suggestions := svc.FilterSearchSuggestions("queen", 5)
+		suggestions := store.FilterSearchSuggestions("queen", 5)
 		if len(suggestions) == 0 {
 			t.Fatal("expected suggestions for query 'queen'")
 		}
@@ -121,70 +119,70 @@ func TestService_FilterSearchSuggestions(t *testing.T) {
 	})
 
 	t.Run("respects max results and handles empty queries", func(t *testing.T) {
-		suggestions := svc.FilterSearchSuggestions("a", 2)
+		suggestions := store.FilterSearchSuggestions("a", 2)
 		if len(suggestions) > 2 {
 			t.Fatalf("expected at most 2 suggestions, got %d", len(suggestions))
 		}
 
-		empty := svc.FilterSearchSuggestions("", 5)
+		empty := store.FilterSearchSuggestions("", 5)
 		if len(empty) != 0 {
 			t.Fatalf("expected empty result for empty query, got %d entries", len(empty))
 		}
 	})
 }
 
-func TestService_SearchArtistsCachesSimpleQueries(t *testing.T) {
-	svc := createTestSearchService()
+func TestStore_SearchArtistsCachesSimpleQueries(t *testing.T) {
+	store := createTestSearchService()
 
-	params := data.SearchParams{Query: "queen"}
-	svc.SearchArtists(params)
+	params := SearchParams{Query: "queen"}
+	store.SearchArtists(params)
 
-	svc.cacheMu.Lock()
-	if len(svc.searchCache) != 1 {
-		svc.cacheMu.Unlock()
-		t.Fatalf("expected cache size 1, got %d", len(svc.searchCache))
+	store.searchCacheMu.Lock()
+	if len(store.searchCache) != 1 {
+		store.searchCacheMu.Unlock()
+		t.Fatalf("expected cache size 1, got %d", len(store.searchCache))
 	}
-	if _, ok := svc.searchCache["queen"]; !ok {
-		svc.cacheMu.Unlock()
+	if _, ok := store.searchCache["queen"]; !ok {
+		store.searchCacheMu.Unlock()
 		t.Fatalf("expected cached entry for 'queen'")
 	}
-	svc.cacheMu.Unlock()
+	store.searchCacheMu.Unlock()
 
-	svc.SearchArtists(params)
+	store.SearchArtists(params)
 
-	svc.cacheMu.Lock()
-	defer svc.cacheMu.Unlock()
-	if len(svc.searchOrder) != 1 {
-		t.Fatalf("expected search order length 1, got %d", len(svc.searchOrder))
+	store.searchCacheMu.Lock()
+	defer store.searchCacheMu.Unlock()
+	if len(store.searchOrder) != 1 {
+		t.Fatalf("expected search order length 1, got %d", len(store.searchOrder))
 	}
 }
 
-func TestService_SearchArtistsDoesNotCacheWhenFiltersApplied(t *testing.T) {
-	svc := createTestSearchService()
+func TestStore_SearchArtistsDoesNotCacheWhenFiltersApplied(t *testing.T) {
+	store := createTestSearchService()
 
-	filters := data.ArtistFilterParams{Countries: []string{"UK"}}
-	svc.SearchArtists(data.SearchParams{Query: "queen", Filters: filters})
+	filters := ArtistFilterParams{Countries: []string{"UK"}}
+	store.SearchArtists(SearchParams{Query: "queen", Filters: filters})
 
-	svc.cacheMu.Lock()
-	defer svc.cacheMu.Unlock()
-	if len(svc.searchCache) != 0 {
-		t.Fatalf("expected filtered searches not to be cached, found %d entries", len(svc.searchCache))
+	store.searchCacheMu.Lock()
+	defer store.searchCacheMu.Unlock()
+	if len(store.searchCache) != 0 {
+		t.Fatalf("expected filtered searches not to be cached, found %d entries", len(store.searchCache))
 	}
 }
 
-func TestService_SearchArtistsWithFilters(t *testing.T) {
-	svc := createTestSearchService()
+func TestStore_SearchArtistsWithFilters(t *testing.T) {
+	store := createTestSearchService()
 
 	tests := []struct {
 		name     string
-		params   data.SearchParams
+		params   SearchParams
 		expected []int
 	}{
 		{
 			name: "Search with creation year filter",
-			params: data.SearchParams{
+			params: SearchParams{
 				Query: "Phil",
-				Filters: data.ArtistFilterParams{
+				Filters: ArtistFilterParams{
 					CreationYearFrom: intPtr(1980),
 					CreationYearTo:   intPtr(1985),
 				},
@@ -193,9 +191,9 @@ func TestService_SearchArtistsWithFilters(t *testing.T) {
 		},
 		{
 			name: "Search with member count filter",
-			params: data.SearchParams{
+			params: SearchParams{
 				Query:   "",
-				Filters: data.ArtistFilterParams{MemberCounts: []int{1}},
+				Filters: ArtistFilterParams{MemberCounts: []int{1}},
 			},
 			expected: []int{2},
 		},
@@ -203,7 +201,7 @@ func TestService_SearchArtistsWithFilters(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := svc.SearchArtists(tt.params)
+			result := store.SearchArtists(tt.params)
 
 			if len(result.Artists) != len(tt.expected) {
 				t.Fatalf("SearchArtists returned %d artists, expected %d", len(result.Artists), len(tt.expected))
@@ -225,8 +223,8 @@ func TestService_SearchArtistsWithFilters(t *testing.T) {
 
 // Helper utilities for search tests
 
-func createTestSearchService() *Service {
-	artists := []data.Artist{
+func createTestSearchService() *Store {
+	artists := []Artist{
 		{
 			ID:           1,
 			Name:         "Queen",
@@ -256,12 +254,12 @@ func createTestSearchService() *Service {
 		},
 	}
 
-	store := data.NewStoreFromFixtures(artists, nil)
-	return New(store)
+	store := NewStoreFromFixtures(artists, nil)
+	return store
 }
 
-func createLocationSearchService() *Service {
-	artists := []data.Artist{
+func createLocationSearchService() *Store {
+	artists := []Artist{
 		{
 			ID:           1,
 			Name:         "Queen",
@@ -270,7 +268,7 @@ func createLocationSearchService() *Service {
 			CreationYear: 1970,
 			FirstAlbum:   "14-07-1973",
 			Countries:    []string{"UK", "USA"},
-			Concerts: []data.Concert{
+			Concerts: []Concert{
 				{Date: "01-01-1980", Location: "london-uk"},
 				{Date: "01-01-1981", Location: "new-york-usa"},
 			},
@@ -283,11 +281,11 @@ func createLocationSearchService() *Service {
 			CreationYear: 1960,
 			FirstAlbum:   "01-01-1963",
 			Countries:    []string{"UK"},
-			Concerts:     []data.Concert{{Date: "01-01-1965", Location: "london-uk"}},
+			Concerts:     []Concert{{Date: "01-01-1965", Location: "london-uk"}},
 		},
 	}
 
-	locations := []data.Location{{Name: "london-uk", Slug: "london-uk"}, {Name: "new-york-usa", Slug: "new-york-usa"}}
-	store := data.NewStoreFromFixtures(artists, locations)
-	return New(store)
+	locations := []Location{{Name: "london-uk", Slug: "london-uk"}, {Name: "new-york-usa", Slug: "new-york-usa"}}
+	store := NewStoreFromFixtures(artists, locations)
+	return store
 }

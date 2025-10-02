@@ -15,12 +15,12 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	locations := s.svc.Locations()
-	filterOptions := s.svc.GetLocationFilterOptions()
-	suggestions := s.svc.GenerateAllSearchSuggestions()
+	locations := s.store.Locations()
+	filterOptions := s.store.GetLocationFilterOptions()
+	suggestions := s.store.GenerateAllSearchSuggestions()
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
-	stats := s.svc.Stats()
+	stats := s.store.Stats()
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
@@ -29,7 +29,7 @@ func (s *Server) Locations(w http.ResponseWriter, r *http.Request) {
 		}
 
 		appliedFilters = parseLocationFilterParams(r)
-		locations = s.svc.FilterLocations(appliedFilters)
+		locations = s.store.FilterLocations(appliedFilters)
 	}
 
 	// Check if any filter is applied
@@ -91,13 +91,13 @@ func (s *Server) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	location, found := s.svc.LocationBySlug(slug)
+	location, found := s.store.LocationBySlug(slug)
 	if !found {
 		s.NotFoundError(w, r, "Location not found")
 		return
 	}
 
-	suggestions := s.svc.GenerateAllSearchSuggestions()
+	suggestions := s.store.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title        string

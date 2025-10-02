@@ -19,9 +19,9 @@ func (s *Server) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists := s.svc.Artists()
-	stats := s.svc.Stats()
-	suggestions := s.svc.GenerateAllSearchSuggestions()
+	artists := s.store.Artists()
+	stats := s.store.Stats()
+	suggestions := s.store.GenerateAllSearchSuggestions()
 
 	// Get 8 random artists for homepage display
 	artists = getRandomArtists(artists, 8)
@@ -56,7 +56,7 @@ func (s *Server) Health(w http.ResponseWriter, r *http.Request) {
 	response := map[string]any{
 		"status":    "healthy",
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     s.svc.Stats(),
+		"stats":     s.store.Stats(),
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -77,7 +77,7 @@ func (s *Server) DevIndex(w http.ResponseWriter, r *http.Request) {
 		{"/health", "Health Check (/health)"},
 	}
 
-	suggestions := s.svc.GenerateAllSearchSuggestions()
+	suggestions := s.store.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title       string

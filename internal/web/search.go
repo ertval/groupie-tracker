@@ -34,13 +34,13 @@ func (s *Server) Search(w http.ResponseWriter, r *http.Request) {
 			Query:   searchQuery,
 			Filters: appliedFilters,
 		}
-		searchResults = s.svc.SearchArtists(searchParams)
+		searchResults = s.store.SearchArtists(searchParams)
 	}
 
-	filterOptions := s.svc.GetArtistFilterOptions()
+	filterOptions := s.store.GetArtistFilterOptions()
 
 	// Generate all search suggestions for datalist
-	allSuggestions := s.svc.GenerateAllSearchSuggestions()
+	allSuggestions := s.store.GenerateAllSearchSuggestions()
 
 	data := struct {
 		Title          string
@@ -73,7 +73,7 @@ func (s *Server) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Use optimized filtering with reasonable limits
 	const maxSuggestions = 15 // Limit to avoid overwhelming the UI
-	matchingSuggestions := s.svc.FilterSearchSuggestions(query, maxSuggestions)
+	matchingSuggestions := s.store.FilterSearchSuggestions(query, maxSuggestions)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(matchingSuggestions)
