@@ -779,7 +779,7 @@ After all phases complete:
 - Type-safe identifiers and grouped structs
 
 **What to Avoid:**
-- External dependencies unless absolutely necessary
+- External dependencies, only stdlib
 - Premature abstraction (wait for third use case)
 - Clever concurrency beyond proven patterns
 - Breaking backward compatibility without migration path
@@ -790,7 +790,7 @@ After all phases complete:
 - Test coverage drops below 65%
 - New feature requires significant architectural change
 - Performance degrades >20% from current baseline
-- Code duplication appears in more than 3 places
+- Code duplication appears in more than 2 places
 
 ---
 

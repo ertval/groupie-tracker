@@ -19,7 +19,7 @@ type Artist struct {
 
 // ArtistAtLocation represents an artist's concert activity at a specific venue.
 type ArtistAtLocation struct {
-	Artist       Artist
+	Artist       *Artist
 	ConcertCount int
 }
 
@@ -134,9 +134,9 @@ type SearchSuggestion struct {
 
 // SearchResult represents a comprehensive search result with matched items.
 type SearchResult struct {
-	Artists      []Artist `json:"artists"`
-	Query        string   `json:"query"`
-	TotalResults int      `json:"totalResults"`
+	Artists      []*Artist `json:"artists"`
+	Query        string    `json:"query"`
+	TotalResults int       `json:"totalResults"`
 }
 
 // SearchParams represents search query parameters from user input.

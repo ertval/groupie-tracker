@@ -23,9 +23,9 @@ type Store struct {
 	cacheEnabled bool // Actual cache status after initialization (may differ from withCache if caching fails)
 
 	// Core data collections - immutable after Load() completes, safe for concurrent reads
-	artists         []Artist              // All artists sorted alphabetically by name
-	artistsByID     map[int]Artist        // O(1) lookup by artist ID
-	artistsBySlug   map[string]Artist     // O(1) lookup by URL-friendly slug (e.g., "pink-floyd")
+	artists         []*Artist             // All artists sorted alphabetically by name
+	artistsByID     map[int]*Artist       // O(1) lookup by artist ID
+	artistsBySlug   map[string]*Artist    // O(1) lookup by URL-friendly slug (e.g., "pink-floyd")
 	artistPositions map[int]int           // Maps artist ID to its index in the sorted artists slice (for navigation)
 	locations       []Location            // All concert locations aggregated from artist data
 	locationsBySlug map[string]Location   // O(1) lookup by location slug (e.g., "london-uk")
@@ -35,10 +35,10 @@ type Store struct {
 	locationFilters LocationFilterOptions // Available location filter values (concert ranges, year ranges, countries)
 
 	// Search result cache (LRU-style) - protects performance on repeated identical queries
-	searchCacheMu   sync.Mutex          // Mutex protects concurrent access to cache maps
-	searchCache     map[string][]Artist // Maps normalized query strings to cached result slices
-	searchOrder     []string            // Tracks query insertion order for LRU eviction
-	searchCacheSize int                 // Maximum cache entries (50) before LRU eviction kicks in
+	searchCacheMu   sync.Mutex           // Mutex protects concurrent access to cache maps
+	searchCache     map[string][]*Artist // Maps normalized query strings to cached result slices
+	searchOrder     []string             // Tracks query insertion order for LRU eviction
+	searchCacheSize int                  // Maximum cache entries (50) before LRU eviction kicks in
 
 	loadOnce sync.Once // Ensures Load() executes exactly once even if called concurrently
 	loadErr  error     // Stores any error from the single Load() execution for return to all callers
@@ -50,9 +50,9 @@ func NewStore(apiClient *api.Client, withCache bool) *Store {
 	return &Store{
 		apiClient:       apiClient,
 		withCache:       withCache,
-		searchCache:     make(map[string][]Artist, 50), // Pre-allocate for 50 entries (LRU cache size)
-		searchOrder:     make([]string, 0, 50),         // Pre-allocate for 50 entries (LRU cache size)
-		searchCacheSize: 50,                            // Max cached searches before eviction
+		searchCache:     make(map[string][]*Artist, 50), // Pre-allocate for 50 entries (LRU cache size)
+		searchOrder:     make([]string, 0, 50),          // Pre-allocate for 50 entries (LRU cache size)
+		searchCacheSize: 50,                             // Max cached searches before eviction
 	}
 }
 
@@ -127,8 +127,8 @@ func (s *Store) loadData(ctx context.Context) error {
 	// Stage 4: Build all indexes, metadata, and suggestions concurrently for fast startup
 	// These computations are CPU-bound and independent, so parallelizing them reduces total startup time
 	var (
-		artistsByID     map[int]Artist
-		artistsBySlug   map[string]Artist
+		artistsByID     map[int]*Artist
+		artistsBySlug   map[string]*Artist
 		artistPositions map[int]int
 		locations       []Location
 		locationsBySlug map[string]Location
@@ -186,20 +186,20 @@ func (s *Store) loadData(ctx context.Context) error {
 
 // Artists returns the complete artist collection sorted alphabetically by name.
 // Safe for concurrent access after Load() completes since the slice is immutable.
-func (s *Store) Artists() []Artist {
+func (s *Store) Artists() []*Artist {
 	return s.artists
 }
 
 // ArtistByID performs O(1) lookup of an artist by their unique ID.
-// Returns the artist and true if found, or zero-value artist and false if not found.
-func (s *Store) ArtistByID(id int) (Artist, bool) {
+// Returns the artist and true if found, or nil and false if not found.
+func (s *Store) ArtistByID(id int) (*Artist, bool) {
 	artist, ok := s.artistsByID[id]
 	return artist, ok
 }
 
 // ArtistBySlug performs O(1) lookup of an artist by their URL-friendly slug (e.g., "pink-floyd").
-// Returns the artist and true if found, or zero-value artist and false if not found.
-func (s *Store) ArtistBySlug(slug string) (Artist, bool) {
+// Returns the artist and true if found, or nil and false if not found.
+func (s *Store) ArtistBySlug(slug string) (*Artist, bool) {
 	artist, ok := s.artistsBySlug[slug]
 	return artist, ok
 }
@@ -263,18 +263,18 @@ func (s *Store) GetLocationFilterOptions() LocationFilterOptions {
 // ============================================================================
 
 // processArtists transforms raw API data into enriched Artist domain models.
-func (s *Store) processArtists(apiArtists []api.Artist, apiRelations api.Relation) []Artist {
+func (s *Store) processArtists(apiArtists []api.Artist, apiRelations api.Relation) []*Artist {
 	artists := s.transformAPIArtists(apiArtists)
 	artists = s.addConcertData(artists, apiRelations)
 	return artists
 }
 
 // transformAPIArtists converts raw API artist data to domain Artist objects.
-func (s *Store) transformAPIArtists(apiArtists []api.Artist) []Artist {
-	artists := make([]Artist, 0, len(apiArtists))
+func (s *Store) transformAPIArtists(apiArtists []api.Artist) []*Artist {
+	artists := make([]*Artist, 0, len(apiArtists))
 
 	for _, apiArtist := range apiArtists {
-		artist := Artist{
+		artist := &Artist{
 			ID:              apiArtist.ID,
 			Name:            apiArtist.Name,
 			Slug:            createSlug(apiArtist.Name),
@@ -293,7 +293,7 @@ func (s *Store) transformAPIArtists(apiArtists []api.Artist) []Artist {
 }
 
 // addConcertData enriches artists with concert information from API relations.
-func (s *Store) addConcertData(artists []Artist, apiRelations api.Relation) []Artist {
+func (s *Store) addConcertData(artists []*Artist, apiRelations api.Relation) []*Artist {
 	// Index relations by artist ID for efficient lookup
 	relationMap := make(map[int]api.RelationIndex)
 	for _, rel := range apiRelations.Index {
@@ -302,7 +302,7 @@ func (s *Store) addConcertData(artists []Artist, apiRelations api.Relation) []Ar
 
 	// Add concert data to each artist
 	for i := range artists {
-		artist := &artists[i]
+		artist := artists[i]
 
 		if rel, exists := relationMap[artist.ID]; exists {
 			countries := make(map[string]bool)
@@ -345,9 +345,9 @@ func (s *Store) addConcertData(artists []Artist, apiRelations api.Relation) []Ar
 }
 
 // createArtistIndexes builds lookup maps for artists by ID and slug.
-func (s *Store) createArtistIndexes(artists []Artist) (map[int]Artist, map[string]Artist, map[int]int) {
-	artistsByID := make(map[int]Artist, len(artists))
-	artistsBySlug := make(map[string]Artist, len(artists))
+func (s *Store) createArtistIndexes(artists []*Artist) (map[int]*Artist, map[string]*Artist, map[int]int) {
+	artistsByID := make(map[int]*Artist, len(artists))
+	artistsBySlug := make(map[string]*Artist, len(artists))
 	positions := make(map[int]int, len(artists))
 
 	for idx, artist := range artists {
@@ -360,7 +360,7 @@ func (s *Store) createArtistIndexes(artists []Artist) (map[int]Artist, map[strin
 }
 
 // createLocationsData builds location aggregates and lookup maps.
-func (s *Store) createLocationsData(artists []Artist) ([]Location, map[string]Location) {
+func (s *Store) createLocationsData(artists []*Artist) ([]Location, map[string]Location) {
 	locations := s.createLocations(artists)
 	locationsBySlug := make(map[string]Location, len(locations))
 	for _, location := range locations {
@@ -370,9 +370,9 @@ func (s *Store) createLocationsData(artists []Artist) ([]Location, map[string]Lo
 }
 
 // createLocations builds location models from artist concert data.
-func (s *Store) createLocations(artists []Artist) []Location {
+func (s *Store) createLocations(artists []*Artist) []Location {
 	// Build lookup map once - O(n) instead of O(n²)
-	artistMap := make(map[int]Artist, len(artists))
+	artistMap := make(map[int]*Artist, len(artists))
 	for _, artist := range artists {
 		artistMap[artist.ID] = artist
 	}
@@ -381,8 +381,7 @@ func (s *Store) createLocations(artists []Artist) []Location {
 	// Track concert count per artist per location
 	artistConcertCount := make(map[string]map[int]int)
 
-	for i := range artists {
-		artist := &artists[i]
+	for _, artist := range artists {
 		for _, concert := range artist.Concerts {
 			// Initialize location if not exists
 			if _, exists := locationMap[concert.Location]; !exists {
@@ -459,7 +458,7 @@ func (s *Store) createLocations(artists []Artist) []Location {
 // ============================================================================
 
 // calculateStats computes application statistics from derived data.
-func (s *Store) calculateStats(artists []Artist, locations []Location, cachedImages, downloadedImages int) AppStats {
+func (s *Store) calculateStats(artists []*Artist, locations []Location, cachedImages, downloadedImages int) AppStats {
 	totalMembers := 0
 	totalConcerts := 0
 	countries := make(map[string]bool)

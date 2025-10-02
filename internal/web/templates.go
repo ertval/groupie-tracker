@@ -235,13 +235,13 @@ func extractSearchTerm(input string) string {
 //
 // Returns a new slice containing up to maxCount randomly selected artists.
 // The original slice is not modified.
-func getRandomArtists(artists []data.Artist, maxCount int) []data.Artist {
+func getRandomArtists(artists []*data.Artist, maxCount int) []*data.Artist {
 	if len(artists) == 0 {
 		return artists
 	}
 
 	// Create a copy to avoid modifying the original slice
-	shuffled := make([]data.Artist, len(artists))
+	shuffled := make([]*data.Artist, len(artists))
 	copy(shuffled, artists)
 
 	// Shuffle the copy

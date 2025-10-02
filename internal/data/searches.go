@@ -26,7 +26,7 @@ func (s *Store) SearchArtists(params SearchParams) SearchResult {
 		}
 	}
 
-	var matchingArtists []Artist
+	var matchingArtists []*Artist
 
 	// If query is empty, return all artists (useful for filter-only operations)
 	if normalizedQuery == "" {
@@ -34,7 +34,7 @@ func (s *Store) SearchArtists(params SearchParams) SearchResult {
 	} else {
 		// Linear search through all artists (acceptable since dataset is small ~52 artists)
 		for _, artist := range artists {
-			if matchesSearchQuery(artist, normalizedQuery) { // Check name, members, years, locations
+			if matchesSearchQuery(*artist, normalizedQuery) { // Check name, members, years, locations
 				matchingArtists = append(matchingArtists, artist)
 			}
 		}
@@ -42,9 +42,9 @@ func (s *Store) SearchArtists(params SearchParams) SearchResult {
 
 	// Apply filters if any are specified (filters are ANDed with search results)
 	if !filtersEmpty {
-		var filtered []Artist
+		var filtered []*Artist
 		for _, artist := range matchingArtists {
-			if matchesArtistFilters(artist, params.Filters) { // Reuse filter logic from filters.go
+			if matchesArtistFilters(*artist, params.Filters) { // Reuse filter logic from filters.go
 				filtered = append(filtered, artist)
 			}
 		}
@@ -92,12 +92,12 @@ func (s *Store) GetAdjacentArtists(currentID int) (prev, next *Artist) {
 
 	// Get previous artist if not at beginning (index > 0)
 	if index > 0 {
-		prev = &artists[index-1]
+		prev = artists[index-1]
 	}
 
 	// Get next artist if not at end (index < len-1)
 	if index < len(artists)-1 {
-		next = &artists[index+1]
+		next = artists[index+1]
 	}
 
 	return prev, next
@@ -260,7 +260,7 @@ func newSearchSuggestion(text, suggestionType, description, url string, artistID
 	}
 }
 
-func (s *Store) generateSearchSuggestions(artists []Artist) []SearchSuggestion {
+func (s *Store) generateSearchSuggestions(artists []*Artist) []SearchSuggestion {
 	var suggestions []SearchSuggestion
 	seen := make(map[string]bool)
 

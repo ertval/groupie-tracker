@@ -19,7 +19,7 @@ import (
 // - cacheEnabled: false if cache directory creation fails, otherwise true
 // - cachedImageCount: number of images already present on disk (skipped download)
 // - downloadedImageCount: number of images successfully downloaded in this run
-func (s *Store) cacheImages(artists []Artist) (bool, int, int) {
+func (s *Store) cacheImages(artists []*Artist) (bool, int, int) {
 	if !s.withCache { // Early return if caching disabled in config
 		return false, 0, 0
 	}
@@ -53,8 +53,7 @@ func (s *Store) cacheImages(artists []Artist) (bool, int, int) {
 	jobs := make(chan job, len(artists))
 
 	// Prepare all jobs upfront (producer phase)
-	for i := range artists {
-		artist := &artists[i]
+	for i, artist := range artists {
 		fileName := fmt.Sprintf("%s.jpg", artist.Slug) // Convert artist slug to filename
 		filePath := filepath.Join(cacheDir, fileName)  // Full path on disk
 		localPath := "/" + filepath.ToSlash(filePath)  // Convert to forward slashes for URLs
@@ -142,7 +141,7 @@ func downloadImage(url, path string) bool {
 }
 
 // getCachedSearchResults retrieves cached search results for a query.
-func (s *Store) getCachedSearchResults(query string) ([]Artist, bool) {
+func (s *Store) getCachedSearchResults(query string) ([]*Artist, bool) {
 	s.searchCacheMu.Lock()
 	defer s.searchCacheMu.Unlock()
 
@@ -156,12 +155,12 @@ func (s *Store) getCachedSearchResults(query string) ([]Artist, bool) {
 }
 
 // setCachedSearchResults stores search results in the cache with LRU eviction.
-func (s *Store) setCachedSearchResults(query string, results []Artist) {
+func (s *Store) setCachedSearchResults(query string, results []*Artist) {
 	s.searchCacheMu.Lock()
 	defer s.searchCacheMu.Unlock()
 
 	if s.searchCache == nil {
-		s.searchCache = make(map[string][]Artist, s.searchCacheSize)
+		s.searchCache = make(map[string][]*Artist, s.searchCacheSize)
 	}
 	if s.searchCacheSize <= 0 {
 		s.searchCacheSize = 50

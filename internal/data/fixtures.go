@@ -6,7 +6,7 @@ package data
 func NewStoreFromFixtures(artists []Artist, locations []Location) *Store {
 	store := &Store{}
 
-	normalizedArtists := make([]Artist, len(artists))
+	normalizedArtists := make([]*Artist, len(artists))
 	for i := range artists {
 		artist := artists[i]
 		if artist.Slug == "" {
@@ -46,7 +46,7 @@ func NewStoreFromFixtures(artists []Artist, locations []Location) *Store {
 		}
 		artist.ConcertCount = len(artist.Concerts)
 
-		normalizedArtists[i] = artist
+		normalizedArtists[i] = &artist
 	}
 
 	store.artists = normalizedArtists
@@ -75,6 +75,7 @@ func NewStoreFromFixtures(artists []Artist, locations []Location) *Store {
 	store.suggestions = store.generateSearchSuggestions(store.artists)
 	store.appStats = store.calculateStats(store.artists, store.locations, 0, 0)
 	store.cacheEnabled = false
+	store.searchCache = make(map[string][]*Artist, 50)
 
 	return store
 }

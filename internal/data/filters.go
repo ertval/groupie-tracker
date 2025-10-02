@@ -5,15 +5,15 @@ import "sort"
 // FilterArtists applies user-specified filter criteria to the artist collection and returns matching artists.
 // Filters support: creation year range, first album year range, member count values, and countries.
 // All criteria are ANDed together (artist must match ALL specified filters to be included).
-func (s *Store) FilterArtists(criteria ArtistFilterParams) []Artist {
+func (s *Store) FilterArtists(criteria ArtistFilterParams) []*Artist {
 	artists := s.Artists()
 	if len(artists) == 0 {
 		return nil
 	}
 
-	var filtered []Artist
+	var filtered []*Artist
 	for _, artist := range artists {
-		if matchesArtistFilters(artist, criteria) { // Check if artist matches all filter criteria
+		if matchesArtistFilters(*artist, criteria) { // Check if artist matches all filter criteria
 			filtered = append(filtered, artist)
 		}
 	}
@@ -142,7 +142,7 @@ func matchesLocationFilters(location Location, params LocationFilterParams) bool
 }
 
 // calculateArtistFilterOptions derives available artist filter metadata from the dataset.
-func (s *Store) calculateArtistFilterOptions(artists []Artist) ArtistFilterOptions {
+func (s *Store) calculateArtistFilterOptions(artists []*Artist) ArtistFilterOptions {
 	if len(artists) == 0 {
 		return ArtistFilterOptions{}
 	}

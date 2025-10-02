@@ -80,7 +80,7 @@ func (app *App) Home(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS       string
 		ExtraJS        string
 		Suggestions    []data.SearchSuggestion
-		Artists        []data.Artist
+		Artists        []*data.Artist
 		TotalMembers   int
 		TotalLocations int
 	}{
@@ -133,7 +133,7 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS       string
 		ExtraJS        string
 		Suggestions    []data.SearchSuggestion
-		Artists        []data.Artist
+		Artists        []*data.Artist
 		FilterOptions  data.ArtistFilterOptions
 		AppliedFilters data.ArtistFilterParams
 		IsFiltered     bool
@@ -183,7 +183,7 @@ func (app *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		ExtraCSS    string
 		ExtraJS     string
 		Suggestions []data.SearchSuggestion
-		Artist      data.Artist
+		Artist      *data.Artist
 		PrevArtist  *data.Artist
 		NextArtist  *data.Artist
 	}{

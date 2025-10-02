@@ -13,7 +13,7 @@ func TestFilterArtists(t *testing.T) {
 		name    string
 		params  ArtistFilterParams
 		wantMin int
-		check   func(t *testing.T, artists []Artist)
+		check   func(t *testing.T, artists []*Artist)
 	}{
 		{
 			name: "Filter by creation year range 1995-2000",
@@ -22,7 +22,7 @@ func TestFilterArtists(t *testing.T) {
 				CreationYearTo:   intPtr(2000),
 			},
 			wantMin: 7,
-			check: func(t *testing.T, artists []Artist) {
+			check: func(t *testing.T, artists []*Artist) {
 				expected := []string{"SOJA", "Mamonas Assassinas", "Thirty Seconds to Mars", "Nickelback", "Gorillaz", "Linkin Park", "Coldplay"}
 				gotNames := getArtistNames(artists)
 				for _, name := range expected {
@@ -38,7 +38,7 @@ func TestFilterArtists(t *testing.T) {
 				CreationYearFrom: intPtr(2010),
 			},
 			wantMin: 4,
-			check: func(t *testing.T, artists []Artist) {
+			check: func(t *testing.T, artists []*Artist) {
 				expected := []string{"XXXTentacion", "Juice WRLD", "Alec Benjamin", "Post Malone"}
 				gotNames := getArtistNames(artists)
 				for _, name := range expected {
@@ -69,7 +69,7 @@ func TestFilterArtists(t *testing.T) {
 				MemberCounts: []int{1},
 			},
 			wantMin: 2,
-			check: func(t *testing.T, artists []Artist) {
+			check: func(t *testing.T, artists []*Artist) {
 				for _, artist := range artists {
 					if len(artist.Members) != 1 {
 						t.Errorf("Artist %s has %d members, expected 1", artist.Name, len(artist.Members))
@@ -83,7 +83,7 @@ func TestFilterArtists(t *testing.T) {
 				MemberCounts: []int{2, 3, 4},
 			},
 			wantMin: 5,
-			check: func(t *testing.T, artists []Artist) {
+			check: func(t *testing.T, artists []*Artist) {
 				for _, artist := range artists {
 					count := len(artist.Members)
 					if count < 2 || count > 4 {
@@ -98,7 +98,7 @@ func TestFilterArtists(t *testing.T) {
 				MemberCounts: []int{7},
 			},
 			wantMin: 1,
-			check: func(t *testing.T, artists []Artist) {
+			check: func(t *testing.T, artists []*Artist) {
 				for _, artist := range artists {
 					if len(artist.Members) != 7 {
 						t.Errorf("Artist %s has %d members, expected 7", artist.Name, len(artist.Members))
@@ -536,7 +536,7 @@ func createLocationSearchStore() *Store {
 
 // Test helper utilities
 
-func getArtistNames(artists []Artist) []string {
+func getArtistNames(artists []*Artist) []string {
 	names := make([]string, len(artists))
 	for i, artist := range artists {
 		names[i] = artist.Name
