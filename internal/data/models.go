@@ -1,20 +1,92 @@
 package data
 
-// Artist represents the complete internal model of a music artist.
+import (
+	"sort"
+	"time"
+)
+
+/* BACKUP - Original Artist struct before Phase 1 refactoring:
 type Artist struct {
 	ID              int
 	Name            string
-	Slug            string // URL-friendly identifier (e.g., "queen")
+	Slug            string
 	Members         []string
 	CreationYear    int
 	FirstAlbum      string
 	Image           string
 	Concerts        []Concert
-	DatesAtLocation map[string][]string // Concert dates indexed by location slug
-	ConcertCount    int                 // Computed field
-	Countries       []string            // Unique countries where artist performed
-	MemberCount     int                 // Cached member count for filtering
-	FirstAlbumYear  int                 // Parsed year of the first album (0 if unknown)
+	DatesAtLocation map[string][]string
+	ConcertCount    int
+	Countries       []string
+	MemberCount     int
+	FirstAlbumYear  int
+}
+*/
+
+// Artist represents the complete internal model of a music artist.
+// Removed cached/computed fields - use helper methods instead.
+type Artist struct {
+	ID           int
+	Name         string
+	Members      []string
+	CreationYear int
+	FirstAlbum   string
+	Image        string
+	Concerts     []Concert // New: holds all concert events for this artist
+}
+
+// MemberCount returns the number of members in the band.
+func (a *Artist) MemberCount() int {
+	return len(a.Members)
+}
+
+// ConcertCount returns the total number of concerts for this artist.
+func (a *Artist) ConcertCount() int {
+	return len(a.Concerts)
+}
+
+// FirstAlbumYear extracts and returns the year from the FirstAlbum date string.
+// Returns 0 if the year cannot be parsed.
+func (a *Artist) FirstAlbumYear() int {
+	return extractYearFromDate(a.FirstAlbum)
+}
+
+// Countries returns a sorted list of unique countries where the artist has performed.
+func (a *Artist) Countries() []string {
+	if len(a.Concerts) == 0 {
+		return []string{}
+	}
+
+	countryMap := make(map[string]bool)
+	for _, concert := range a.Concerts {
+		country := extractCountryFromLocation(concert.Location)
+		if country != "" {
+			countryMap[country] = true
+		}
+	}
+
+	countries := make([]string, 0, len(countryMap))
+	for country := range countryMap {
+		countries = append(countries, country)
+	}
+	sort.Strings(countries)
+	return countries
+}
+
+// Slug returns a URL-friendly identifier for the artist.
+func (a *Artist) Slug() string {
+	return createSlug(a.Name)
+}
+
+// DatesAtLocation returns concert dates grouped by location slug.
+// This is computed on-demand for backward compatibility.
+func (a *Artist) DatesAtLocation() map[string][]string {
+	result := make(map[string][]string)
+	for _, concert := range a.Concerts {
+		slug := createSlug(concert.Location)
+		result[slug] = append(result[slug], concert.DateString)
+	}
+	return result
 }
 
 // ArtistAtLocation represents an artist's concert activity at a specific venue.
@@ -25,24 +97,73 @@ type ArtistAtLocation struct {
 
 // Location represents the complete internal model of a concert venue.
 type Location struct {
-	Name          string
-	Slug          string // URL-friendly identifier (e.g., "london-uk")
-	Country       string // Display-ready country extracted from the slug
-	Artists       []ArtistAtLocation
-	ArtistCount   int // Computed field
-	TotalConcerts int // Computed field
-	EarliestYear  int
-	LatestYear    int
+	Name    string
+	Slug    string
+	Artists []ArtistAtLocation
+	// Years can be computed from concerts
 }
 
-// Concert represents a single concert event in structured form.
-//
+// Country extracts and returns the country from the location name.
+func (l *Location) Country() string {
+	return extractCountryFromLocation(l.Name)
+}
+
+// ArtistCount returns the number of unique artists that performed at this location.
+func (l *Location) ArtistCount() int {
+	return len(l.Artists)
+}
+
+// TotalConcerts returns the total number of concerts at this location.
+func (l *Location) TotalConcerts() int {
+	total := 0
+	for _, artist := range l.Artists {
+		total += artist.ConcertCount
+	}
+	return total
+}
+
+// YearRange returns the earliest and latest concert years at this location.
+func (l *Location) YearRange() (int, int) {
+	if len(l.Artists) == 0 {
+		return 0, 0
+	}
+
+	earliest := 9999
+	latest := 0
+
+	// Get years from all concerts at this location
+	for _, artistAtLoc := range l.Artists {
+		for _, concert := range artistAtLoc.Artist.Concerts {
+			// Match by location slug since Concert stores normalized location
+			if createSlug(concert.Location) != l.Slug {
+				continue
+			}
+			if !concert.Date.IsZero() {
+				year := concert.Date.Year()
+				if year < earliest {
+					earliest = year
+				}
+				if year > latest {
+					latest = year
+				}
+			}
+		}
+	}
+
+	if earliest == 9999 {
+		return 0, 0
+	}
+	return earliest, latest
+} // Concert represents a single concert event in structured form.
 // This simplified structure is created by parsing the complex API relations data.
 // Each Concert represents one performance at one venue on one date, making it
 // easy to filter, count, and analyze concert data across the application.
 type Concert struct {
-	Date     string // Concert date in original API format
-	Location string // Normalized location name matching Location.Name
+	ArtistID     int       // Artist performing at this concert
+	Location     string    // Normalized location name
+	LocationSlug string    // URL-friendly location slug
+	Date         time.Time // Parsed concert date
+	DateString   string    // Original date string for display
 }
 
 // --- Filter Data Structures ---

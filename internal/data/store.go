@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"groupie-tracker/internal/api"
 )
@@ -275,16 +276,12 @@ func (s *Store) transformAPIArtists(apiArtists []api.Artist) []*Artist {
 
 	for _, apiArtist := range apiArtists {
 		artist := &Artist{
-			ID:              apiArtist.ID,
-			Name:            apiArtist.Name,
-			Slug:            createSlug(apiArtist.Name),
-			Members:         apiArtist.Members,
-			CreationYear:    apiArtist.CreationYear,
-			FirstAlbum:      apiArtist.FirstAlbum,
-			Image:           apiArtist.Image,
-			DatesAtLocation: make(map[string][]string),
-			MemberCount:     len(apiArtist.Members),
-			FirstAlbumYear:  extractYearFromDate(apiArtist.FirstAlbum),
+			ID:           apiArtist.ID,
+			Name:         apiArtist.Name,
+			Members:      apiArtist.Members,
+			CreationYear: apiArtist.CreationYear,
+			FirstAlbum:   apiArtist.FirstAlbum,
+			Image:        apiArtist.Image,
 		}
 		artists = append(artists, artist)
 	}
@@ -305,34 +302,33 @@ func (s *Store) addConcertData(artists []*Artist, apiRelations api.Relation) []*
 		artist := artists[i]
 
 		if rel, exists := relationMap[artist.ID]; exists {
-			countries := make(map[string]bool)
-
 			// Process each location and its dates
 			for location, dates := range rel.DatesLocations {
 				normalizedLoc := normalizeLocation(location)
 				locationSlug := createSlug(normalizedLoc)
-				artist.DatesAtLocation[locationSlug] = dates
 
 				// Create concert objects
-				for _, date := range dates {
+				for _, dateStr := range dates {
+					parsedDate, err := parseDate(dateStr)
+					if err != nil {
+						// If parsing fails, use a zero date but keep the original string
+						parsedDate = time.Time{}
+					}
+
 					artist.Concerts = append(artist.Concerts, Concert{
-						Date:     date,
-						Location: normalizedLoc,
+						ArtistID:     artist.ID,
+						Location:     normalizedLoc,
+						LocationSlug: locationSlug,
+						Date:         parsedDate,
+						DateString:   dateStr,
 					})
 				}
-
-				// Extract country from location
-				countries[extractCountryFromLocation(normalizedLoc)] = true
 			}
 
 			// Sort concerts chronologically
 			sort.Slice(artist.Concerts, func(i, j int) bool {
-				return artist.Concerts[i].Date < artist.Concerts[j].Date
+				return artist.Concerts[i].Date.Before(artist.Concerts[j].Date)
 			})
-
-			// Set derived fields
-			artist.ConcertCount = len(artist.Concerts)
-			artist.Countries = s.convertCountriesMapToSlice(countries)
 		}
 	}
 
@@ -352,7 +348,7 @@ func (s *Store) createArtistIndexes(artists []*Artist) (map[int]*Artist, map[str
 
 	for idx, artist := range artists {
 		artistsByID[artist.ID] = artist
-		artistsBySlug[artist.Slug] = artist
+		artistsBySlug[artist.Slug()] = artist
 		positions[artist.ID] = idx
 	}
 
@@ -386,30 +382,15 @@ func (s *Store) createLocations(artists []*Artist) []Location {
 			// Initialize location if not exists
 			if _, exists := locationMap[concert.Location]; !exists {
 				locationMap[concert.Location] = &Location{
-					Name:         concert.Location,
-					Slug:         createSlug(concert.Location),
-					Country:      extractCountryFromLocation(concert.Location),
-					Artists:      make([]ArtistAtLocation, 0),
-					EarliestYear: 9999, // Initialize with high value
-					LatestYear:   0,    // Initialize with low value
+					Name:    concert.Location,
+					Slug:    createSlug(concert.Location),
+					Artists: make([]ArtistAtLocation, 0),
 				}
 				artistConcertCount[concert.Location] = make(map[int]int)
 			}
 
 			// Count concerts per artist per location
 			artistConcertCount[concert.Location][artist.ID]++
-			locationMap[concert.Location].TotalConcerts++
-
-			// Update year range for this location
-			year := extractYearFromDate(concert.Date)
-			if year > 0 {
-				if year < locationMap[concert.Location].EarliestYear {
-					locationMap[concert.Location].EarliestYear = year
-				}
-				if year > locationMap[concert.Location].LatestYear {
-					locationMap[concert.Location].LatestYear = year
-				}
-			}
 		}
 	}
 
@@ -437,7 +418,6 @@ func (s *Store) createLocations(artists []*Artist) []Location {
 		})
 
 		location.Artists = artistsAtLocation
-		location.ArtistCount = len(artistsAtLocation)
 	}
 
 	// Convert to slice and sort by concert count
@@ -447,7 +427,7 @@ func (s *Store) createLocations(artists []*Artist) []Location {
 	}
 
 	sort.Slice(locations, func(i, j int) bool {
-		return locations[i].TotalConcerts > locations[j].TotalConcerts
+		return locations[i].TotalConcerts() > locations[j].TotalConcerts()
 	})
 
 	return locations
@@ -465,9 +445,9 @@ func (s *Store) calculateStats(artists []*Artist, locations []Location, cachedIm
 
 	for _, artist := range artists {
 		totalMembers += len(artist.Members)
-		totalConcerts += artist.ConcertCount
+		totalConcerts += artist.ConcertCount()
 
-		for _, country := range artist.Countries {
+		for _, country := range artist.Countries() {
 			countries[country] = true
 		}
 	}
@@ -540,6 +520,32 @@ func extractCountryFromLocation(location string) string {
 		words[i] = strings.ToUpper(word[:1]) + strings.ToLower(word[1:])
 	}
 	return strings.Join(words, " ")
+}
+
+// parseDate parses a date string in DD-MM-YYYY format and returns a time.Time.
+// Returns zero time and an error if parsing fails.
+func parseDate(dateStr string) (time.Time, error) {
+	dateStr = strings.TrimSpace(dateStr)
+	if len(dateStr) == 0 {
+		return time.Time{}, fmt.Errorf("empty date string")
+	}
+
+	// Try DD-MM-YYYY format (most common in the API)
+	if t, err := time.Parse("02-01-2006", dateStr); err == nil {
+		return t, nil
+	}
+
+	// Try YYYY-MM-DD format
+	if t, err := time.Parse("2006-01-02", dateStr); err == nil {
+		return t, nil
+	}
+
+	// Try DD/MM/YYYY format
+	if t, err := time.Parse("02/01/2006", dateStr); err == nil {
+		return t, nil
+	}
+
+	return time.Time{}, fmt.Errorf("unable to parse date: %s", dateStr)
 }
 
 // extractYearFromDate attempts to parse common date formats and return the year component.

@@ -53,7 +53,7 @@ func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 
 	// Filter by first album year range (only check if artist has a valid album year > 0)
 	if params.FirstAlbumYearFrom != nil || params.FirstAlbumYearTo != nil {
-		albumYear := artist.FirstAlbumYear
+		albumYear := artist.FirstAlbumYear()
 		if albumYear > 0 { // Only apply filter if artist has a valid first album year
 			if params.FirstAlbumYearFrom != nil && albumYear < *params.FirstAlbumYearFrom {
 				return false
@@ -67,7 +67,7 @@ func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 	// Filter by member count (e.g., "Show solo artists (1) or bands with 4 members")
 	// This is an OR within the member counts list, but AND with other filters
 	if len(params.MemberCounts) > 0 {
-		memberCount := artist.MemberCount
+		memberCount := artist.MemberCount()
 		found := false
 		for _, allowedCount := range params.MemberCounts {
 			if memberCount == allowedCount {
@@ -89,7 +89,7 @@ func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 		}
 
 		hasMatchingCountry := false
-		for _, country := range artist.Countries {
+		for _, country := range artist.Countries() {
 			if _, ok := allowed[country]; ok {
 				hasMatchingCountry = true
 				break
@@ -107,29 +107,32 @@ func matchesArtistFilters(artist Artist, params ArtistFilterParams) bool {
 // Returns true only if the location matches ALL non-nil/non-empty filter parameters (AND logic).
 func matchesLocationFilters(location Location, params LocationFilterParams) bool {
 	// Filter by concert count range (e.g., "Show locations with 10-50 concerts")
-	if params.ConcertCountFrom != nil && location.TotalConcerts < *params.ConcertCountFrom {
+	totalConcerts := location.TotalConcerts()
+	if params.ConcertCountFrom != nil && totalConcerts < *params.ConcertCountFrom {
 		return false
 	}
-	if params.ConcertCountTo != nil && location.TotalConcerts > *params.ConcertCountTo {
-		return false
-	}
-
-	if params.ArtistCountFrom != nil && location.ArtistCount < *params.ArtistCountFrom {
-		return false
-	}
-	if params.ArtistCountTo != nil && location.ArtistCount > *params.ArtistCountTo {
+	if params.ConcertCountTo != nil && totalConcerts > *params.ConcertCountTo {
 		return false
 	}
 
-	if params.ConcertYearFrom != nil && location.LatestYear < *params.ConcertYearFrom {
+	artistCount := location.ArtistCount()
+	if params.ArtistCountFrom != nil && artistCount < *params.ArtistCountFrom {
 		return false
 	}
-	if params.ConcertYearTo != nil && location.EarliestYear > *params.ConcertYearTo {
+	if params.ArtistCountTo != nil && artistCount > *params.ArtistCountTo {
+		return false
+	}
+
+	earliestYear, latestYear := location.YearRange()
+	if params.ConcertYearFrom != nil && latestYear < *params.ConcertYearFrom {
+		return false
+	}
+	if params.ConcertYearTo != nil && earliestYear > *params.ConcertYearTo {
 		return false
 	}
 
 	if len(params.Countries) > 0 {
-		locationCountry := location.Country
+		locationCountry := location.Country()
 		for _, allowedCountry := range params.Countries {
 			if locationCountry == allowedCountry {
 				return true
@@ -160,10 +163,7 @@ func (s *Store) calculateArtistFilterOptions(artists []*Artist) ArtistFilterOpti
 			maxCreationYear = artist.CreationYear
 		}
 
-		albumYear := artist.FirstAlbumYear
-		if albumYear == 0 {
-			albumYear = extractYearFromDate(artist.FirstAlbum)
-		}
+		albumYear := artist.FirstAlbumYear()
 		if albumYear > 0 {
 			if minFirstAlbumYear == 0 || albumYear < minFirstAlbumYear {
 				minFirstAlbumYear = albumYear
@@ -173,13 +173,10 @@ func (s *Store) calculateArtistFilterOptions(artists []*Artist) ArtistFilterOpti
 			}
 		}
 
-		memberCount := artist.MemberCount
-		if memberCount == 0 {
-			memberCount = len(artist.Members)
-		}
+		memberCount := artist.MemberCount()
 		memberCountSet[memberCount] = true
 
-		for _, country := range artist.Countries {
+		for _, country := range artist.Countries() {
 			if country != "" {
 				countrySet[country] = true
 			}
@@ -221,37 +218,37 @@ func (s *Store) calculateLocationFilterOptions(locations []Location) LocationFil
 		return LocationFilterOptions{}
 	}
 
-	minConcerts, maxConcerts := locations[0].TotalConcerts, locations[0].TotalConcerts
-	minArtists, maxArtists := locations[0].ArtistCount, locations[0].ArtistCount
-	minYear, maxYear := locations[0].EarliestYear, locations[0].LatestYear
+	minConcerts, maxConcerts := locations[0].TotalConcerts(), locations[0].TotalConcerts()
+	minArtists, maxArtists := locations[0].ArtistCount(), locations[0].ArtistCount()
+	minYear, maxYear := locations[0].YearRange()
 	countrySet := make(map[string]bool)
 
 	for _, location := range locations {
-		if location.TotalConcerts < minConcerts {
-			minConcerts = location.TotalConcerts
+		totalConcerts := location.TotalConcerts()
+		if totalConcerts < minConcerts {
+			minConcerts = totalConcerts
 		}
-		if location.TotalConcerts > maxConcerts {
-			maxConcerts = location.TotalConcerts
-		}
-
-		if location.ArtistCount < minArtists {
-			minArtists = location.ArtistCount
-		}
-		if location.ArtistCount > maxArtists {
-			maxArtists = location.ArtistCount
+		if totalConcerts > maxConcerts {
+			maxConcerts = totalConcerts
 		}
 
-		if location.EarliestYear > 0 && location.EarliestYear < minYear {
-			minYear = location.EarliestYear
+		artistCount := location.ArtistCount()
+		if artistCount < minArtists {
+			minArtists = artistCount
 		}
-		if location.LatestYear > maxYear {
-			maxYear = location.LatestYear
+		if artistCount > maxArtists {
+			maxArtists = artistCount
 		}
 
-		country := location.Country
-		if country == "" {
-			country = extractCountryFromLocation(location.Name)
+		earliestYear, latestYear := location.YearRange()
+		if earliestYear > 0 && earliestYear < minYear {
+			minYear = earliestYear
 		}
+		if latestYear > maxYear {
+			maxYear = latestYear
+		}
+
+		country := location.Country()
 		if country != "" {
 			countrySet[country] = true
 		}

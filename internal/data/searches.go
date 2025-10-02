@@ -190,7 +190,7 @@ func matchesSearchQuery(artist Artist, normalizedQuery string) bool {
 		return true
 	}
 
-	for _, country := range artist.Countries {
+	for _, country := range artist.Countries() {
 		if strings.Contains(strings.ToLower(country), normalizedQuery) {
 			return true
 		}
@@ -271,7 +271,7 @@ func (s *Store) generateSearchSuggestions(artists []*Artist) []SearchSuggestion 
 				artist.Name+" - artist",
 				string(SuggestionTypeArtist),
 				artist.Name+" - artist",
-				"/artists/"+artist.Slug,
+				"/artists/"+artist.Slug(),
 				artist.ID,
 			))
 			seen[artistKey] = true
@@ -284,14 +284,14 @@ func (s *Store) generateSearchSuggestions(artists []*Artist) []SearchSuggestion 
 					member+" - member",
 					string(SuggestionTypeMember),
 					member+" - member of "+artist.Name,
-					"/artists/"+artist.Slug,
+					"/artists/"+artist.Slug(),
 					artist.ID,
 				))
 				seen[memberKey] = true
 			}
 		}
 
-		for location := range artist.DatesAtLocation {
+		for location := range artist.DatesAtLocation() {
 			locationKey := "location:" + location
 			if !seen[locationKey] {
 				suggestions = append(suggestions, newSearchSuggestion(

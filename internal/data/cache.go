@@ -54,9 +54,9 @@ func (s *Store) cacheImages(artists []*Artist) (bool, int, int) {
 
 	// Prepare all jobs upfront (producer phase)
 	for i, artist := range artists {
-		fileName := fmt.Sprintf("%s.jpg", artist.Slug) // Convert artist slug to filename
-		filePath := filepath.Join(cacheDir, fileName)  // Full path on disk
-		localPath := "/" + filepath.ToSlash(filePath)  // Convert to forward slashes for URLs
+		fileName := fmt.Sprintf("%s.jpg", artist.Slug()) // Convert artist slug to filename
+		filePath := filepath.Join(cacheDir, fileName)    // Full path on disk
+		localPath := "/" + filepath.ToSlash(filePath)    // Convert to forward slashes for URLs
 		exists := false
 
 		// Check if file already exists to avoid unnecessary downloads

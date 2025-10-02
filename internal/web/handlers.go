@@ -125,7 +125,7 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 
 	// Sort artists by concert count (descending) for main display
 	sort.Slice(artists, func(i, j int) bool {
-		return artists[i].ConcertCount > artists[j].ConcertCount
+		return artists[i].ConcertCount() > artists[j].ConcertCount()
 	})
 
 	data := struct {

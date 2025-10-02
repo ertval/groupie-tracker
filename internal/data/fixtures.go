@@ -9,43 +9,6 @@ func NewStoreFromFixtures(artists []Artist, locations []Location) *Store {
 	normalizedArtists := make([]*Artist, len(artists))
 	for i := range artists {
 		artist := artists[i]
-		if artist.Slug == "" {
-			artist.Slug = createSlug(artist.Name)
-		}
-
-		if artist.MemberCount == 0 {
-			artist.MemberCount = len(artist.Members)
-		}
-
-		if artist.FirstAlbumYear == 0 {
-			artist.FirstAlbumYear = extractYearFromDate(artist.FirstAlbum)
-		}
-
-		if artist.DatesAtLocation == nil {
-			artist.DatesAtLocation = make(map[string][]string)
-		}
-
-		countries := make(map[string]bool)
-		for _, concert := range artist.Concerts {
-			locationName := concert.Location
-			if locationName == "" {
-				continue
-			}
-
-			normalizedLocation := normalizeLocation(locationName)
-			locationSlug := createSlug(normalizedLocation)
-			artist.DatesAtLocation[locationSlug] = append(artist.DatesAtLocation[locationSlug], concert.Date)
-
-			if country := extractCountryFromLocation(locationName); country != "" {
-				countries[country] = true
-			}
-		}
-
-		if len(artist.Countries) == 0 {
-			artist.Countries = store.convertCountriesMapToSlice(countries)
-		}
-		artist.ConcertCount = len(artist.Concerts)
-
 		normalizedArtists[i] = &artist
 	}
 
@@ -60,9 +23,6 @@ func NewStoreFromFixtures(artists []Artist, locations []Location) *Store {
 		for i := range store.locations {
 			if store.locations[i].Slug == "" {
 				store.locations[i].Slug = createSlug(store.locations[i].Name)
-			}
-			if store.locations[i].Country == "" {
-				store.locations[i].Country = extractCountryFromLocation(store.locations[i].Name)
 			}
 			store.locationsBySlug[store.locations[i].Slug] = store.locations[i]
 		}

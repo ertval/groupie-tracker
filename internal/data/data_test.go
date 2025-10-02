@@ -466,34 +466,53 @@ func createTestStore(t *testing.T) *Store {
 	return NewStoreFromFixtures(mockArtists, nil)
 }
 
+// makeConcert is a helper to create Concert structs for tests
+func makeConcert(artistID int, dateStr, location string) Concert {
+	parsedDate, _ := parseDate(dateStr)
+	return Concert{
+		ArtistID:     artistID,
+		Location:     location,
+		LocationSlug: createSlug(location),
+		Date:         parsedDate,
+		DateString:   dateStr,
+	}
+}
+
 func createSearchStore() *Store {
 	artists := []Artist{
 		{
 			ID:           1,
 			Name:         "Queen",
-			Slug:         "queen",
 			Members:      []string{"Freddie Mercury", "Brian May", "Roger Taylor", "John Deacon"},
 			CreationYear: 1970,
 			FirstAlbum:   "14-07-1973",
-			Countries:    []string{"USA", "UK"},
+			Concerts: []Concert{
+				makeConcert(1, "14-07-1973", "new-york-usa"),
+				makeConcert(1, "15-07-1973", "london-uk"),
+			},
 		},
 		{
 			ID:           2,
 			Name:         "Phil Collins",
-			Slug:         "phil-collins",
 			Members:      []string{"Phil Collins"},
 			CreationYear: 1981,
 			FirstAlbum:   "05-02-1981",
-			Countries:    []string{"USA", "UK"},
+			Concerts: []Concert{
+				makeConcert(2, "05-02-1981", "new-york-usa"),
+				makeConcert(2, "06-02-1981", "london-uk"),
+			},
 		},
 		{
 			ID:           3,
 			Name:         "Pink Floyd",
-			Slug:         "pink-floyd",
 			Members:      []string{"David Gilmour", "Roger Waters", "Nick Mason", "Richard Wright"},
 			CreationYear: 1965,
 			FirstAlbum:   "05-08-1967",
-			Countries:    []string{"USA", "UK", "Germany"},
+			Concerts: []Concert{
+				makeConcert(3, "05-08-1967", "new-york-usa"),
+				makeConcert(3, "06-08-1967", "london-uk"),
+				makeConcert(3, "07-08-1967", "berlin-germany"),
+			},
 		},
 	}
 
@@ -505,25 +524,21 @@ func createLocationSearchStore() *Store {
 		{
 			ID:           1,
 			Name:         "Queen",
-			Slug:         "queen",
 			Members:      []string{"Freddie Mercury"},
 			CreationYear: 1970,
 			FirstAlbum:   "14-07-1973",
-			Countries:    []string{"UK", "USA"},
 			Concerts: []Concert{
-				{Date: "01-01-1980", Location: "london-uk"},
-				{Date: "01-01-1981", Location: "new-york-usa"},
+				makeConcert(1, "01-01-1980", "london-uk"),
+				makeConcert(1, "01-01-1981", "new-york-usa"),
 			},
 		},
 		{
 			ID:           2,
 			Name:         "Beatles",
-			Slug:         "beatles",
 			Members:      []string{"John Lennon"},
 			CreationYear: 1960,
 			FirstAlbum:   "01-01-1963",
-			Countries:    []string{"UK"},
-			Concerts:     []Concert{{Date: "01-01-1965", Location: "london-uk"}},
+			Concerts:     []Concert{makeConcert(2, "01-01-1965", "london-uk")},
 		},
 	}
 
