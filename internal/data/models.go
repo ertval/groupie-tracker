@@ -148,12 +148,12 @@ type SearchParams struct {
 	Filters ArtistFilterParams `json:"filters"` // Optional additional filters
 }
 
-// AppStats represents application-wide statistics with type-safe fields.
+// storeStats represents application-wide statistics with type-safe fields.
 //
 // This structure provides a type-safe alternative to the map[string]int approach,
 // enabling compile-time validation and better API documentation. All fields
 // represent counts computed during data loading or runtime.
-type AppStats struct {
+type storeStats struct {
 	TotalArtists     int `json:"total_artists"`     // Number of artists in the dataset
 	TotalMembers     int `json:"total_members"`     // Sum of all band members across all artists
 	TotalLocations   int `json:"total_locations"`   // Number of unique concert venues
@@ -162,3 +162,6 @@ type AppStats struct {
 	CachedImages     int `json:"cached_images"`     // Number of artist images served from local cache
 	DownloadedImages int `json:"downloaded_images"` // Number of artist images downloaded this session
 }
+
+// AppStats is a public type alias for storeStats
+type AppStats = storeStats

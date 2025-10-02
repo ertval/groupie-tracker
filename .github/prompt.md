@@ -121,3 +121,11 @@ Read the codebase carefully. Then Propose a restructuring/refactoring plan that 
 # Merge all handler files into a single handlers.go file
 - handlers.go: all handler methods and functionality features
 Simplify fixtures.go to reuse production helpers
+
+---
+
+Consolidate all test files to a single test file per package. Create e2e and integration tests in a separate tests folder. Make sure all tests pass and have good coverage. Use table driven tests where possible. Remove any redundant or overly complex tests. Update the readme file to reflect the current state of the project, including any changes made during the refactoring process. Make sure it is clear and concise, and provides all the necessary information for someone to understand and use the project. Also update all other documentation files as needed.
+
+---
+
+Can we refactor the codebase such that the cache is implemented as a separate package that can be reused in other projects? Also the cache in the disc is rehydrated every t minutes from the config file. The cache should be a generic LRU cache that can store any type of data. The cache should have a maximum size and a maximum age for the data. The cache should be thread safe and use idiomatic go best practices. The cache should have methods to get, set, delete and clear the cache. The cache should also have a method to save the cache to disc and load the cache from disc. The cache should use gob encoding to save and load the data. The cache should be easy to use and integrate in other projects. Write tests for the cache package to ensure it works as intended.

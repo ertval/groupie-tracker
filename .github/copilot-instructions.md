@@ -12,21 +12,30 @@ Go web application (Go 1.24.3) consuming the Groupie Trackers API. **Zero JavaSc
 - Entry point: `cmd/server/main.go` creates client → initializes Store directly
 
 ### Layer 2: `internal/data` - Unified Data & Business Logic Layer
-- **`internal/data.Store`** - Single unified file (1,326 LOC)
+- **`internal/data.Store`** - Core data structure split across modular files:
+  - **`store.go`** (548 LOC) - Store struct, constructor, data loading, indexes, helper functions
+  - **`filters.go`** (266 LOC) - FilterArtists, FilterLocations, filter matching logic
+  - **`searches.go`** (322 LOC) - SearchArtists, search suggestions, search helpers
+  - **`cache.go`** (201 LOC) - Image caching, search result LRU cache
+  - **`models.go`** - Domain types (Artist, Location, Concert, FilterParams, etc.)
+  - **`fixtures.go`** - Test fixtures reusing production helpers
   - Immutable in-memory dataset after `Load()` completes
   - Concurrent API fetching using goroutines/channels (artists and relations in parallel)
   - **Adaptive worker pool** for concurrent image downloads (scales with `runtime.NumCPU()`)
   - Precomputes indexes (ID, slug, position), filter metadata, search suggestions, statistics
   - Thread-safe read-only access after initialization
   - Contains ALL business logic: filtering, search with LRU cache (50 entries), data loading
-  - Files: `store.go` (unified), `models.go`, `fixtures.go`
 
 ### Layer 3: `internal/web` - HTTP Layer  
 - `Server` struct holds only `store *data.Store` (service layer eliminated)
-- **Package-level handlers** (methods on `Server`): `Home()`, `Artists()`, `ArtistDetail()`, etc.
+- **Package-level handlers** (methods on `Server`) - Consolidated into `handlers.go` (475 LOC):
+  - Home, Health, Dev tools (DevIndex, DevPanic, Dev404, Dev500, Dev500Tmpl)
+  - Artists, ArtistDetail
+  - Locations, LocationDetail
+  - Search, SuggestionsAPI
 - Middleware chain: `withRecovery` → `withLogging` → `withSecureHeaders`
 - Templates pre-compiled at startup in `Server.templates` map
-- Files: `server.go`, `routes.go`, `pages.go`, `artists.go`, `locations.go`, `search.go`, `templates.go`, `middleware.go`, `errors.go`, `static.go`
+- Files: `server.go`, `routes.go`, `handlers.go`, `templates.go`, `middleware.go`, `errors.go`, `static.go`
 
 ## Critical Patterns
 
@@ -65,14 +74,14 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
 ```
 **Never add JavaScript interactivity** - maintain HTML form submission pattern.
 
-### 3. Template Rendering with Error Protection
+### 4. Template Rendering with Error Protection
 ```go
 // Always use s.render() - never template.Execute() directly
 s.render(w, r, "artists.tmpl", data) // executes to buffer first
 ```
 Template helpers in `funcMap`: `add`, `sub`, `join`, `upper`, `title`, `contains`, `toSlice`
 
-### 4. SEO-Friendly URL Slugs
+### 5. SEO-Friendly URL Slugs
 - Artists: `/artists/queen` (not `/artists/28`)
 - Locations: `/locations/london-uk` (not `/locations/42`)
 - Slug generation: `createSlug(name)` in `store.go` - lowercase, hyphenated
@@ -120,16 +129,16 @@ go test -cover ./internal/data          # With coverage (target: 70%+)
 5. Add test cases in `internal/data/filter_test.go`
 
 ### Adding a New Page/Handler
-1. Create handler method on `Server`: `func (s *Server) MyPage(w http.ResponseWriter, r *http.Request)`
+1. Add handler method on `Server` in `handlers.go`: `func (s *Server) MyPage(w http.ResponseWriter, r *http.Request)`
 2. Register route in `createServeMux()` in `routes.go`: `router.HandleFunc("/mypage", s.restrictMethod(s.MyPage, "GET"))`
 3. Create template in `templates/mypage.tmpl` with `{{define "base"}}` and `{{define "title"}}`
 4. Add CSS file in `static/css/mypage.css`, reference in template data: `ExtraCSS: "mypage.css"`
 5. Use `s.render(w, r, "mypage.tmpl", data)` in handler
 
 ### Modifying Search Functionality
-- Core search: `SearchArtists()` in `store.go`
+- Core search: `SearchArtists()` in `searches.go`
 - Suggestions: `generateSearchSuggestions()` cached in `Store.suggestions`
-- Search handler: `Search()` in `web/search.go` - handles both GET (display form) and POST (execute search)
+- Search handler: `Search()` in `handlers.go` - handles both GET (display form) and POST (execute search)
 
 ## Configuration
 All in `internal/config/config.go` as package-level vars:
@@ -164,14 +173,18 @@ go build -o groupie-tracker ./cmd/server/
 - **Phase 2 (Service Elimination)**: Moved all filtering/search logic from service layer to Store, eliminated internal/service and internal/app packages entirely (-544 LOC)
 - **Phase 3 (Data Consolidation)**: Merged loader.go into store.go to create single unified data file (1,326 LOC) with clear sections (+10 LOC)
 - **Phase 4 (Concurrency Optimization)**: Changed worker pool from fixed 4 workers to adaptive `runtime.NumCPU()` (12 on typical systems), added 10-second HTTP timeout to prevent hanging (+6 LOC)
-- **Result**: 3-layer architecture (down from 5), -688 total LOC (-23% reduction), improved concurrency (3x worker scaling), all tests passing, standard library only
+- **Phase 5 (Modular Restructuring - Oct 2, 2025)**: Split store.go into focused files (store.go, filters.go, searches.go, cache.go), consolidated all web handlers into handlers.go for better maintainability (-0 LOC, pure reorganization)
+- **Result**: 3-layer architecture, modular file organization, improved maintainability, all tests passing (27/27), standard library only
 
 ## Key Files Reference
 - Entry point: `cmd/server/main.go`
 - Routing: `internal/web/routes.go`
 - HTTP server: `internal/web/server.go`
-- Data storage: `internal/data/store.go` (immutable after Load, unified 1,326 LOC file)
+- All handlers: `internal/web/handlers.go` (unified, 475 LOC)
+- Data storage: `internal/data/store.go` (core, 548 LOC)
+- Filtering: `internal/data/filters.go` (266 LOC)
+- Search: `internal/data/searches.go` (322 LOC)
+- Caching: `internal/data/cache.go` (201 LOC)
 - Domain models: `internal/data/models.go`
-- Handlers: `internal/web/pages.go`, `artists.go`, `locations.go`, `search.go`
 - Template utilities: `internal/web/templates.go`
 - Base template: `templates/base.tmpl` (global search bar in navbar)
