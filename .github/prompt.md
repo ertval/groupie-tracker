@@ -113,9 +113,11 @@ Read the codebase carefully. Then Propose a restructuring/refactoring plan that 
 
 ---
 
-Break down the store.go file into these seperate files:
-- store.go: main store struct and constructor
-- searches.go: all search related methods
-- filters.go: all filter related methods
-- cache.go: all caching related methods
-
+# Break down the store.go file into these seperate files:
+- store.go: main store struct and constructor, calculation of precomputed fields, loading data and utils
+- searches.go: all search related methods and functionality features
+- filters.go: all filter related methods and functionality features
+- cache.go: all caching related methods and functionality features
+# Merge all handler files into a single handlers.go file
+- handlers.go: all handler methods and functionality features
+Simplify fixtures.go to reuse production helpers
