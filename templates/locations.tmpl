@@ -34,19 +34,19 @@
                                     From:
                                     <input type="number" 
                                            name="concertCountFrom" 
-                                           min="{{.LocationFilterOptions.ConcertCountMin}}" 
-                                           max="{{.LocationFilterOptions.ConcertCountMax}}"
+                                           min="{{.LocationFilterOptions.ConcertCount.Min}}" 
+                                           max="{{.LocationFilterOptions.ConcertCount.Max}}"
                                            value="{{if .AppliedFilters.ConcertCountFrom}}{{.AppliedFilters.ConcertCountFrom}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ConcertCountMin}}">
+                                           placeholder="{{.LocationFilterOptions.ConcertCount.Min}}">
                                 </label>
                                 <label>
                                     To:
                                     <input type="number" 
                                            name="concertCountTo" 
-                                           min="{{.LocationFilterOptions.ConcertCountMin}}" 
-                                           max="{{.LocationFilterOptions.ConcertCountMax}}"
+                                           min="{{.LocationFilterOptions.ConcertCount.Min}}" 
+                                           max="{{.LocationFilterOptions.ConcertCount.Max}}"
                                            value="{{if .AppliedFilters.ConcertCountTo}}{{.AppliedFilters.ConcertCountTo}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ConcertCountMax}}">
+                                           placeholder="{{.LocationFilterOptions.ConcertCount.Max}}">
                                 </label>
                             </div>
                         </div>
@@ -59,19 +59,19 @@
                                     From:
                                     <input type="number" 
                                            name="artistCountFrom" 
-                                           min="{{.LocationFilterOptions.ArtistCountMin}}" 
-                                           max="{{.LocationFilterOptions.ArtistCountMax}}"
+                                           min="{{.LocationFilterOptions.ArtistCount.Min}}" 
+                                           max="{{.LocationFilterOptions.ArtistCount.Max}}"
                                            value="{{if .AppliedFilters.ArtistCountFrom}}{{.AppliedFilters.ArtistCountFrom}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ArtistCountMin}}">
+                                           placeholder="{{.LocationFilterOptions.ArtistCount.Min}}">
                                 </label>
                                 <label>
                                     To:
                                     <input type="number" 
                                            name="artistCountTo" 
-                                           min="{{.LocationFilterOptions.ArtistCountMin}}" 
-                                           max="{{.LocationFilterOptions.ArtistCountMax}}"
+                                           min="{{.LocationFilterOptions.ArtistCount.Min}}" 
+                                           max="{{.LocationFilterOptions.ArtistCount.Max}}"
                                            value="{{if .AppliedFilters.ArtistCountTo}}{{.AppliedFilters.ArtistCountTo}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ArtistCountMax}}">
+                                           placeholder="{{.LocationFilterOptions.ArtistCount.Max}}">
                                 </label>
                             </div>
                         </div>
@@ -84,19 +84,19 @@
                                     From:
                                     <input type="number" 
                                            name="concertYearFrom" 
-                                           min="{{.LocationFilterOptions.ConcertYearMin}}" 
-                                           max="{{.LocationFilterOptions.ConcertYearMax}}"
+                                           min="{{.LocationFilterOptions.YearRange.Min}}" 
+                                           max="{{.LocationFilterOptions.YearRange.Max}}"
                                            value="{{if .AppliedFilters.ConcertYearFrom}}{{.AppliedFilters.ConcertYearFrom}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ConcertYearMin}}">
+                                           placeholder="{{.LocationFilterOptions.YearRange.Min}}">
                                 </label>
                                 <label>
                                     To:
                                     <input type="number" 
                                            name="concertYearTo" 
-                                           min="{{.LocationFilterOptions.ConcertYearMin}}" 
-                                           max="{{.LocationFilterOptions.ConcertYearMax}}"
+                                           min="{{.LocationFilterOptions.YearRange.Min}}" 
+                                           max="{{.LocationFilterOptions.YearRange.Max}}"
                                            value="{{if .AppliedFilters.ConcertYearTo}}{{.AppliedFilters.ConcertYearTo}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ConcertYearMax}}">
+                                           placeholder="{{.LocationFilterOptions.YearRange.Max}}">
                                 </label>
                             </div>
                         </div>

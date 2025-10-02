@@ -175,10 +175,10 @@ func TestGetArtistFilterOptions(t *testing.T) {
 		{
 			name: "Creation year bounds are set",
 			check: func(t *testing.T) {
-				if options.CreationYearMin == 0 || options.CreationYearMax == 0 {
+				if options.CreationYear.Min == 0 || options.CreationYear.Max == 0 {
 					t.Error("Creation year bounds not set properly")
 				}
-				if options.CreationYearMin >= options.CreationYearMax {
+				if options.CreationYear.Min >= options.CreationYear.Max {
 					t.Error("Creation year min should be less than max")
 				}
 			},
@@ -186,7 +186,7 @@ func TestGetArtistFilterOptions(t *testing.T) {
 		{
 			name: "First album year bounds are set",
 			check: func(t *testing.T) {
-				if options.FirstAlbumYearMin == 0 || options.FirstAlbumYearMax == 0 {
+				if options.FirstAlbum.Min == 0 || options.FirstAlbum.Max == 0 {
 					t.Error("First album year bounds not set properly")
 				}
 			},

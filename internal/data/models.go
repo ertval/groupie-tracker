@@ -202,12 +202,10 @@ type ArtistFilterParams struct {
 //
 // ArtistFilterOptions represents available filter options computed from the dataset.
 type ArtistFilterOptions struct {
-	CreationYearMin   int      `json:"creationYearMin"`
-	CreationYearMax   int      `json:"creationYearMax"`
-	FirstAlbumYearMin int      `json:"firstAlbumYearMin"`
-	FirstAlbumYearMax int      `json:"firstAlbumYearMax"`
-	MemberCounts      []int    `json:"memberCounts"`
-	Countries         []string `json:"countries"`
+	CreationYear IntRange `json:"creationYear"`
+	FirstAlbum   IntRange `json:"firstAlbum"`
+	MemberCounts []int    `json:"memberCounts"`
+	Countries    []string `json:"countries"`
 }
 
 // LocationFilterParams represents filter criteria for location searches.
@@ -223,13 +221,10 @@ type LocationFilterParams struct {
 
 // LocationFilterOptions represents available filter options for locations.
 type LocationFilterOptions struct {
-	ConcertCountMin int      `json:"concertCountMin"`
-	ConcertCountMax int      `json:"concertCountMax"`
-	ArtistCountMin  int      `json:"artistCountMin"`
-	ArtistCountMax  int      `json:"artistCountMax"`
-	ConcertYearMin  int      `json:"concertYearMin"`
-	ConcertYearMax  int      `json:"concertYearMax"`
-	Countries       []string `json:"countries"`
+	ConcertCount IntRange `json:"concertCount"`
+	ArtistCount  IntRange `json:"artistCount"`
+	YearRange    IntRange `json:"yearRange"`
+	Countries    []string `json:"countries"`
 }
 
 // SearchSuggestionType represents the type of search result for categorization.
