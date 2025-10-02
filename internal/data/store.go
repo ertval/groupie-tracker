@@ -15,21 +15,17 @@ import (
 
 // Store is the central data repository holding all precomputed application data.
 // All collections become immutable after Load() completes, enabling safe concurrent reads without locking.
-// This design trades memory for performance - we precompute indexes, suggestions, and metadata at startup
-// rather than computing them on every request.
+// Store now delegates core data access to Catalog and focuses on filters, search, and caching.
 type Store struct {
 	apiClient *api.Client // External API client for fetching raw artist and relation data
 	withCache bool        // Whether to enable local image caching (set at initialization, never changes)
 
 	cacheEnabled bool // Actual cache status after initialization (may differ from withCache if caching fails)
 
-	// Core data collections - immutable after Load() completes, safe for concurrent reads
-	artists         []*Artist             // All artists sorted alphabetically by name
-	artistsByID     map[int]*Artist       // O(1) lookup by artist ID
-	artistsBySlug   map[string]*Artist    // O(1) lookup by URL-friendly slug (e.g., "pink-floyd")
-	artistPositions map[int]int           // Maps artist ID to its index in the sorted artists slice (for navigation)
-	locations       []Location            // All concert locations aggregated from artist data
-	locationsBySlug map[string]Location   // O(1) lookup by location slug (e.g., "london-uk")
+	// Core data - delegated to Catalog
+	catalog *Catalog // Owns all normalized data (artists, locations, concerts) and provides query methods
+
+	// Computed metadata and filters - immutable after Load() completes
 	appStats        AppStats              // Precomputed statistics (total artists, locations, members, concerts, etc.)
 	suggestions     []SearchSuggestion    // Precomputed search suggestions for autocomplete (artist names, members, locations)
 	artistFilters   ArtistFilterOptions   // Available filter values (creation years, album years, member counts, countries)
@@ -67,11 +63,12 @@ func (s *Store) Load(ctx context.Context) error {
 	return s.loadErr // Return the stored result from the single execution
 }
 
-// loadData performs the multi-stage data loading pipeline with concurrent API fetching and processing.
-// Stage 1: Fetch artists and relations concurrently using goroutines and channels
-// Stage 2: Transform raw API data into rich domain models with computed fields
-// Stage 3: Optionally cache images using adaptive worker pool (scales with CPU cores)
-// Stage 4: Build indexes, metadata, and search suggestions concurrently for fast startup
+// loadData performs the data loading pipeline in clear stages:
+// Stage 1: Fetch raw data from API (artists and relations concurrently)
+// Stage 2: Normalize and enrich into domain models
+// Stage 3: Optional image caching
+// Stage 4: Build Catalog with normalized data
+// Stage 5: Compute metadata and filters (concurrently)
 func (s *Store) loadData(ctx context.Context) error {
 	// Stage 1: Concurrent API fetching - artists and relations fetched in parallel to minimize wait time
 	artistsCh := make(chan struct {
@@ -123,16 +120,21 @@ func (s *Store) loadData(ctx context.Context) error {
 		s.cacheEnabled = false
 	}
 
-	s.artists = artists // Store the processed artists (sorted alphabetically by name)
+	// Stage 4: Build Catalog with normalized data
+	catalog := NewCatalog()
+	for _, artist := range artists {
+		catalog.AddArtist(artist)
+		// Concerts will be extracted from artist.Concerts during Build()
+	}
 
-	// Stage 4: Build all indexes, metadata, and suggestions concurrently for fast startup
-	// These computations are CPU-bound and independent, so parallelizing them reduces total startup time
+	if err := catalog.Build(); err != nil {
+		return fmt.Errorf("failed to build catalog: %w", err)
+	}
+
+	s.catalog = catalog
+
+	// Stage 5: Compute metadata and filters (can still be done concurrently)
 	var (
-		artistsByID     map[int]*Artist
-		artistsBySlug   map[string]*Artist
-		artistPositions map[int]int
-		locations       []Location
-		locationsBySlug map[string]Location
 		artistFilters   ArtistFilterOptions
 		locationFilters LocationFilterOptions
 		suggestions     []SearchSuggestion
@@ -141,42 +143,30 @@ func (s *Store) loadData(ctx context.Context) error {
 	var wg sync.WaitGroup // Wait for all concurrent processing to complete
 
 	wg.Add(1)
-	go func() { // Goroutine 1: Build artist lookup indexes (ID, slug, position)
-		defer wg.Done()
-		artistsByID, artistsBySlug, artistPositions = s.createArtistIndexes(artists)
-	}()
-
-	wg.Add(1)
-	go func() { // Goroutine 2: Aggregate location data from all artists and build location indexes
-		defer wg.Done()
-		locations, locationsBySlug = s.createLocationsData(artists)
-		locationFilters = s.calculateLocationFilterOptions(locations) // Dependent on locations, so done in same goroutine
-	}()
-
-	wg.Add(1)
-	go func() { // Goroutine 3: Calculate available filter options for artist filtering UI
+	go func() { // Goroutine 1: Calculate available filter options for artist filtering UI
 		defer wg.Done()
 		artistFilters = s.calculateArtistFilterOptions(artists)
 	}()
 
 	wg.Add(1)
-	go func() { // Goroutine 4: Generate search suggestions for autocomplete (artist names, members, locations)
+	go func() { // Goroutine 2: Calculate location filter options
+		defer wg.Done()
+		locationFilters = s.calculateLocationFilterOptions(catalog.AllLocations())
+	}()
+
+	wg.Add(1)
+	go func() { // Goroutine 3: Generate search suggestions for autocomplete (artist names, members, locations)
 		defer wg.Done()
 		suggestions = s.generateSearchSuggestions(artists)
 	}()
 
 	wg.Wait() // Block until all goroutines complete
 
-	// Store all computed data - from this point forward, all fields are immutable and thread-safe
-	s.artistsByID = artistsByID
-	s.artistsBySlug = artistsBySlug
-	s.artistPositions = artistPositions
-	s.locations = locations
-	s.locationsBySlug = locationsBySlug
+	// Store all computed metadata - from this point forward, all fields are immutable and thread-safe
 	s.artistFilters = artistFilters
 	s.locationFilters = locationFilters
 	s.suggestions = suggestions
-	s.appStats = s.calculateStats(artists, locations, cachedImages, downloadedImages) // Final stats computation
+	s.appStats = s.calculateStats(artists, catalog.AllLocations(), cachedImages, downloadedImages) // Final stats computation
 
 	return nil
 }
@@ -188,40 +178,58 @@ func (s *Store) loadData(ctx context.Context) error {
 // Artists returns the complete artist collection sorted alphabetically by name.
 // Safe for concurrent access after Load() completes since the slice is immutable.
 func (s *Store) Artists() []*Artist {
-	return s.artists
+	if s.catalog == nil {
+		return nil
+	}
+	return s.catalog.AllArtists()
 }
 
 // ArtistByID performs O(1) lookup of an artist by their unique ID.
 // Returns the artist and true if found, or nil and false if not found.
 func (s *Store) ArtistByID(id int) (*Artist, bool) {
-	artist, ok := s.artistsByID[id]
-	return artist, ok
+	if s.catalog == nil {
+		return nil, false
+	}
+	artist, err := s.catalog.ArtistByID(id)
+	return artist, err == nil
 }
 
 // ArtistBySlug performs O(1) lookup of an artist by their URL-friendly slug (e.g., "pink-floyd").
 // Returns the artist and true if found, or nil and false if not found.
 func (s *Store) ArtistBySlug(slug string) (*Artist, bool) {
-	artist, ok := s.artistsBySlug[slug]
-	return artist, ok
+	if s.catalog == nil {
+		return nil, false
+	}
+	artist, err := s.catalog.ArtistBySlug(slug)
+	return artist, err == nil
 }
 
 // ArtistPosition returns the zero-based index position of an artist within the sorted artists slice.
 // Useful for implementing "previous/next artist" navigation in the UI.
 // Returns the index and true if found, or -1 and false if the artist ID doesn't exist.
 func (s *Store) ArtistPosition(id int) (int, bool) {
-	index, ok := s.artistPositions[id]
-	return index, ok
+	if s.catalog == nil {
+		return -1, false
+	}
+	pos := s.catalog.ArtistPosition(id)
+	return pos, pos >= 0
 }
 
 // Locations returns all locations sorted by concert count.
 func (s *Store) Locations() []Location {
-	return s.locations
+	if s.catalog == nil {
+		return nil
+	}
+	return s.catalog.AllLocations()
 }
 
 // LocationBySlug returns a location by URL slug, or false if not found.
 func (s *Store) LocationBySlug(slug string) (Location, bool) {
-	location, ok := s.locationsBySlug[slug]
-	return location, ok
+	if s.catalog == nil {
+		return Location{}, false
+	}
+	location, err := s.catalog.LocationBySlug(slug)
+	return location, err == nil
 }
 
 // Stats returns application statistics.
@@ -264,14 +272,16 @@ func (s *Store) GetLocationFilterOptions() LocationFilterOptions {
 // ============================================================================
 
 // processArtists transforms raw API data into enriched Artist domain models.
+// This is the main orchestrator for data transformation.
 func (s *Store) processArtists(apiArtists []api.Artist, apiRelations api.Relation) []*Artist {
-	artists := s.transformAPIArtists(apiArtists)
-	artists = s.addConcertData(artists, apiRelations)
+	artists := normalizeAPIArtists(apiArtists)
+	artists = enrichWithConcerts(artists, apiRelations)
 	return artists
 }
 
-// transformAPIArtists converts raw API artist data to domain Artist objects.
-func (s *Store) transformAPIArtists(apiArtists []api.Artist) []*Artist {
+// normalizeAPIArtists converts raw API artist data to domain Artist objects.
+// This is a pure function with no side effects.
+func normalizeAPIArtists(apiArtists []api.Artist) []*Artist {
 	artists := make([]*Artist, 0, len(apiArtists))
 
 	for _, apiArtist := range apiArtists {
@@ -289,10 +299,11 @@ func (s *Store) transformAPIArtists(apiArtists []api.Artist) []*Artist {
 	return artists
 }
 
-// addConcertData enriches artists with concert information from API relations.
-func (s *Store) addConcertData(artists []*Artist, apiRelations api.Relation) []*Artist {
+// enrichWithConcerts adds concert information from API relations to artists.
+// Concerts are parsed, normalized, and sorted chronologically.
+func enrichWithConcerts(artists []*Artist, apiRelations api.Relation) []*Artist {
 	// Index relations by artist ID for efficient lookup
-	relationMap := make(map[int]api.RelationIndex)
+	relationMap := make(map[int]api.RelationIndex, len(apiRelations.Index))
 	for _, rel := range apiRelations.Index {
 		relationMap[rel.ID] = rel
 	}
@@ -302,33 +313,7 @@ func (s *Store) addConcertData(artists []*Artist, apiRelations api.Relation) []*
 		artist := artists[i]
 
 		if rel, exists := relationMap[artist.ID]; exists {
-			// Process each location and its dates
-			for location, dates := range rel.DatesLocations {
-				normalizedLoc := normalizeLocation(location)
-				locationSlug := createSlug(normalizedLoc)
-
-				// Create concert objects
-				for _, dateStr := range dates {
-					parsedDate, err := parseDate(dateStr)
-					if err != nil {
-						// If parsing fails, use a zero date but keep the original string
-						parsedDate = time.Time{}
-					}
-
-					artist.Concerts = append(artist.Concerts, Concert{
-						ArtistID:     artist.ID,
-						Location:     normalizedLoc,
-						LocationSlug: locationSlug,
-						Date:         parsedDate,
-						DateString:   dateStr,
-					})
-				}
-			}
-
-			// Sort concerts chronologically
-			sort.Slice(artist.Concerts, func(i, j int) bool {
-				return artist.Concerts[i].Date.Before(artist.Concerts[j].Date)
-			})
+			artist.Concerts = normalizeConcerts(artist.ID, rel.DatesLocations)
 		}
 	}
 
@@ -340,99 +325,41 @@ func (s *Store) addConcertData(artists []*Artist, apiRelations api.Relation) []*
 	return artists
 }
 
-// createArtistIndexes builds lookup maps for artists by ID and slug.
-func (s *Store) createArtistIndexes(artists []*Artist) (map[int]*Artist, map[string]*Artist, map[int]int) {
-	artistsByID := make(map[int]*Artist, len(artists))
-	artistsBySlug := make(map[string]*Artist, len(artists))
-	positions := make(map[int]int, len(artists))
+// normalizeConcerts converts raw location-date mappings into Concert objects.
+// Dates are parsed into time.Time, locations are normalized, and concerts are sorted chronologically.
+func normalizeConcerts(artistID int, datesLocations map[string][]string) []Concert {
+	concerts := make([]Concert, 0)
 
-	for idx, artist := range artists {
-		artistsByID[artist.ID] = artist
-		artistsBySlug[artist.Slug()] = artist
-		positions[artist.ID] = idx
-	}
+	for location, dates := range datesLocations {
+		normalizedLoc := normalizeLocation(location)
+		locationSlug := createSlug(normalizedLoc)
 
-	return artistsByID, artistsBySlug, positions
-}
-
-// createLocationsData builds location aggregates and lookup maps.
-func (s *Store) createLocationsData(artists []*Artist) ([]Location, map[string]Location) {
-	locations := s.createLocations(artists)
-	locationsBySlug := make(map[string]Location, len(locations))
-	for _, location := range locations {
-		locationsBySlug[location.Slug] = location
-	}
-	return locations, locationsBySlug
-}
-
-// createLocations builds location models from artist concert data.
-func (s *Store) createLocations(artists []*Artist) []Location {
-	// Build lookup map once - O(n) instead of O(n²)
-	artistMap := make(map[int]*Artist, len(artists))
-	for _, artist := range artists {
-		artistMap[artist.ID] = artist
-	}
-
-	locationMap := make(map[string]*Location)
-	// Track concert count per artist per location
-	artistConcertCount := make(map[string]map[int]int)
-
-	for _, artist := range artists {
-		for _, concert := range artist.Concerts {
-			// Initialize location if not exists
-			if _, exists := locationMap[concert.Location]; !exists {
-				locationMap[concert.Location] = &Location{
-					Name:    concert.Location,
-					Slug:    createSlug(concert.Location),
-					Artists: make([]ArtistAtLocation, 0),
-				}
-				artistConcertCount[concert.Location] = make(map[int]int)
+		for _, dateStr := range dates {
+			parsedDate, err := parseDate(dateStr)
+			if err != nil {
+				// If parsing fails, use zero date but keep the original string
+				parsedDate = time.Time{}
 			}
 
-			// Count concerts per artist per location
-			artistConcertCount[concert.Location][artist.ID]++
+			concerts = append(concerts, Concert{
+				ArtistID:     artistID,
+				Location:     normalizedLoc,
+				LocationSlug: locationSlug,
+				Date:         parsedDate,
+				DateString:   dateStr,
+			})
 		}
 	}
 
-	// Convert concert count map to ArtistAtLocation structs
-	for locationName, location := range locationMap {
-		artistCounts := artistConcertCount[locationName]
-		artistsAtLocation := make([]ArtistAtLocation, 0, len(artistCounts))
-
-		for artistID, concertCount := range artistCounts {
-			// Use O(1) map lookup instead of O(n) linear search
-			if artist, found := artistMap[artistID]; found {
-				artistsAtLocation = append(artistsAtLocation, ArtistAtLocation{
-					Artist:       artist,
-					ConcertCount: concertCount,
-				})
-			}
-		}
-
-		// Sort artists by concert count (descending), then by name
-		sort.Slice(artistsAtLocation, func(i, j int) bool {
-			if artistsAtLocation[i].ConcertCount != artistsAtLocation[j].ConcertCount {
-				return artistsAtLocation[i].ConcertCount > artistsAtLocation[j].ConcertCount
-			}
-			return artistsAtLocation[i].Artist.Name < artistsAtLocation[j].Artist.Name
-		})
-
-		location.Artists = artistsAtLocation
-	}
-
-	// Convert to slice and sort by concert count
-	locations := make([]Location, 0, len(locationMap))
-	for _, loc := range locationMap {
-		locations = append(locations, *loc)
-	}
-
-	sort.Slice(locations, func(i, j int) bool {
-		return locations[i].TotalConcerts() > locations[j].TotalConcerts()
+	// Sort concerts chronologically
+	sort.Slice(concerts, func(i, j int) bool {
+		return concerts[i].Date.Before(concerts[j].Date)
 	})
 
-	return locations
+	return concerts
 }
 
+// createArtistIndexes builds lookup maps for artists by ID and slug.
 // ============================================================================
 // STATISTICS CALCULATION
 // ============================================================================
@@ -467,9 +394,22 @@ func (s *Store) calculateStats(artists []*Artist, locations []Location, cachedIm
 // HELPER FUNCTIONS
 // ============================================================================
 
+var (
+	slugRegex     *regexp.Regexp
+	slugRegexOnce sync.Once
+)
+
+// getSlugRegex returns the compiled regex for slug creation, initializing it once.
+func getSlugRegex() *regexp.Regexp {
+	slugRegexOnce.Do(func() {
+		slugRegex = regexp.MustCompile(`[^a-z0-9]+`)
+	})
+	return slugRegex
+}
+
 // createSlug converts display names into URL-friendly slugs.
 func createSlug(name string) string {
-	reg := regexp.MustCompile(`[^a-z0-9]+`)
+	reg := getSlugRegex()
 	slug := reg.ReplaceAllString(strings.ToLower(name), "-")
 	return strings.Trim(slug, "-")
 }

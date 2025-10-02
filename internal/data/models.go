@@ -104,17 +104,17 @@ type Location struct {
 }
 
 // Country extracts and returns the country from the location name.
-func (l *Location) Country() string {
+func (l Location) Country() string {
 	return extractCountryFromLocation(l.Name)
 }
 
 // ArtistCount returns the number of unique artists that performed at this location.
-func (l *Location) ArtistCount() int {
+func (l Location) ArtistCount() int {
 	return len(l.Artists)
 }
 
 // TotalConcerts returns the total number of concerts at this location.
-func (l *Location) TotalConcerts() int {
+func (l Location) TotalConcerts() int {
 	total := 0
 	for _, artist := range l.Artists {
 		total += artist.ConcertCount
@@ -123,7 +123,7 @@ func (l *Location) TotalConcerts() int {
 }
 
 // YearRange returns the earliest and latest concert years at this location.
-func (l *Location) YearRange() (int, int) {
+func (l Location) YearRange() (int, int) {
 	if len(l.Artists) == 0 {
 		return 0, 0
 	}
