@@ -1,8 +1,10 @@
 package data
 
 import (
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 )
 
 // TestFilterArtists tests all artist filtering functionality with table-driven tests
@@ -590,4 +592,304 @@ func contains(slice []string, item string) bool {
 
 func intPtr(i int) *int {
 	return &i
+}
+
+// TestArtist_HelperMethods tests Artist domain model helper methods
+func TestArtist_HelperMethods(t *testing.T) {
+	t.Run("MemberCount", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			artist   Artist
+			expected int
+		}{
+			{"no members", Artist{}, 0},
+			{"one member", Artist{Members: []string{"John"}}, 1},
+			{"multiple members", Artist{Members: []string{"John", "Paul", "George", "Ringo"}}, 4},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got := tt.artist.MemberCount()
+				if got != tt.expected {
+					t.Errorf("MemberCount() = %d, want %d", got, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("ConcertCount", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			artist   Artist
+			expected int
+		}{
+			{"no concerts", Artist{}, 0},
+			{"one concert", Artist{Concerts: []Concert{{}}}, 1},
+			{"multiple concerts", Artist{Concerts: []Concert{{}, {}, {}}}, 3},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				got := tt.artist.ConcertCount()
+				if got != tt.expected {
+					t.Errorf("ConcertCount() = %d, want %d", got, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("FirstAlbumYear", func(t *testing.T) {
+		tests := []struct {
+			name       string
+			firstAlbum string
+			expected   int
+		}{
+			{"valid date DD-MM-YYYY", "05-08-1962", 1962},
+			{"valid date DD-MM-YYYY recent", "15-03-2015", 2015},
+			{"invalid format", "invalid", 0},
+			{"empty string", "", 0},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				artist := Artist{FirstAlbum: tt.firstAlbum}
+				got := artist.FirstAlbumYear()
+				if got != tt.expected {
+					t.Errorf("FirstAlbumYear() = %d, want %d", got, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("Countries", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			concerts []Concert
+			expected []string
+		}{
+			{"no concerts", []Concert{}, []string{}},
+			{"single country", []Concert{
+				{Location: "London-uk"},
+				{Location: "Manchester-uk"},
+			}, []string{"UK"}},
+			{"multiple countries", []Concert{
+				{Location: "London-uk"},
+				{Location: "New York-usa"},
+				{Location: "Paris-france"},
+			}, []string{"France", "UK", "USA"}},
+			{"duplicate countries", []Concert{
+				{Location: "London-uk"},
+				{Location: "Manchester-uk"},
+				{Location: "New York-usa"},
+				{Location: "Los Angeles-usa"},
+			}, []string{"UK", "USA"}},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				artist := Artist{Concerts: tt.concerts}
+				got := artist.Countries()
+				if len(got) != len(tt.expected) {
+					t.Errorf("Countries() length = %d, want %d", len(got), len(tt.expected))
+				}
+				for i, country := range tt.expected {
+					if i >= len(got) || got[i] != country {
+						t.Errorf("Countries()[%d] = %v, want %v", i, got, tt.expected)
+						break
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("Slug", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			expected string
+		}{
+			{"Queen", "queen"},
+			{"AC/DC", "ac-dc"},
+			{"Linkin Park", "linkin-park"},
+			{"Twenty One Pilots", "twenty-one-pilots"},
+			{"5 Seconds of Summer", "5-seconds-of-summer"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				artist := Artist{Name: tt.name}
+				got := artist.Slug()
+				if got != tt.expected {
+					t.Errorf("Slug() = %q, want %q", got, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("DatesAtLocation", func(t *testing.T) {
+		artist := Artist{
+			Concerts: []Concert{
+				{Location: "London-uk", DateString: "01-01-2020"},
+				{Location: "London-uk", DateString: "02-01-2020"},
+				{Location: "Paris-france", DateString: "05-01-2020"},
+			},
+		}
+
+		dates := artist.DatesAtLocation()
+
+		// Check London dates
+		londonDates, ok := dates["london-uk"]
+		if !ok {
+			t.Error("Expected london-uk in dates map")
+		}
+		if len(londonDates) != 2 {
+			t.Errorf("Expected 2 dates for london-uk, got %d", len(londonDates))
+		}
+
+		// Check Paris dates
+		parisDates, ok := dates["paris-france"]
+		if !ok {
+			t.Error("Expected paris-france in dates map")
+		}
+		if len(parisDates) != 1 {
+			t.Errorf("Expected 1 date for paris-france, got %d", len(parisDates))
+		}
+	})
+}
+
+// TestLocation_HelperMethods tests Location domain model helper methods
+func TestLocation_HelperMethods(t *testing.T) {
+	t.Run("Country", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			expected string
+		}{
+			{"London-uk", "UK"},
+			{"New York-usa", "USA"},
+			{"Paris-france", "France"},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				loc := Location{Name: tt.name}
+				got := loc.Country()
+				if got != tt.expected {
+					t.Errorf("Country() = %q, want %q", got, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("ArtistCount", func(t *testing.T) {
+		tests := []struct {
+			name     string
+			artists  []ArtistAtLocation
+			expected int
+		}{
+			{"no artists", []ArtistAtLocation{}, 0},
+			{"one artist", []ArtistAtLocation{{Artist: &Artist{ID: 1}, ConcertCount: 2}}, 1},
+			{"multiple artists", []ArtistAtLocation{
+				{Artist: &Artist{ID: 1}, ConcertCount: 2},
+				{Artist: &Artist{ID: 2}, ConcertCount: 1},
+				{Artist: &Artist{ID: 3}, ConcertCount: 3},
+			}, 3},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				loc := Location{Artists: tt.artists}
+				got := loc.ArtistCount()
+				if got != tt.expected {
+					t.Errorf("ArtistCount() = %d, want %d", got, tt.expected)
+				}
+			})
+		}
+	})
+
+	t.Run("TotalConcerts", func(t *testing.T) {
+		loc := Location{
+			Artists: []ArtistAtLocation{
+				{Artist: &Artist{ID: 1}, ConcertCount: 2},
+				{Artist: &Artist{ID: 2}, ConcertCount: 1},
+				{Artist: &Artist{ID: 3}, ConcertCount: 3},
+			},
+		}
+
+		got := loc.TotalConcerts()
+		expected := 6 // 2 + 1 + 3
+
+		if got != expected {
+			t.Errorf("TotalConcerts() = %d, want %d", got, expected)
+		}
+	})
+
+	t.Run("YearRange", func(t *testing.T) {
+		tests := []struct {
+			name         string
+			locationName string
+			concerts     []Concert
+			expectedFrom int
+			expectedTo   int
+		}{
+			{
+				name:         "no concerts",
+				locationName: "Test Location-country",
+				concerts:     []Concert{},
+				expectedFrom: 0,
+				expectedTo:   0,
+			},
+			{
+				name:         "single year",
+				locationName: "London-uk",
+				concerts: []Concert{
+					{Location: "London-uk", DateString: "15-03-2020", Date: mustParseDate("15-03-2020")},
+				},
+				expectedFrom: 2020,
+				expectedTo:   2020,
+			},
+			{
+				name:         "multiple years",
+				locationName: "London-uk",
+				concerts: []Concert{
+					{Location: "London-uk", DateString: "15-03-2015", Date: mustParseDate("15-03-2015")},
+					{Location: "London-uk", DateString: "20-05-2018", Date: mustParseDate("20-05-2018")},
+					{Location: "London-uk", DateString: "10-01-2020", Date: mustParseDate("10-01-2020")},
+					{Location: "London-uk", DateString: "25-12-2022", Date: mustParseDate("25-12-2022")},
+				},
+				expectedFrom: 2015,
+				expectedTo:   2022,
+			},
+		}
+
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				// Build artist with concerts for this location
+				artist := &Artist{
+					ID:       1,
+					Name:     "Test Artist",
+					Concerts: tt.concerts,
+				}
+				loc := Location{
+					Name:    tt.locationName,
+					Slug:    createSlug(tt.locationName),
+					Artists: []ArtistAtLocation{{Artist: artist, ConcertCount: len(tt.concerts)}},
+				}
+				from, to := loc.YearRange()
+				if from != tt.expectedFrom || to != tt.expectedTo {
+					t.Errorf("YearRange() = (%d, %d), want (%d, %d)", from, to, tt.expectedFrom, tt.expectedTo)
+				}
+			})
+		}
+	})
+}
+
+// mustParseDate parses a date string or panics (for test use only)
+func mustParseDate(dateStr string) time.Time {
+	parts := strings.Split(dateStr, "-")
+	if len(parts) != 3 {
+		panic("invalid date format")
+	}
+	year, _ := strconv.Atoi(parts[2])
+	month, _ := strconv.Atoi(parts[1])
+	day, _ := strconv.Atoi(parts[0])
+	return time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
 }

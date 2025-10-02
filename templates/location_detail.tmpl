@@ -21,9 +21,9 @@
                         <div class="artist-info">
                             <h3 class="artist-name">{{.Artist.Name}}</h3>
                             <p class="artist-details">
-                                {{len .Artist.Members}} member{{if ne (len .Artist.Members) 1}}s{{end}} • 
+                                {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}} • 
                                 Founded {{.Artist.CreationYear}} • 
-                                {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}}
+                                {{len .Artist.Members}} member{{if ne (len .Artist.Members) 1}}s{{end}}
                             </p>
                             {{if .Artist.Countries}}
                             <p class="artist-countries">

@@ -140,9 +140,9 @@
                             <div class="artist-info">
                                 <h3 class="artist-name">{{.Name}}</h3>
                                 <p class="artist-details">
-                                    {{len .Members}} member{{if ne (len .Members) 1}}s{{end}} • 
+                                    {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}} • 
                                     Founded {{.CreationYear}} • 
-                                    {{.ConcertCount}} concert{{if ne .ConcertCount 1}}s{{end}}
+                                    {{len .Members}} member{{if ne (len .Members) 1}}s{{end}}
                                 </p>
                                 {{if .Countries}}
                                 <p class="artist-countries">
