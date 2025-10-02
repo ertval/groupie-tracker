@@ -131,3 +131,7 @@ Consolidate all test files to a single test file per package named after the pac
 ---
 
 Can we refactor the codebase such that the cache is implemented as a separate package that can be reused in other projects? Also the cache in the disc is rehydrated every t minutes from the config file. The cache should be a generic LRU cache that can store any type of data so it can be used for the images or the search. The cache should have a maximum size and a maximum age for the data. The cache should be thread safe and use idiomatic go best practices. The cache should have methods to get, set, delete and clear the cache. The cache should also have a method to save the cache to disc and load the cache from disc. The cache should use gob encoding to save and load the data. The cache should be easy to use and integrate in other projects. Write tests for the cache package to ensure it works as intended.
+
+---
+
+ Read the codebase carefully (ignore the docs) and propose a plan to simplify the code so its more compact, clearer, more maintanable, understadable and less verbose. Focus on the data structures to be more simple and also the search and filter functionality. Then continue with the rest of the code. Adhere to strict Idiomatic Go best practices and the KISS principle in your refactor plan. Save the plan to an md file that starts with your name.
