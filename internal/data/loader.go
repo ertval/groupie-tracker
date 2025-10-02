@@ -37,6 +37,8 @@ func (s *Store) transformAPIArtists(apiArtists []api.Artist) []Artist {
 			FirstAlbum:      apiArtist.FirstAlbum,
 			Image:           apiArtist.Image,
 			DatesAtLocation: make(map[string][]string),
+			MemberCount:     len(apiArtist.Members),
+			FirstAlbumYear:  extractYearFromDate(apiArtist.FirstAlbum),
 		}
 		artists = append(artists, artist)
 	}
@@ -74,7 +76,7 @@ func (s *Store) addConcertData(artists []Artist, apiRelations api.Relation) []Ar
 				}
 
 				// Extract country from location
-				countries[s.extractCountryFromLocation(normalizedLoc)] = true
+				countries[extractCountryFromLocation(normalizedLoc)] = true
 			}
 
 			// Sort concerts chronologically
@@ -139,6 +141,7 @@ func (s *Store) createLocations(artists []Artist) []Location {
 				locationMap[concert.Location] = &Location{
 					Name:         concert.Location,
 					Slug:         createSlug(concert.Location),
+					Country:      extractCountryFromLocation(concert.Location),
 					Artists:      make([]ArtistAtLocation, 0),
 					EarliestYear: 9999, // Initialize with high value
 					LatestYear:   0,    // Initialize with low value
@@ -151,7 +154,7 @@ func (s *Store) createLocations(artists []Artist) []Location {
 			locationMap[concert.Location].TotalConcerts++
 
 			// Update year range for this location
-			year := s.extractYearFromDate(concert.Date)
+			year := extractYearFromDate(concert.Date)
 			if year > 0 {
 				if year < locationMap[concert.Location].EarliestYear {
 					locationMap[concert.Location].EarliestYear = year
@@ -222,7 +225,10 @@ func (s *Store) calculateArtistFilterOptions(artists []Artist) ArtistFilterOptio
 			maxCreationYear = artist.CreationYear
 		}
 
-		albumYear := s.extractYearFromDate(artist.FirstAlbum)
+		albumYear := artist.FirstAlbumYear
+		if albumYear == 0 {
+			albumYear = extractYearFromDate(artist.FirstAlbum)
+		}
 		if albumYear > 0 {
 			if minFirstAlbumYear == 0 || albumYear < minFirstAlbumYear {
 				minFirstAlbumYear = albumYear
@@ -232,7 +238,10 @@ func (s *Store) calculateArtistFilterOptions(artists []Artist) ArtistFilterOptio
 			}
 		}
 
-		memberCount := len(artist.Members)
+		memberCount := artist.MemberCount
+		if memberCount == 0 {
+			memberCount = len(artist.Members)
+		}
 		memberCountSet[memberCount] = true
 
 		for _, country := range artist.Countries {
@@ -304,7 +313,10 @@ func (s *Store) calculateLocationFilterOptions(locations []Location) LocationFil
 			maxYear = location.LatestYear
 		}
 
-		country := s.extractCountryFromLocation(location.Name)
+		country := location.Country
+		if country == "" {
+			country = extractCountryFromLocation(location.Name)
+		}
 		if country != "" {
 			countrySet[country] = true
 		}
@@ -571,24 +583,4 @@ func (s *Store) convertCountriesMapToSlice(countriesMap map[string]bool) []strin
 	}
 	sort.Strings(countries)
 	return countries
-}
-
-// extractCountryFromLocation extracts the country name from a location string.
-func (s *Store) extractCountryFromLocation(location string) string {
-	parts := strings.Split(location, "-")
-	if len(parts) > 0 {
-		return parts[len(parts)-1]
-	}
-	return ""
-}
-
-// extractYearFromDate parses a date string and extracts the year.
-func (s *Store) extractYearFromDate(date string) int {
-	parts := strings.Split(date, "-")
-	if len(parts) >= 3 {
-		var year int
-		fmt.Sscanf(parts[2], "%d", &year)
-		return year
-	}
-	return 0
 }

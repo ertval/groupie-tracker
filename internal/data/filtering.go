@@ -1,60 +1,5 @@
 package data
 
-import (
-	"strconv"
-	"strings"
-)
-
-// extractCountryFromLocation parses location strings to extract country names.
-func (s *Service) extractCountryFromLocation(location string) string {
-	parts := strings.Split(strings.ToLower(location), "-")
-	if len(parts) == 0 {
-		return ""
-	}
-
-	// The country is typically the last part
-	country := strings.TrimSpace(parts[len(parts)-1])
-
-	// Handle common abbreviations/normalizations
-	switch country {
-	case "usa", "us":
-		return "USA"
-	case "uk":
-		return "UK"
-	case "uae":
-		return "UAE"
-	default:
-		// Capitalize first letter of each word
-		words := strings.Fields(strings.ReplaceAll(country, "-", " "))
-		for i, word := range words {
-			if len(word) > 0 {
-				words[i] = strings.ToUpper(word[:1]) + strings.ToLower(word[1:])
-			}
-		}
-		return strings.Join(words, " ")
-	}
-}
-
-// extractYearFromDate parses various date string formats to extract years.
-func (s *Service) extractYearFromDate(dateStr string) int {
-	// Handle common date formats
-	if len(dateStr) >= 4 {
-		// Check for YYYY at the end (DD-MM-YYYY)
-		if len(dateStr) >= 10 && dateStr[2] == '-' && dateStr[5] == '-' {
-			if year, err := strconv.Atoi(dateStr[6:10]); err == nil {
-				return year
-			}
-		}
-		// Check for YYYY at the beginning (YYYY-MM-DD or just YYYY)
-		if year, err := strconv.Atoi(dateStr[:4]); err == nil && year > 1900 && year < 3000 {
-			return year
-		}
-	}
-	return 0
-}
-
-// --- Artist Filtering System ---
-
 // FilterArtists filters artists based on criteria like creation date, album date, location, and member count.
 func (s *Service) FilterArtists(criteria ArtistFilterParams) []Artist {
 	artists := s.store.Artists()
@@ -84,7 +29,7 @@ func (s *Service) matchesArtistFilters(artist Artist, params ArtistFilterParams)
 
 	// First album year filter (extract year from date string)
 	if params.FirstAlbumYearFrom != nil || params.FirstAlbumYearTo != nil {
-		albumYear := s.extractYearFromDate(artist.FirstAlbum)
+		albumYear := artist.FirstAlbumYear
 		if albumYear > 0 {
 			if params.FirstAlbumYearFrom != nil && albumYear < *params.FirstAlbumYearFrom {
 				return false
@@ -97,7 +42,7 @@ func (s *Service) matchesArtistFilters(artist Artist, params ArtistFilterParams)
 
 	// Member count checkbox filter - check if artist's member count is in the allowed list
 	if len(params.MemberCounts) > 0 {
-		memberCount := len(artist.Members)
+		memberCount := artist.MemberCount
 		found := false
 		for _, allowedCount := range params.MemberCounts {
 			if memberCount == allowedCount {
@@ -188,7 +133,7 @@ func (s *Service) matchesLocationFilters(location Location, params LocationFilte
 
 	// Country filter - check if location's country is in the allowed list
 	if len(params.Countries) > 0 {
-		locationCountry := s.extractCountryFromLocation(location.Name)
+		locationCountry := location.Country
 		found := false
 		for _, allowedCountry := range params.Countries {
 			if locationCountry == allowedCountry {

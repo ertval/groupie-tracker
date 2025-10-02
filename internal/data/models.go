@@ -13,6 +13,8 @@ type Artist struct {
 	DatesAtLocation map[string][]string // Concert dates indexed by location slug
 	ConcertCount    int                 // Computed field
 	Countries       []string            // Unique countries where artist performed
+	MemberCount     int                 // Cached member count for filtering
+	FirstAlbumYear  int                 // Parsed year of the first album (0 if unknown)
 }
 
 // ArtistAtLocation represents an artist's concert activity at a specific venue.
@@ -25,6 +27,7 @@ type ArtistAtLocation struct {
 type Location struct {
 	Name          string
 	Slug          string // URL-friendly identifier (e.g., "london-uk")
+	Country       string // Display-ready country extracted from the slug
 	Artists       []ArtistAtLocation
 	ArtistCount   int // Computed field
 	TotalConcerts int // Computed field
