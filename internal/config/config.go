@@ -7,7 +7,7 @@ var (
 	// Enable or disable image caching (true = enabled, false = disabled)
 	WithCache = false
 
-	// API base URL used by the repository when fetching data
+	// API base URL used by the data layer when fetching data
 	APIBaseURL = "https://groupietrackers.herokuapp.com"
 
 	// Request timeout for API calls

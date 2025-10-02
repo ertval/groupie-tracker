@@ -99,16 +99,18 @@ func (s *Store) addConcertData(artists []Artist, apiRelations api.Relation) []Ar
 }
 
 // createArtistIndexes builds lookup maps for artists by ID and slug.
-func (s *Store) createArtistIndexes(artists []Artist) (map[int]Artist, map[string]Artist) {
+func (s *Store) createArtistIndexes(artists []Artist) (map[int]Artist, map[string]Artist, map[int]int) {
 	artistsByID := make(map[int]Artist, len(artists))
 	artistsBySlug := make(map[string]Artist, len(artists))
+	positions := make(map[int]int, len(artists))
 
-	for _, artist := range artists {
+	for idx, artist := range artists {
 		artistsByID[artist.ID] = artist
 		artistsBySlug[artist.Slug] = artist
+		positions[artist.ID] = idx
 	}
 
-	return artistsByID, artistsBySlug
+	return artistsByID, artistsBySlug, positions
 }
 
 // createLocationsData builds location aggregates and lookup maps.

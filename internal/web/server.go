@@ -9,14 +9,17 @@ import (
 	"time"
 
 	"groupie-tracker/internal/api"
+	"groupie-tracker/internal/app"
 	"groupie-tracker/internal/config"
 	"groupie-tracker/internal/data"
+	"groupie-tracker/internal/service"
 )
 
 // Server encapsulates server dependencies with data services and cached data.
 type Server struct {
-	// Business service exposing read-only data operations
-	svc *data.Service
+	// Data store and business service exposing read-only operations
+	store *data.Store
+	svc   *service.Service
 
 	// Pre-compiled templates for rendering
 	templates map[string]*template.Template
@@ -37,17 +40,16 @@ func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
 	server := &Server{}
 
 	// Initialize service with injected API client
-	server.svc = data.NewService(apiClient, withCache)
-
-	// Load all data from external API with timeout protection
 	log.Println("Loading initial data...")
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	err := server.svc.Load(loadCtx)
+	store, svc, err := app.Initialize(loadCtx, apiClient, withCache)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
+	server.store = store
+	server.svc = svc
 
 	// Compile all HTML templates once at startup
 	server.loadTemplates()

@@ -24,6 +24,7 @@ type Store struct {
 	artists         []Artist
 	artistsByID     map[int]Artist
 	artistsBySlug   map[string]Artist
+	artistPositions map[int]int
 	locations       []Location
 	locationsBySlug map[string]Location
 	appStats        AppStats
@@ -110,6 +111,7 @@ func (s *Store) loadData(ctx context.Context) error {
 	var (
 		artistsByID     map[int]Artist
 		artistsBySlug   map[string]Artist
+		artistPositions map[int]int
 		locations       []Location
 		locationsBySlug map[string]Location
 		artistFilters   ArtistFilterOptions
@@ -122,7 +124,7 @@ func (s *Store) loadData(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		artistsByID, artistsBySlug = s.createArtistIndexes(artists)
+		artistsByID, artistsBySlug, artistPositions = s.createArtistIndexes(artists)
 	}()
 
 	wg.Add(1)
@@ -148,6 +150,7 @@ func (s *Store) loadData(ctx context.Context) error {
 
 	s.artistsByID = artistsByID
 	s.artistsBySlug = artistsBySlug
+	s.artistPositions = artistPositions
 	s.locations = locations
 	s.locationsBySlug = locationsBySlug
 	s.artistFilters = artistFilters
@@ -175,6 +178,12 @@ func (s *Store) ArtistByID(id int) (Artist, bool) {
 func (s *Store) ArtistBySlug(slug string) (Artist, bool) {
 	artist, ok := s.artistsBySlug[slug]
 	return artist, ok
+}
+
+// ArtistPosition returns the index of the artist within the sorted slice.
+func (s *Store) ArtistPosition(id int) (int, bool) {
+	index, ok := s.artistPositions[id]
+	return index, ok
 }
 
 // Locations returns all locations sorted by concert count.

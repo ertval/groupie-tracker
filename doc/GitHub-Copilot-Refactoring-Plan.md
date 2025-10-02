@@ -13,69 +13,49 @@
 - **Web layer carries caches** (suggestions, filter options, search cache) that would be cleaner and safer inside the data layer once data is immutable.
 - **Testing hooks (`SetTestData`)** exist only for the compatibility wrapper and can be replaced with constructor helpers once the store API is streamlined.
 
-## Target Architecture
+## Final Architecture (Oct 2025)
 1. **Data Package (`internal/data`)**
-   - Single exported type `Store` that owns the immutable dataset post-load.
-   - Public constructor `data.Load(ctx, client, config)` returning `*Store` to encapsulate concurrency, image caching, and derivations.
-   - Store exposes read-only getters (`Artists()`, `ArtistBySlug()`, `Locations()`, `Stats()`, `Suggestions()`, `ArtistFilters()`, `LocationFilters()`).
-   - Internal files (`fetch.go`, `transform.go`, `derive.go`, `cache.go`) keep responsibilities small while living in one package.
+   - `Store` is the single exported type. `NewStore(apiClient, withCache)` plus `Store.Load(ctx)` encapsulate concurrent API fetches, image caching, and all derivations.
+   - Read-only getters expose artists, locations, statistics, search suggestions, and filter option metadata.
+   - Derived indexes include an `artistPositions` map that enables O(1) adjacency lookups for detail pages.
 
 2. **Service Layer (`internal/service`)**
-   - Thin façade focused on business operations that require orchestration (filtering, search, adjacency helpers).
-   - Methods operate on the pre-computed store data without mutating it; filtering/search logic moves here so handlers call `service.FilterArtists(...)` instead of touching store internals.
-   - No duplicated state—service holds a pointer to the store and nothing else.
+   - Separate package that wraps the store and adds business logic only: filtering, search, adjacency helpers, and a mutex-protected search cache.
+   - Filtering uses precomputed metadata; search merges text queries with filters and caches simple lookups (50-entry LRU).
+   - All concurrency and state live inside the store; the service is read-only after load.
 
 3. **Web Layer (`internal/web`)**
-   - `Server` holds a `*service.Service` and keeps HTTP concerns only.
-   - Template caches, filter option caches, and suggestion caches are provided by service/store and no longer re-computed in handlers.
-   - Handlers split by concern (`home.go`, `artists.go`, `locations.go`, `search.go`) to keep files under ~200 LOC and follow KISS.
+   - `Server` receives its dependencies from `internal/app.Initialize`, which wires the store and service and performs the initial load with a startup timeout.
+   - Handlers focus on HTTP concerns, parsing form data into typed params before calling the service.
+   - Template compilation, middleware, and caching responsibilities remain in the web package; all data comes from the service/store.
 
-## Planned Refactor Steps
+## Completed Refactor Summary
 
-### 1. Data Loading & Store Simplification
-- Move `internal/domain` to `internal/data`; delete `repository.go` and `service.go`.
-- Fold `Store.loadData`, `processArtists`, `buildLocations`, `computeStats`, `cacheImages` into cohesive private helpers under the new package.
-- Replace manual channels with a `sync.WaitGroup`/`sync.Mutex` pattern:
-  - Fetch artists and relations concurrently (keep existing pattern).
-  - Kick off goroutines to build indexes, locations, stats, filter/suggestion caches once raw artists are available. Use `WaitGroup` to block `Load` until all derivations finish.
-- Return immutable slices (`[]Artist`, `[]Location`) that share backing arrays with the store but document them as read-only. Where mutation is unavoidable (tests), provide dedicated builders instead of exported setters.
-- Remove `SetTestData`; introduce `data.NewStoreFromFixtures(artists, locations)` compiled under `_test.go` for unit tests.
+### Data Loading & Store
+- `internal/domain` was retired in favour of `internal/data`. The store now encapsulates all concurrency with a `sync.WaitGroup`-driven pipeline that fetches artists/relations in parallel and derives indexes, locations, suggestions, and stats concurrently.
+- `NewStoreFromFixtures` mirrors the production pipeline, allowing tests in other packages to create fully-initialised stores without reaching into internals.
+- Artist/location slices are immutable after load; maps (`byID`, `bySlug`, `artistPositions`, `locationsBySlug`) provide O(1) lookups.
 
-### 2. Derived Data & Caching Inside the Store
-- Move search suggestion generation and filter option computation from the web layer into `Store` during load. Store the results as slices/maps for O(1) access.
-- Replace the ad-hoc search result cache with a generic, lock-protected ring buffer inside service (bounded map + eviction). This keeps cache logic close to the feature but away from handlers.
-- Calculate adjacency (prev/next artist) once by storing artists sorted by name and building an index map (`map[int]int`), enabling O(1) navigation without re-scanning.
+### Derived Data & Caching
+- Search suggestions, filter options, and statistics are computed during load and cached on the store.
+- Image caching remains optional (4-worker pool). Cache status propagates through the store/service for logging and UI badges.
+- Artist adjacency now relies on the precomputed `artistPositions` map instead of linear scans.
 
-### 3. Filtering & Search Streamlining
-- Relocate `filtering.go` and `search.go` logic into the new service package; eliminate duplicated helper functions by:
-  - Sharing normalization utilities via an unexported `strings.go` file.
-  - Reusing pre-computed country/album year metadata produced by the store to avoid re-parsing on every request.
-- Shorten filter matching by precomputing lookup tables (e.g., `artist.AlbumYear`, `artist.MemberCount`) during load to reduce branching inside request-time loops.
-- Introduce small goroutines to parallelize expensive filter operations when inputs are large (e.g., split artist slice into N chunks for filtering/search using a worker pool). Use buffered channels and a `WaitGroup`, ensuring we bail out early when parameters are trivial (keeps KISS while still boosting worst-case performance).
+### Service & Search
+- Filtering and search moved into the standalone `internal/service` package. The service is a thin façade with no duplicated state—just references to the store plus a mutex-protected search cache.
+- Search combines text queries with filters and caches plain-text results (up to 50 entries) to avoid recomputing popular lookups.
+- Filtering logic leverages cached metadata (`MemberCount`, `FirstAlbumYear`, `Countries`) so requests avoid runtime parsing.
 
-### 4. Web Layer Cleanup
-- Update `Server` to receive `(store *data.Store, svc *service.Service)` from a new `app.Initialize()` helper that wires dependencies, calls `store.Load(ctx)` once, and logs startup metrics.
-- Remove path validation duplication by extracting helpers into `router.go` and reusing method guards.
-- Simplify error handling: centralize template missing/error logging inside `render` and ensure 500 responses use the error template buffer.
-- Ensure handlers reject paths like `/artists/foo/bar` by checking `strings.Count` or using a router-level constraint before lookup.
-- Keep templates untouched but adapt data structs to match new service outputs (e.g., `Filters: svc.ArtistFilters()` returning pre-built DTOs).
+### Web Layer
+- `internal/app.Initialize` wires the store/service, performs the initial load with a timeout, and returns both to the web layer.
+- `internal/web.Server` now stores both `store` and `svc`, keeping HTTP concerns isolated while relying on the service for data.
+- Handlers remain split by concern and only handle form parsing + rendering; all data access goes through the service API.
 
-### 5. Testing & Tooling
-- Rewrite domain tests to target `data.Store` directly; provide fixture builders and table-driven cases for filtering/search that cover edge cases with the new precomputed fields.
-- Update web handler tests to use the new service/store wiring via a thin `testApp()` helper.
-- Refresh E2E tests so they assert on simplified responses and 404 handling for malformed artist URLs.
-- Run `go test ./...` and capture updated coverage into `tests/final_coverage.html` (replace previous artifact).
+### Testing & Tooling
+- Service-level unit tests in `internal/service` cover filtering, search, and caching. Repository-based tests were removed with the compatibility layer.
+- E2E tests (`cmd/server`) and smoke checks for `/health` continue to operate through `httptest.Server`.
+- `go test ./...` is the canonical verification step and passes across the refactored tree.
 
-### 6. Documentation & Operations
-- Document the new architecture in `README.md` and `doc/github-copilot-refactoring-plan-v4.md`, highlighting the two-layer data/service approach and concurrency model.
-- Update startup logs: replace `ListenAndServe` wrapper with direct server start preceded by a `logStartupInfo(store, port)` helper that prints cached image counts and clickable URL.
-- Remove obsolete files (`internal/domain/repository.go`, `internal/domain/service.go`, legacy docs mentioning compatibility mode`).
-
-## Phased Execution
-1. **Phase 0 – Prep**: Rename package directories, adjust module imports, and ensure tests compile with the new package paths (temporarily re-export old names to avoid large diffs).
-2. **Phase 1 – Store Rewrite**: Implement new `data.Store`, concurrency for derivations, and fixture helpers; update unit tests to target the new API.
-3. **Phase 2 – Service & Filtering**: Create lean service layer, migrate filtering/search logic, and add parallel filtering for large datasets.
-4. **Phase 3 – Web Layer Update**: Swap in the new service/store, prune caches from handlers, and split handler files by concern.
-5. **Phase 4 – Cleanup & Docs**: Remove compatibility remnants, regenerate coverage artifacts, and refresh documentation.
-
-Each phase should end with `go test ./...` to keep the refactor safe and incremental.
+### Documentation & Operations
+- README now describes the store/service/web architecture and the new dependency wiring.
+- Legacy references to the repository layer were removed; the refactor plan itself documents the final state for future contributors.

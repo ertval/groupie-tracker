@@ -3,40 +3,31 @@
 ## Project Overview
 Go web application (Go 1.24.3) consuming the Groupie Trackers API. **Zero JavaScript dependencies** - all filtering, search, and interactivity handled server-side via HTML forms and POST requests. **Standard library only** - no external dependencies.
 
-## Architecture: Three-Layer Clean Architecture with Concurrent Loading
+## Architecture: Layered Server-Side Stack with Concurrent Loading
 
 ### Layer 1: `internal/api` - External API Client
 - **Single responsibility**: Fetch raw JSON from external API
 - Uses `api.Client` with dependency injection
 - Raw models: `api.Artist`, `api.Relation` (match API JSON exactly)
-- Entry point: `cmd/server/main.go` creates client → passes to Service/Repository
+- Entry point: `cmd/server/main.go` creates client → calls `app.Initialize()` to wire the store and service before starting the web server
 
-### Layer 2: `internal/domain` - Business Logic & Data Storage
-**New architecture (Oct 2025)**: Store-Service-Repository pattern
-
-- **`Store`**: Immutable in-memory data storage after Load()
-  - Concurrent API fetching using goroutines + channels (artists and relations in parallel)
+### Layer 2: `internal/data` + `internal/service` - Data & Business Logic
+- **`internal/data.Store`**
+  - Immutable in-memory dataset after `Load()` completes
+  - Concurrent API fetching using goroutines/channels (artists and relations in parallel)
   - Worker pool (4 workers) for concurrent image downloads
+  - Precomputes indexes (ID, slug, position), filter metadata, search suggestions, statistics
   - Thread-safe read-only access after initialization
-  - Files: `store.go`, `loader.go`
+  - Files: `store.go`, `loader.go`, `fixtures.go`
 
-- **`Service`**: Business logic facade (new, optional layer)
-  - Clean API for web layer
-  - Delegates to Repository for backward compatibility
-  - File: `service.go`
-
-- **`Repository`**: Compatibility layer wrapping Store
-  - Maintains existing API for tests and web handlers
-  - Exposes internal fields for filtering/search
-  - **31 public methods**: `GetArtists()`, `FilterArtists()`, `SearchArtists()`, `GetArtistBySlug()`
-  - File: `repository.go`
-
-- **Domain models** enriched with computed fields: `Artist.Countries`, `Artist.ConcertCount`, `Location.ArtistCount`
-- **Filtering & Search**: `filtering.go`, `search.go`
-- No database - in-memory storage with map indexes for O(1) lookups
+- **`internal/service.Service`**
+  - Thin business façade over the store
+  - Provides filtering, search, adjacency helpers, and a bounded search result cache (50-entry LRU)
+  - Operates on precomputed store metadata—no mutating operations
+  - Files: `service.go`, `filtering.go`, `search.go`
 
 ### Layer 3: `internal/web` - HTTP Layer  
-- `Server` struct with `repo *domain.Repository` field
+- `Server` struct holds both `store *data.Store` and `svc *service.Service`
 - **Package-level handlers** (methods on `Server`): `Home()`, `Artists()`, `ArtistDetail()`, etc.
 - Middleware chain: `withRecovery` → `withLogging` → `withSecureHeaders`
 - Templates pre-compiled at startup in `Server.templates` map
@@ -69,7 +60,7 @@ func (s *Server) Artists(w http.ResponseWriter, r *http.Request) {
     if r.Method == http.MethodPost {
         r.ParseForm()
         filters := parseArtistFilterParams(r) // helper in templates.go
-        artists = s.repo.FilterArtists(filters)
+    artists = s.svc.FilterArtists(filters)
     }
     // render with results
 }
@@ -95,7 +86,7 @@ apiClient := api.NewClient(config.APIBaseURL, timeout)
 server, err := web.NewServer(apiClient, config.WithCache)
 server.ListenAndServe()
 ```
-Repository receives `*api.Client`, Server receives `*domain.Repository`.
+ `app.Initialize` receives `*api.Client`, returns `(store *data.Store, svc *service.Service)` for the web layer.
 
 ### 5. Caching Strategy
 - **Pre-computed at startup**: `Server.suggestions`, `Server.artistFilterOpts`, `Server.locationFilterOpts`
@@ -110,15 +101,15 @@ Repository receives `*api.Client`, Server receives `*domain.Repository`.
 - Helper: `createTestServerWithAPI(t, mockURL)` returns `*httptest.Server`
 
 ### Unit Tests
-- Domain: `internal/domain/*_test.go` (filter_test.go: 18 tests, search_test.go: 30+ tests)
+- Service layer tests: `internal/service/*_test.go` (filter/search coverage)
 - Web: `internal/web/server_test.go` - use `server.Handler` with `httptest` (no network listener)
 
 ### Running Tests
 ```bash
 go test ./...                           # All tests
-go test ./internal/domain -v            # Domain layer only
+go test ./internal/service -v          # Service layer only
 go test ./cmd/server -run TestE2E       # E2E tests
-go test -cover ./internal/domain        # With coverage (target: 70%+)
+go test -cover ./internal/service       # With coverage (target: 70%+)
 ```
 
 ## Common Tasks
@@ -128,7 +119,7 @@ go test -cover ./internal/domain        # With coverage (target: 70%+)
 2. Implement logic in `matchesArtistFilters()` in `filtering.go`
 3. Update `parseArtistFilterParams()` in `web/templates.go` to parse form field
 4. Add HTML form controls in `templates/artists.tmpl` or `templates/locations.tmpl`
-5. Add test cases in `internal/domain/filter_test.go`
+5. Add test cases in `internal/service/filter_test.go`
 
 ### Adding a New Page/Handler
 1. Create handler method on `Server`: `func (s *Server) MyPage(w http.ResponseWriter, r *http.Request)`
@@ -172,19 +163,19 @@ go build -o groupie-tracker ./cmd/server/
 
 ## Recent Refactoring Context (Oct 2025)
 - **Phase 0**: Created `internal/api` package, renamed `data`→`domain`, `server`→`web`
-- **Phase 1**: Store-Service-Repository architecture - separated data storage (Store) from business logic (Service/Repository)
+- **Phase 1**: Introduced immutable store with concurrent loading and fixture builders
 - **Phase 2**: Concurrent data loading - parallel API fetching with goroutines, worker pool for image downloads (4 workers)
-- **Phase 3**: Service layer - clean facade for business operations, maintains backward compatibility through Repository
+- **Phase 3**: Extracted dedicated service package and replaced handler calls with service APIs
 - **Result**: Improved performance with concurrent loading, cleaner separation of concerns, all tests passing, standard library only
 
 ## Key Files Reference
 - Entry point: `cmd/server/main.go`
+- Dependency wiring: `internal/app/app.go`
 - Routing: `internal/web/routes.go`
-- Data storage: `internal/domain/store.go` (immutable after Load)
-- Data loading: `internal/domain/loader.go` (concurrent API fetching, image caching)
-- Business logic: `internal/domain/service.go` (clean API facade)
-- Compatibility: `internal/domain/repository.go` (wraps Store for backward compatibility)
-- Handlers: `internal/web/handlers.go` (537 lines)
-- Filters: `internal/domain/filtering.go` (332 lines)
-- Search: `internal/domain/search.go` (303 lines)
+- HTTP server: `internal/web/server.go`
+- Data storage: `internal/data/store.go` (immutable after Load)
+- Data loading helpers: `internal/data/loader.go`
+- Business logic: `internal/service/service.go`, `filtering.go`, `search.go`
+- Handlers: `internal/web/home.go`, `artists.go`, `locations.go`, `search.go`
+- Template utilities: `internal/web/templates.go`
 - Base template: `templates/base.tmpl` (global search bar in navbar)
