@@ -126,10 +126,10 @@ func (s *Store) FilterSearchSuggestions(query string, maxResults int) []SearchSu
 	return filterSearchSuggestions(suggestions, query, maxResults)
 }
 
-// GetAdjacentArtists finds the previous and next artists relative to the current artist in alphabetical order.
+// AdjacentArtists finds the previous and next artists relative to the current artist in alphabetical order.
 // Used for "Previous Artist" and "Next Artist" navigation links in the UI.
 // Returns nil for prev if at beginning, nil for next if at end.
-func (s *Store) GetAdjacentArtists(currentID int) (prev, next *Artist) {
+func (s *Store) AdjacentArtists(currentID int) (prev, next *Artist) {
 	index, ok := s.ArtistPosition(currentID) // Get current artist's position in sorted slice
 	if !ok {
 		return nil, nil // Artist ID not found

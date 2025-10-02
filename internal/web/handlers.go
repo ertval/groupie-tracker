@@ -86,7 +86,7 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 	}
 
 	artists := app.store.Artists()
-	filterOptions := app.store.GetArtistFilterOptions()
+	filterOptions := app.store.ArtistFilterOptions()
 	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 	isFiltered := false
@@ -133,13 +133,11 @@ func (app *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get navigation artists using on-demand lookup
-	prevArtist, nextArtist := app.store.GetAdjacentArtists(artist.ID)
+	prevArtist, nextArtist := app.store.AdjacentArtists(artist.ID)
 
 	page := view.NewArtistDetailPage(app.store, artist, prevArtist, nextArtist)
 	app.render(w, r, "artist_detail.tmpl", page)
-}
-
-// ============================================================================
+} // ============================================================================
 // LOCATIONS
 // ============================================================================
 
@@ -151,7 +149,7 @@ func (app *App) Locations(w http.ResponseWriter, r *http.Request) {
 	}
 
 	locations := app.store.Locations()
-	filterOptions := app.store.GetLocationFilterOptions()
+	filterOptions := app.store.LocationFilterOptions()
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
 
@@ -242,12 +240,10 @@ func (app *App) Search(w http.ResponseWriter, r *http.Request) {
 		isSearch = searchQuery != ""
 	}
 
-	filterOptions := app.store.GetArtistFilterOptions()
+	filterOptions := app.store.ArtistFilterOptions()
 	page := view.NewSearchPage(app.store, searchQuery, searchResults, filterOptions, appliedFilters, isSearch)
 	app.render(w, r, "search.tmpl", page)
-}
-
-// SuggestionsAPI provides search suggestions for autocomplete functionality.
+} // SuggestionsAPI provides search suggestions for autocomplete functionality.
 func (app *App) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 

@@ -163,10 +163,10 @@ func TestFilterArtists(t *testing.T) {
 	}
 }
 
-// TestGetArtistFilterOptions tests that filter options are properly computed
-func TestGetArtistFilterOptions(t *testing.T) {
+// TestArtistFilterOptions tests that filter options are properly computed
+func TestArtistFilterOptions(t *testing.T) {
 	store := createTestStore(t)
-	options := store.GetArtistFilterOptions()
+	options := store.ArtistFilterOptions()
 
 	tests := []struct {
 		name  string

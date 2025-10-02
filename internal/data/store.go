@@ -243,18 +243,8 @@ func (s *Store) ArtistFilterOptions() ArtistFilterOptions {
 	return s.artistFilters
 }
 
-// GetArtistFilterOptions returns the precomputed artist filter metadata.
-func (s *Store) GetArtistFilterOptions() ArtistFilterOptions {
-	return s.artistFilters
-}
-
 // LocationFilterOptions returns the precomputed location filter metadata.
 func (s *Store) LocationFilterOptions() LocationFilterOptions {
-	return s.locationFilters
-}
-
-// GetLocationFilterOptions returns the precomputed location filter metadata.
-func (s *Store) GetLocationFilterOptions() LocationFilterOptions {
 	return s.locationFilters
 }
 
