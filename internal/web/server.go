@@ -32,11 +32,11 @@ type App struct {
 // 1. Load all data from external API (concurrent fetching of artists and relations)
 // 2. Process data into domain models with computed fields (concerts, slugs, years, etc.)
 // 3. Build indexes and metadata (by ID, by slug, search suggestions, filter options)
-// 4. Optionally cache images using adaptive worker pool (scales with CPU cores)
+// 4. Cache images using adaptive worker pool (scales with CPU cores) - always enabled
 // 5. Compile all HTML templates with custom template functions
 // 6. Assemble middleware chain and route handlers
 // Returns fully initialized App ready to serve requests, or error if initialization fails.
-func NewApp(apiClient *api.Client, withCache bool) (*App, error) {
+func NewApp(apiClient *api.Client) (*App, error) {
 	start := time.Now() // Track initialization time for performance monitoring
 
 	app := &App{}
@@ -46,7 +46,7 @@ func NewApp(apiClient *api.Client, withCache bool) (*App, error) {
 	loadCtx, loadCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer loadCancel()
 
-	store := data.NewStore(apiClient, withCache)
+	store := data.NewStore(apiClient)
 	if err := store.Load(loadCtx); err != nil { // Load blocks until all data is fetched and processed
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
@@ -55,13 +55,10 @@ func NewApp(apiClient *api.Client, withCache bool) (*App, error) {
 	// Compile all HTML templates once at startup for performance (avoids parsing on every request)
 	app.loadTemplates()
 
-	// Log startup summary with cache status and data statistics
+	// Log startup summary with data statistics
 	stats := app.store.Stats()
-	if !app.store.CacheEnabled() {
-		log.Printf("Data loaded - %d artists (caching disabled)", stats.TotalArtists)
-	} else {
-		log.Printf("Data loaded with cache - %d artists", stats.TotalArtists)
-	}
+	log.Printf("Data loaded - %d artists (cached: %d images, downloaded: %d images)",
+		stats.TotalArtists, stats.CachedImages, stats.DownloadedImages)
 
 	// Assemble complete middleware chain and route handlers into a single http.Handler
 	serveMux := withMiddleware(app.createServeMux())

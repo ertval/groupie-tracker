@@ -15,15 +15,12 @@ import (
 
 // cacheImages downloads and caches artist images locally using an adaptive worker pool.
 // Worker count scales with CPU cores (runtime.NumCPU) for optimal concurrency on any system.
+// Images are always cached to the static/img/artists directory at startup.
 // Returns: (cacheEnabled, cachedImageCount, downloadedImageCount)
 // - cacheEnabled: false if cache directory creation fails, otherwise true
 // - cachedImageCount: number of images already present on disk (skipped download)
 // - downloadedImageCount: number of images successfully downloaded in this run
 func (s *Store) cacheImages(artists []*Artist) (bool, int, int) {
-	if !s.withCache { // Early return if caching disabled in config
-		return false, 0, 0
-	}
-
 	cacheDir := "static/img/artists"
 	if err := os.MkdirAll(cacheDir, 0755); err != nil { // Create cache directory with proper permissions
 		return false, 0, 0 // Directory creation failed, disable caching

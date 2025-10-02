@@ -12,13 +12,12 @@ import (
 
 // TestAuditCompliance tests that the data layer loads successfully from the external API
 func TestAuditCompliance(t *testing.T) {
-	// Disable caching in tests
-	conf.WithCache = false
+	// Configure API client for tests
 	conf.APIBaseURL = "https://groupietrackers.herokuapp.com"
 	conf.APIRequestTimeout = 30 * time.Second
 
 	apiClient := api.NewClient(conf.APIBaseURL, conf.APIRequestTimeout)
-	store := data.NewStore(apiClient, conf.WithCache)
+	store := data.NewStore(apiClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()

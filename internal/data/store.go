@@ -18,9 +18,6 @@ import (
 // Store now delegates core data access to Catalog and focuses on filters, search, and caching.
 type Store struct {
 	apiClient *api.Client // External API client for fetching raw artist and relation data
-	withCache bool        // Whether to enable local image caching (set at initialization, never changes)
-
-	cacheEnabled bool // Actual cache status after initialization (may differ from withCache if caching fails)
 
 	// Core data - delegated to Catalog
 	catalog *Catalog // Owns all normalized data (artists, locations, concerts) and provides query methods
@@ -35,12 +32,11 @@ type Store struct {
 	loadErr  error     // Stores any error from the single Load() execution for return to all callers
 }
 
-// NewStore initializes an empty Store with the given API client and caching preference.
-// The Store is not usable until Load() successfully completes.
-func NewStore(apiClient *api.Client, withCache bool) *Store {
+// NewStore initializes an empty Store with the given API client.
+// Image caching is always enabled. The Store is not usable until Load() successfully completes.
+func NewStore(apiClient *api.Client) *Store {
 	return &Store{
 		apiClient: apiClient,
-		withCache: withCache,
 	}
 }
 
@@ -101,15 +97,12 @@ func (s *Store) loadData(ctx context.Context) error {
 	// Stage 2: Transform raw API models into rich domain models with computed fields
 	artists := s.processArtists(artistsResult.data, relationsResult.data)
 
-	// Stage 3: Optional image caching with adaptive worker pool (scales with CPU cores for efficiency)
+	// Stage 3: Image caching with adaptive worker pool (scales with CPU cores for efficiency)
+	// Always cache images locally to static/img/artists directory
 	var cachedImages, downloadedImages int
-	if s.withCache {
-		var cacheEnabled bool
-		cacheEnabled, cachedImages, downloadedImages = s.cacheImages(artists) // Returns stats for logging
-		s.cacheEnabled = cacheEnabled                                         // May be false if caching setup failed
-	} else {
-		s.cacheEnabled = false
-	}
+	var cacheEnabled bool
+	cacheEnabled, cachedImages, downloadedImages = s.cacheImages(artists) // Returns stats for logging
+	_ = cacheEnabled                                                      // Cache status tracked for potential future use
 
 	// Stage 4: Build Catalog with normalized data
 	catalog := NewCatalog()
@@ -226,11 +219,6 @@ func (s *Store) LocationBySlug(slug string) (Location, bool) {
 // Stats returns application statistics.
 func (s *Store) Stats() AppStats {
 	return s.appStats
-}
-
-// CacheEnabled returns whether image caching is enabled and functional.
-func (s *Store) CacheEnabled() bool {
-	return s.cacheEnabled
 }
 
 // Suggestions returns the precomputed search suggestions for autocomplete.

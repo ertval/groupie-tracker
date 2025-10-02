@@ -65,22 +65,19 @@ func createTestServer(t *testing.T) *App {
 
 	// Configure test environment
 	originalAPIURL := conf.APIBaseURL
-	originalCache := conf.WithCache
 	conf.APIBaseURL = mockServer.URL
-	conf.WithCache = false
 	conf.APIRequestTimeout = 5 * time.Second
 
 	// Restore config after test
 	t.Cleanup(func() {
 		conf.APIBaseURL = originalAPIURL
-		conf.WithCache = originalCache
 	})
 
 	// Create API client for testing
 	apiClient := api.NewClient(mockServer.URL, 5*time.Second)
 
 	// Create server with dependency injection
-	server, err := NewApp(apiClient, false)
+	server, err := NewApp(apiClient)
 	if err != nil {
 		t.Fatalf("Failed to create test server: %v", err)
 	}
@@ -307,12 +304,6 @@ func TestServiceAccess(t *testing.T) {
 	stats := server.store.Stats()
 	if stats.TotalArtists == 0 {
 		t.Error("Service should return stats")
-	}
-
-	// Test service access for cache status
-	cacheEnabled := server.store.CacheEnabled()
-	if cacheEnabled {
-		t.Error("Service should report cache as disabled in tests")
 	}
 }
 

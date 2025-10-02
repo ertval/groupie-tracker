@@ -20,8 +20,8 @@ func main() {
 
 	// Create and initialize the web server with injected dependencies
 	// Server constructor loads all data from API, builds indexes, and compiles templates
-	// WithCache flag enables/disables local image caching (scales with CPU cores if enabled)
-	app, err := web.NewApp(apiClient, conf.WithCache)
+	// Image caching is always enabled (scales with CPU cores)
+	app, err := web.NewApp(apiClient)
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err) // Fatal error prevents startup if data loading fails
 	}

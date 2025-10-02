@@ -435,7 +435,6 @@ func createEmptyMockAPI() *httptest.Server {
 func createTestServerWithAPI(t *testing.T, apiURL string) *httptest.Server {
 	origAPIURL := conf.APIBaseURL
 	origTimeout := conf.APIRequestTimeout
-	origWithCache := conf.WithCache
 	origWd, _ := os.Getwd()
 
 	projectRoot := filepath.Dir(origWd) // Move from tests to project root
@@ -445,10 +444,9 @@ func createTestServerWithAPI(t *testing.T, apiURL string) *httptest.Server {
 
 	conf.APIBaseURL = apiURL
 	conf.APIRequestTimeout = 10 * time.Second
-	conf.WithCache = false
 
 	apiClient := api.NewClient(apiURL, conf.APIRequestTimeout)
-	srv, err := serverpkg.NewApp(apiClient, conf.WithCache)
+	srv, err := serverpkg.NewApp(apiClient)
 	if err != nil {
 		t.Fatalf("failed to create server: %v", err)
 	}
@@ -459,7 +457,6 @@ func createTestServerWithAPI(t *testing.T, apiURL string) *httptest.Server {
 		testServer.Close()
 		conf.APIBaseURL = origAPIURL
 		conf.APIRequestTimeout = origTimeout
-		conf.WithCache = origWithCache
 		_ = os.Chdir(origWd)
 	})
 
