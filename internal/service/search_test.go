@@ -1,6 +1,7 @@
 package service
 
 import (
+	"strings"
 	"testing"
 
 	"groupie-tracker/internal/data"
@@ -104,6 +105,32 @@ func TestService_SearchArtists(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestService_FilterSearchSuggestions(t *testing.T) {
+	svc := createTestSearchService()
+
+	t.Run("returns prioritized suggestions", func(t *testing.T) {
+		suggestions := svc.FilterSearchSuggestions("queen", 5)
+		if len(suggestions) == 0 {
+			t.Fatal("expected suggestions for query 'queen'")
+		}
+		if !strings.Contains(strings.ToLower(suggestions[0].Text), "queen") {
+			t.Fatalf("expected first suggestion to reference queen, got %q", suggestions[0].Text)
+		}
+	})
+
+	t.Run("respects max results and handles empty queries", func(t *testing.T) {
+		suggestions := svc.FilterSearchSuggestions("a", 2)
+		if len(suggestions) > 2 {
+			t.Fatalf("expected at most 2 suggestions, got %d", len(suggestions))
+		}
+
+		empty := svc.FilterSearchSuggestions("", 5)
+		if len(empty) != 0 {
+			t.Fatalf("expected empty result for empty query, got %d entries", len(empty))
+		}
+	})
 }
 
 func TestService_SearchArtistsCachesSimpleQueries(t *testing.T) {

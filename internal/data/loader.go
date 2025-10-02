@@ -342,6 +342,17 @@ func (s *Store) calculateLocationFilterOptions(locations []Location) LocationFil
 }
 
 // generateSearchSuggestions pre-computes autocomplete suggestions from the dataset.
+func newSearchSuggestion(text, suggestionType, description, url string, artistID int) SearchSuggestion {
+	return SearchSuggestion{
+		Text:           text,
+		Type:           SearchSuggestionType(suggestionType),
+		Description:    description,
+		URL:            url,
+		ArtistID:       artistID,
+		normalizedText: strings.ToLower(text),
+	}
+}
+
 func (s *Store) generateSearchSuggestions(artists []Artist) []SearchSuggestion {
 	var suggestions []SearchSuggestion
 	seen := make(map[string]bool)

@@ -62,8 +62,62 @@ func (s *Service) GenerateAllSearchSuggestions() []data.SearchSuggestion {
 	return s.store.Suggestions()
 }
 
+// FilterSearchSuggestions returns suggestions matching the query ordered by relevance.
+func (s *Service) FilterSearchSuggestions(query string, maxResults int) []data.SearchSuggestion {
+	suggestions := s.store.Suggestions()
+	return filterSearchSuggestions(suggestions, query, maxResults)
+}
+
 func normalizeSearchQuery(query string) string {
 	return strings.ToLower(strings.TrimSpace(query))
+}
+
+func filterSearchSuggestions(suggestions []data.SearchSuggestion, query string, maxResults int) []data.SearchSuggestion {
+	normalizedQuery := normalizeSearchQuery(query)
+	if normalizedQuery == "" || len(suggestions) == 0 {
+		return []data.SearchSuggestion{}
+	}
+
+	if maxResults <= 0 {
+		maxResults = 20
+	}
+
+	var exactMatches []data.SearchSuggestion
+	var prefixMatches []data.SearchSuggestion
+	var containsMatches []data.SearchSuggestion
+
+	totalFound := 0
+
+	for _, suggestion := range suggestions {
+		if totalFound >= maxResults {
+			break
+		}
+
+		normalizedText := normalizeSearchQuery(suggestion.Text)
+
+		switch {
+		case normalizedText == normalizedQuery:
+			exactMatches = append(exactMatches, suggestion)
+			totalFound++
+		case strings.HasPrefix(normalizedText, normalizedQuery):
+			prefixMatches = append(prefixMatches, suggestion)
+			totalFound++
+		case strings.Contains(normalizedText, normalizedQuery):
+			containsMatches = append(containsMatches, suggestion)
+			totalFound++
+		}
+	}
+
+	results := make([]data.SearchSuggestion, 0, len(exactMatches)+len(prefixMatches)+len(containsMatches))
+	results = append(results, exactMatches...)
+	results = append(results, prefixMatches...)
+	results = append(results, containsMatches...)
+
+	if len(results) > maxResults {
+		results = results[:maxResults]
+	}
+
+	return results
 }
 
 func matchesSearchQuery(artist data.Artist, normalizedQuery string) bool {

@@ -73,8 +73,7 @@ func (s *Server) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 
 	// Use optimized filtering with reasonable limits
 	const maxSuggestions = 15 // Limit to avoid overwhelming the UI
-	suggestions := s.svc.GenerateAllSearchSuggestions()
-	matchingSuggestions := data.FilterSuggestionsOptimized(suggestions, query, maxSuggestions)
+	matchingSuggestions := s.svc.FilterSearchSuggestions(query, maxSuggestions)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(matchingSuggestions)

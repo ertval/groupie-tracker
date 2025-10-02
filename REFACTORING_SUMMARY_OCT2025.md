@@ -110,6 +110,7 @@ All existing code continues to work:
 - ✅ `.github/copilot-instructions.md` - Comprehensive architecture documentation
 - ✅ `README.md` - Updated refactoring section and feature list
 - ✅ This summary document - Complete refactoring overview
+- ✅ Oct 2025 cleanup: legacy `internal/data` repository/filter/search/test stubs now excluded from builds; service layer is the sole facade
 
 ### Key Documentation Changes
 - Added concurrent loading patterns
