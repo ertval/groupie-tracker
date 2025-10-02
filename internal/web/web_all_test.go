@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -51,17 +49,6 @@ func createTestServer(t *testing.T) *App {
 		}
 	}))
 	t.Cleanup(mockServer.Close)
-
-	// Save original working directory and change to project root
-	originalWd, _ := os.Getwd()
-	projectRoot := filepath.Join(originalWd, "..", "..")
-	err := os.Chdir(projectRoot)
-	if err != nil {
-		t.Fatalf("Failed to change to project root: %v", err)
-	}
-	t.Cleanup(func() {
-		os.Chdir(originalWd)
-	})
 
 	// Configure test environment
 	originalAPIURL := conf.APIBaseURL
@@ -304,6 +291,12 @@ func TestServiceAccess(t *testing.T) {
 	stats := server.store.Stats()
 	if stats.TotalArtists == 0 {
 		t.Error("Service should return stats")
+	}
+
+	// Test service access for stats
+	stats := server.store.Stats()
+	if stats.TotalArtists <= 0 {
+		t.Error("Stats should report a valid number of artists")
 	}
 }
 
