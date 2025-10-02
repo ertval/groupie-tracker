@@ -399,43 +399,63 @@ func TestSearchSuggestions(t *testing.T) {
 	}
 }
 
-// TestSearchCache tests the search result caching mechanism
-func TestSearchCache(t *testing.T) {
+// TestSearchRelevance tests the search relevance ranking
+func TestSearchRelevance(t *testing.T) {
 	store := createSearchStore()
 
-	t.Run("Caches simple queries", func(t *testing.T) {
+	t.Run("Exact match ranks first", func(t *testing.T) {
 		params := SearchParams{Query: "queen"}
-		store.SearchArtists(params)
+		result := store.SearchArtists(params)
 
-		store.searchCacheMu.Lock()
-		if len(store.searchCache) != 1 {
-			t.Errorf("Expected cache size 1, got %d", len(store.searchCache))
+		if len(result.Artists) == 0 {
+			t.Fatal("Expected search results for 'queen'")
 		}
-		if _, ok := store.searchCache["queen"]; !ok {
-			t.Error("Expected cached entry for 'queen'")
-		}
-		store.searchCacheMu.Unlock()
 
-		// Search again - should use cache
-		store.SearchArtists(params)
-
-		store.searchCacheMu.Lock()
-		if len(store.searchOrder) != 1 {
-			t.Errorf("Expected search order length 1, got %d", len(store.searchOrder))
+		// Queen (exact match) should be first
+		if result.Artists[0].Name != "Queen" {
+			t.Errorf("Expected 'Queen' first, got %s", result.Artists[0].Name)
 		}
-		store.searchCacheMu.Unlock()
 	})
 
-	t.Run("Does not cache filtered searches", func(t *testing.T) {
-		store := createSearchStore() // Fresh store
-		filters := ArtistFilterParams{Countries: []string{"UK"}}
-		store.SearchArtists(SearchParams{Query: "queen", Filters: filters})
+	t.Run("Prefix match works", func(t *testing.T) {
+		params := SearchParams{Query: "phil"}
+		result := store.SearchArtists(params)
 
-		store.searchCacheMu.Lock()
-		defer store.searchCacheMu.Unlock()
-		if len(store.searchCache) != 0 {
-			t.Errorf("Expected filtered searches not to be cached, found %d entries",
-				len(store.searchCache))
+		if len(result.Artists) == 0 {
+			t.Fatal("Expected search results for 'phil'")
+		}
+
+		// Phil Collins should be found
+		found := false
+		for _, artist := range result.Artists {
+			if artist.Name == "Phil Collins" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Expected to find Phil Collins in results")
+		}
+	})
+
+	t.Run("Partial match works", func(t *testing.T) {
+		params := SearchParams{Query: "pink"}
+		result := store.SearchArtists(params)
+
+		if len(result.Artists) == 0 {
+			t.Fatal("Expected search results for 'pink'")
+		}
+
+		// Pink Floyd should be found
+		found := false
+		for _, artist := range result.Artists {
+			if artist.Name == "Pink Floyd" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Error("Expected to find Pink Floyd in results")
 		}
 	})
 }

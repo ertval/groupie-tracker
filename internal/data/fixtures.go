@@ -33,7 +33,6 @@ func NewStoreFromFixtures(artists []Artist, locations []Location) *Store {
 	store.suggestions = store.generateSearchSuggestions(normalizedArtists)
 	store.appStats = store.calculateStats(normalizedArtists, catalog.AllLocations(), 0, 0)
 	store.cacheEnabled = false
-	store.searchCache = make(map[string][]*Artist, 50)
 
 	return store
 }

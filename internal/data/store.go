@@ -31,12 +31,6 @@ type Store struct {
 	artistFilters   ArtistFilterOptions   // Available filter values (creation years, album years, member counts, countries)
 	locationFilters LocationFilterOptions // Available location filter values (concert ranges, year ranges, countries)
 
-	// Search result cache (LRU-style) - protects performance on repeated identical queries
-	searchCacheMu   sync.Mutex           // Mutex protects concurrent access to cache maps
-	searchCache     map[string][]*Artist // Maps normalized query strings to cached result slices
-	searchOrder     []string             // Tracks query insertion order for LRU eviction
-	searchCacheSize int                  // Maximum cache entries (50) before LRU eviction kicks in
-
 	loadOnce sync.Once // Ensures Load() executes exactly once even if called concurrently
 	loadErr  error     // Stores any error from the single Load() execution for return to all callers
 }
@@ -45,11 +39,8 @@ type Store struct {
 // The Store is not usable until Load() successfully completes.
 func NewStore(apiClient *api.Client, withCache bool) *Store {
 	return &Store{
-		apiClient:       apiClient,
-		withCache:       withCache,
-		searchCache:     make(map[string][]*Artist, 50), // Pre-allocate for 50 entries (LRU cache size)
-		searchOrder:     make([]string, 0, 50),          // Pre-allocate for 50 entries (LRU cache size)
-		searchCacheSize: 50,                             // Max cached searches before eviction
+		apiClient: apiClient,
+		withCache: withCache,
 	}
 }
 

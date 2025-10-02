@@ -2,8 +2,18 @@ package data
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
+	"strconv"
+	"strings"
 )
+
+// SearchIndex holds normalized search tokens for fast searching.
+// Built during Catalog.Build() and immutable afterward.
+type SearchIndex struct {
+	artistTokens   map[int][]string    // artistID -> normalized tokens
+	locationTokens map[string][]string // locationSlug -> normalized tokens
+}
 
 // Catalog is a lightweight component that owns and provides access to normalized data.
 // It maintains the core collections (Artists, Locations, Concerts) and provides
@@ -20,6 +30,9 @@ type Catalog struct {
 	artistsBySlug   map[string]*Artist  // O(1) lookup by URL-friendly slug
 	artistPositions map[int]int         // Maps artist ID to its index in sorted Artists slice
 	locationsBySlug map[string]Location // Same as Locations (for backward compatibility)
+
+	// Search index - immutable after Build()
+	searchIndex *SearchIndex // Token-based search index for fast queries
 }
 
 // NewCatalog creates a new empty Catalog ready for building.
@@ -77,15 +90,16 @@ func (c *Catalog) Build() error {
 		c.artistPositions[artist.ID] = i
 
 		// Extract concerts from artists into catalog.Concerts for location aggregation
-		for _, concert := range artist.Concerts {
-			c.Concerts = append(c.Concerts, concert)
-		}
+		c.Concerts = append(c.Concerts, artist.Concerts...)
 	}
 
 	// Build location aggregations
 	if err := c.buildLocations(); err != nil {
 		return err
 	}
+
+	// Build search index
+	c.searchIndex = c.buildSearchIndex()
 
 	return nil
 }
@@ -203,4 +217,85 @@ func (c *Catalog) ArtistPosition(id int) int {
 		return pos
 	}
 	return -1
+}
+
+// normalizeTokens converts text to normalized search tokens.
+// Tokens are lowercase, with special characters removed, deduplicated.
+func normalizeTokens(text string) []string {
+	// Convert to lowercase
+	text = strings.ToLower(strings.TrimSpace(text))
+
+	// Remove special characters, keep only alphanumeric and spaces
+	reg := regexp.MustCompile(`[^a-z0-9\s]+`)
+	text = reg.ReplaceAllString(text, " ")
+
+	// Split by whitespace and deduplicate
+	words := strings.Fields(text)
+	seen := make(map[string]bool)
+	tokens := make([]string, 0, len(words))
+
+	for _, word := range words {
+		if word != "" && !seen[word] {
+			tokens = append(tokens, word)
+			seen[word] = true
+		}
+	}
+
+	return tokens
+}
+
+// buildSearchIndex creates the search index with normalized tokens for all searchable entities.
+func (c *Catalog) buildSearchIndex() *SearchIndex {
+	index := &SearchIndex{
+		artistTokens:   make(map[int][]string, len(c.Artists)),
+		locationTokens: make(map[string][]string, len(c.Locations)),
+	}
+
+	// Index artists
+	for _, artist := range c.Artists {
+		tokens := make([]string, 0)
+
+		// Add artist name tokens
+		tokens = append(tokens, normalizeTokens(artist.Name)...)
+
+		// Add member name tokens
+		for _, member := range artist.Members {
+			tokens = append(tokens, normalizeTokens(member)...)
+		}
+
+		// Add creation year as token
+		tokens = append(tokens, strconv.Itoa(artist.CreationYear))
+
+		// Add first album tokens
+		tokens = append(tokens, normalizeTokens(artist.FirstAlbum)...)
+
+		// Add location tokens (countries and city names)
+		for _, country := range artist.Countries() {
+			tokens = append(tokens, normalizeTokens(country)...)
+		}
+
+		for _, concert := range artist.Concerts {
+			tokens = append(tokens, normalizeTokens(concert.Location)...)
+		}
+
+		// Deduplicate tokens
+		seen := make(map[string]bool)
+		uniqueTokens := make([]string, 0, len(tokens))
+		for _, token := range tokens {
+			if token != "" && !seen[token] {
+				uniqueTokens = append(uniqueTokens, token)
+				seen[token] = true
+			}
+		}
+
+		index.artistTokens[artist.ID] = uniqueTokens
+	}
+
+	// Index locations
+	for slug, location := range c.Locations {
+		tokens := normalizeTokens(location.Name)
+		index.locationTokens[slug] = tokens
+	}
+
+	return index
 }

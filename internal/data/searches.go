@@ -7,24 +7,12 @@ import (
 )
 
 // SearchArtists performs full-text search across artist names, members, and metadata with optional filtering.
-// Uses LRU caching for repeated identical queries (when filters are empty) to improve performance.
+// Uses token-based search index for fast matching without caching complexity.
 // Search matches: artist name, member names, creation year, first album year, and location names.
 func (s *Store) SearchArtists(params SearchParams) SearchResult {
 	artists := s.Artists()
 	normalizedQuery := normalizeSearchQuery(params.Query) // Lowercase and trim for case-insensitive matching
 	filtersEmpty := isEmptyFilter(params.Filters)
-	useCache := normalizedQuery != "" && filtersEmpty // Only cache pure search queries without filters
-
-	// Try to retrieve from cache if applicable (skip cache if filters are active)
-	if useCache {
-		if cached, ok := s.getCachedSearchResults(normalizedQuery); ok {
-			return SearchResult{
-				Artists:      cached,
-				Query:        params.Query,
-				TotalResults: len(cached),
-			}
-		}
-	}
 
 	var matchingArtists []*Artist
 
@@ -32,12 +20,9 @@ func (s *Store) SearchArtists(params SearchParams) SearchResult {
 	if normalizedQuery == "" {
 		matchingArtists = artists
 	} else {
-		// Linear search through all artists (acceptable since dataset is small ~52 artists)
-		for _, artist := range artists {
-			if matchesSearchQuery(*artist, normalizedQuery) { // Check name, members, years, locations
-				matchingArtists = append(matchingArtists, artist)
-			}
-		}
+		// Search using token index for better performance
+		queryTokens := normalizeTokens(normalizedQuery)
+		matchingArtists = s.searchArtistsWithTokens(queryTokens)
 	}
 
 	// Apply filters if any are specified (filters are ANDed with search results)
@@ -51,9 +36,9 @@ func (s *Store) SearchArtists(params SearchParams) SearchResult {
 		matchingArtists = filtered
 	}
 
-	// Store in cache for future identical queries (only if using cache and filters are empty)
-	if useCache {
-		s.setCachedSearchResults(normalizedQuery, matchingArtists)
+	// Sort by relevance if there's a query
+	if normalizedQuery != "" {
+		sortByRelevance(matchingArtists, normalizedQuery)
 	}
 
 	return SearchResult{
@@ -61,6 +46,71 @@ func (s *Store) SearchArtists(params SearchParams) SearchResult {
 		Query:        params.Query,
 		TotalResults: len(matchingArtists),
 	}
+}
+
+// searchArtistsWithTokens searches for artists matching the query tokens using the search index.
+func (s *Store) searchArtistsWithTokens(queryTokens []string) []*Artist {
+	if s.catalog == nil || s.catalog.searchIndex == nil {
+		return []*Artist{}
+	}
+
+	var results []*Artist
+	artists := s.Artists()
+
+	for _, artist := range artists {
+		artistTokens := s.catalog.searchIndex.artistTokens[artist.ID]
+		if matchesTokens(artistTokens, queryTokens) {
+			results = append(results, artist)
+		}
+	}
+
+	return results
+}
+
+// matchesTokens checks if any query token matches any document token.
+// Uses substring matching for flexible search (e.g., "que" matches "queen").
+func matchesTokens(docTokens, queryTokens []string) bool {
+	for _, qt := range queryTokens {
+		for _, dt := range docTokens {
+			if strings.Contains(dt, qt) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// sortByRelevance sorts search results by relevance to the query.
+// Priority: exact name match > prefix match > contains match > alphabetical.
+func sortByRelevance(results []*Artist, query string) {
+	sort.Slice(results, func(i, j int) bool {
+		nameI := strings.ToLower(results[i].Name)
+		nameJ := strings.ToLower(results[j].Name)
+
+		// Exact match wins
+		exactI := nameI == query
+		exactJ := nameJ == query
+		if exactI != exactJ {
+			return exactI
+		}
+
+		// Prefix match is second priority
+		prefixI := strings.HasPrefix(nameI, query)
+		prefixJ := strings.HasPrefix(nameJ, query)
+		if prefixI != prefixJ {
+			return prefixI
+		}
+
+		// Contains match is third priority
+		containsI := strings.Contains(nameI, query)
+		containsJ := strings.Contains(nameJ, query)
+		if containsI != containsJ {
+			return containsI
+		}
+
+		// Default to alphabetical order
+		return nameI < nameJ
+	})
 }
 
 // GenerateAllSearchSuggestions returns the complete precomputed suggestion list for autocomplete.

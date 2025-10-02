@@ -1,7 +1,7 @@
 # Phase 5: Code Polish & Documentation
 
 ## Overview
-This phase focuses on cleaning up the codebase by removing redundant comments, normalizing naming conventions, reviewing package responsibilities, updating documentation, and ensuring code quality standards.
+This phase focuses on cleaning up the codebase by removing redundant code and comments, normalizing naming conventions, reviewing package responsibilities, updating documentation, and ensuring code quality standards.
 
 ## Step 5.1: Remove Redundant Comments
 **Goal:** Keep only rationale-level comments.
