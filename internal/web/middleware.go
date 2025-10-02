@@ -98,3 +98,28 @@ func (app *App) restrictMethod(handler http.HandlerFunc, allowedMethods ...strin
 		handler(w, r) // Method is allowed, proceed with handler execution
 	}
 }
+
+// create a function post that allows only post requests
+func (app *App) post(handler http.HandlerFunc) http.HandlerFunc {
+	return app.restrictMethod(handler, http.MethodPost)
+}
+
+// create a function get that allows only get requests
+func (app *App) get(handler http.HandlerFunc) http.HandlerFunc {
+	return app.restrictMethod(handler, http.MethodGet)
+}
+
+// create a function getAndPost that allows only get and post requests
+func (app *App) getPost(handler http.HandlerFunc) http.HandlerFunc {
+	return app.restrictMethod(handler, http.MethodGet, http.MethodPost)
+}
+
+// create a function any that allows any request method
+func (app *App) any(handler http.HandlerFunc) http.HandlerFunc {
+	return handler // No method restriction, allow any HTTP method
+}
+
+// create a function getAndHead that allows only get and head requests
+func (app *App) getHead(handler http.HandlerFunc) http.HandlerFunc {
+	return app.restrictMethod(handler, http.MethodGet, http.MethodHead)
+}

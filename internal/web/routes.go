@@ -11,33 +11,33 @@ func (app *App) createServeMux() *http.ServeMux {
 	router := http.NewServeMux()
 
 	// Static assets: CSS, JS, images, and favicon
-	router.HandleFunc("/static/", app.restrictMethod(app.StaticFiles, "GET", "HEAD"))
-	router.HandleFunc("/favicon.ico", app.restrictMethod(app.StaticFiles, "GET", "HEAD"))
+	router.HandleFunc("/static/", app.getHead(app.StaticFiles))
+	router.HandleFunc("/favicon.ico", app.getHead(app.StaticFiles))
 
 	// Health check endpoint for monitoring
-	router.HandleFunc("/health", app.restrictMethod(app.Health, "GET"))
+	router.HandleFunc("/health", app.get(app.Health))
 
 	// API endpoints
-	router.HandleFunc("/api/suggestions", app.restrictMethod(app.SuggestionsAPI, "GET"))
+	router.HandleFunc("/api/suggestions", app.get(app.SuggestionsAPI))
 
 	// Search endpoints (supports both GET and POST)
-	router.HandleFunc("/search", app.restrictMethod(app.Search, "GET", "POST"))
+	router.HandleFunc("/search", app.getPost(app.Search))
 
 	// Development tools (only active in dev mode)
-	router.HandleFunc("/dev", app.restrictMethod(app.DevIndex, "GET"))
-	router.HandleFunc("/dev/panic", app.DevPanic) // No method guard - allows any method for testing
-	router.HandleFunc("/dev/404", app.Dev404)
-	router.HandleFunc("/dev/500", app.Dev500)
-	router.HandleFunc("/dev/tmpl-error", app.Dev500Tmpl)
+	router.HandleFunc("/dev", app.get(app.DevIndex))
+	router.HandleFunc("/dev/panic", app.any(app.DevPanic)) // No method guard - allows any method for testing
+	router.HandleFunc("/dev/404", app.any(app.Dev404))
+	router.HandleFunc("/dev/500", app.any(app.Dev500))
+	router.HandleFunc("/dev/tmpl-error", app.any(app.Dev500Tmpl))
 
 	// Main application pages with filter support
-	router.HandleFunc("/artists", app.restrictMethod(app.Artists, "GET", "POST"))
-	router.HandleFunc("/artists/", app.restrictMethod(app.ArtistDetail, "GET"))
-	router.HandleFunc("/locations", app.restrictMethod(app.Locations, "GET", "POST"))
-	router.HandleFunc("/locations/", app.restrictMethod(app.LocationDetail, "GET"))
+	router.HandleFunc("/artists", app.getPost(app.Artists))
+	router.HandleFunc("/artists/", app.get(app.ArtistDetail))
+	router.HandleFunc("/locations", app.getPost(app.Locations))
+	router.HandleFunc("/locations/", app.get(app.LocationDetail))
 
 	// Home page (catch-all root handler)
-	router.HandleFunc("/", app.restrictMethod(app.Home, "GET"))
+	router.HandleFunc("/", app.get(app.Home))
 
 	return router
 }

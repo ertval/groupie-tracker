@@ -38,9 +38,9 @@
                         <div class="artist-info">
                             <h3 class="artist-name">{{$artist.Name}}</h3>
                             <p class="artist-details">
-                                {{len $artist.Members}} member{{if ne (len $artist.Members) 1}}s{{end}} • 
+                                {{$artist.ConcertCount}} concert{{if ne $artist.ConcertCount 1}}s{{end}} • 
                                 Founded {{$artist.CreationYear}} • 
-                                {{$artist.ConcertCount}} concert{{if ne $artist.ConcertCount 1}}s{{end}}
+                                {{len $artist.Members}} member{{if ne (len $artist.Members) 1}}s{{end}}
                             </p>
                             {{if $artist.Countries}}
                             <p class="artist-countries">
