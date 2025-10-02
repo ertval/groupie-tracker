@@ -8,11 +8,13 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"groupie-tracker/internal/api"
 )
@@ -1139,8 +1141,14 @@ func (s *Store) cacheImages(artists []Artist) (bool, int, int) {
 		return false, 0, 0
 	}
 
-	// Use worker pool for concurrent downloads
-	numWorkers := 4 // Fixed number of workers for consistent behavior
+	// Adaptive worker count: scale with CPU cores, but cap at artist count
+	numWorkers := runtime.NumCPU()
+	if numWorkers > len(artists) {
+		numWorkers = len(artists)
+	}
+	if numWorkers < 1 {
+		numWorkers = 1
+	}
 
 	// Job represents a download task
 	type job struct {
@@ -1183,7 +1191,7 @@ func (s *Store) cacheImages(artists []Artist) (bool, int, int) {
 	var cached, downloaded int32
 	var mu sync.Mutex // Mutex for updating artist images
 
-	// Start worker pool
+	// Start adaptive worker pool
 	var wg sync.WaitGroup
 	for w := 0; w < numWorkers; w++ {
 		wg.Add(1)
@@ -1197,7 +1205,7 @@ func (s *Store) cacheImages(artists []Artist) (bool, int, int) {
 					mu.Unlock()
 					atomic.AddInt32(&cached, 1)
 				} else {
-					// Download image
+					// Download image with timeout
 					if downloadImage(j.artist.Image, j.filePath) {
 						mu.Lock()
 						j.artist.Image = j.localPath
@@ -1219,12 +1227,18 @@ func (s *Store) cacheImages(artists []Artist) (bool, int, int) {
 // ============================================================================
 
 // downloadImage downloads and saves a single image from a URL to local filesystem.
+// Uses a 10-second timeout to prevent hanging on slow/dead URLs.
 func downloadImage(url, path string) bool {
 	if strings.TrimSpace(url) == "" {
 		return false
 	}
 
-	resp, err := http.Get(url)
+	// Create HTTP client with timeout
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(url)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		if resp != nil {
 			resp.Body.Close()

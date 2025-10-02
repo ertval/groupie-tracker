@@ -110,3 +110,12 @@ Read the codebase carefully. Then Propose a restructuring/refactoring plan that 
 - Try to find a golden ration between complexity and simplicity.
 - Remove any compatibility code and refactor for efficiency, simplicity, maintainability and idiomatic go best practices.
 - Store your plan in a md file that starts with your name.
+
+---
+
+Break down the store.go file into these seperate files:
+- store.go: main store struct and constructor
+- searches.go: all search related methods
+- filters.go: all filter related methods
+- cache.go: all caching related methods
+
