@@ -2,16 +2,15 @@ package web
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"groupie-tracker/internal/data"
+	"groupie-tracker/internal/view"
 )
 
 // ============================================================================
@@ -69,31 +68,10 @@ func (app *App) Home(w http.ResponseWriter, r *http.Request) {
 	}
 
 	artists := app.store.Artists()
-	stats := app.store.Stats()
-	suggestions := app.store.GenerateAllSearchSuggestions()
+	featuredArtists := getRandomArtists(artists, 8)
 
-	// Get 8 random artists for homepage display
-	artists = getRandomArtists(artists, 8)
-
-	data := struct {
-		Title          string
-		ExtraCSS       string
-		ExtraJS        string
-		Suggestions    []data.SearchSuggestion
-		Artists        []*data.Artist
-		TotalMembers   int
-		TotalLocations int
-	}{
-		Title:          "Home",
-		ExtraCSS:       "home.css",
-		ExtraJS:        "",
-		Suggestions:    suggestions,
-		Artists:        artists,
-		TotalMembers:   stats.TotalMembers,
-		TotalLocations: stats.TotalLocations,
-	}
-
-	app.render(w, r, "home.tmpl", data)
+	page := view.NewHomePage(app.store, featuredArtists)
+	app.render(w, r, "home.tmpl", page)
 }
 
 // ============================================================================
@@ -109,9 +87,9 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 
 	artists := app.store.Artists()
 	filterOptions := app.store.GetArtistFilterOptions()
-	suggestions := app.store.GenerateAllSearchSuggestions()
 	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
+	isFiltered := false
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
@@ -121,6 +99,7 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 
 		appliedFilters = parseArtistFilterParams(r)
 		artists = app.store.FilterArtists(appliedFilters)
+		isFiltered = true
 	}
 
 	// Sort artists by concert count (descending) for main display
@@ -128,29 +107,8 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 		return artists[i].ConcertCount() > artists[j].ConcertCount()
 	})
 
-	data := struct {
-		Title          string
-		ExtraCSS       string
-		ExtraJS        string
-		Suggestions    []data.SearchSuggestion
-		Artists        []*data.Artist
-		FilterOptions  data.ArtistFilterOptions
-		AppliedFilters data.ArtistFilterParams
-		IsFiltered     bool
-		TotalArtists   int
-	}{
-		Title:          "Artists",
-		ExtraCSS:       "artists.css",
-		ExtraJS:        "",
-		Suggestions:    suggestions,
-		Artists:        artists,
-		FilterOptions:  filterOptions,
-		AppliedFilters: appliedFilters,
-		IsFiltered:     r.Method == http.MethodPost,
-		TotalArtists:   totalArtists,
-	}
-
-	app.render(w, r, "artists.tmpl", data)
+	page := view.NewArtistListPage(app.store, artists, filterOptions, appliedFilters, isFiltered, totalArtists)
+	app.render(w, r, "artists.tmpl", page)
 }
 
 // ArtistDetail handles individual artist pages.
@@ -176,27 +134,9 @@ func (app *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 
 	// Get navigation artists using on-demand lookup
 	prevArtist, nextArtist := app.store.GetAdjacentArtists(artist.ID)
-	suggestions := app.store.GenerateAllSearchSuggestions()
 
-	data := struct {
-		Title       string
-		ExtraCSS    string
-		ExtraJS     string
-		Suggestions []data.SearchSuggestion
-		Artist      *data.Artist
-		PrevArtist  *data.Artist
-		NextArtist  *data.Artist
-	}{
-		Title:       artist.Name,
-		ExtraCSS:    "artist_detail.css",
-		ExtraJS:     "",
-		Suggestions: suggestions,
-		Artist:      artist,
-		PrevArtist:  prevArtist,
-		NextArtist:  nextArtist,
-	}
-
-	app.render(w, r, "artist_detail.tmpl", data)
+	page := view.NewArtistDetailPage(app.store, artist, prevArtist, nextArtist)
+	app.render(w, r, "artist_detail.tmpl", page)
 }
 
 // ============================================================================
@@ -212,10 +152,8 @@ func (app *App) Locations(w http.ResponseWriter, r *http.Request) {
 
 	locations := app.store.Locations()
 	filterOptions := app.store.GetLocationFilterOptions()
-	suggestions := app.store.GenerateAllSearchSuggestions()
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
-	stats := app.store.Stats()
 
 	// If POST request, parse form data and apply filters
 	if r.Method == http.MethodPost {
@@ -247,35 +185,8 @@ func (app *App) Locations(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	data := struct {
-		Title                 string
-		ExtraCSS              string
-		ExtraJS               string
-		Suggestions           []data.SearchSuggestion
-		Locations             []data.Location
-		LocationFilterOptions data.LocationFilterOptions
-		AppliedFilters        data.LocationFilterParams
-		IsFiltered            bool
-		FilterDescription     string
-		TotalLocations        int
-		TotalCountries        int
-		TotalConcerts         int
-	}{
-		Title:                 "Locations",
-		ExtraCSS:              "locations.css",
-		ExtraJS:               "",
-		Suggestions:           suggestions,
-		Locations:             locations,
-		LocationFilterOptions: filterOptions,
-		AppliedFilters:        appliedFilters,
-		IsFiltered:            isFiltered,
-		FilterDescription:     filterDescription,
-		TotalLocations:        totalLocations,
-		TotalCountries:        stats.TotalCountries,
-		TotalConcerts:         stats.TotalConcerts,
-	}
-
-	app.render(w, r, "locations.tmpl", data)
+	page := view.NewLocationListPage(app.store, locations, filterOptions, appliedFilters, isFiltered, filterDescription, totalLocations)
+	app.render(w, r, "locations.tmpl", page)
 }
 
 // LocationDetail handles individual location pages.
@@ -292,29 +203,8 @@ func (app *App) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	suggestions := app.store.GenerateAllSearchSuggestions()
-
-	data := struct {
-		Title        string
-		ExtraCSS     string
-		ExtraJS      string
-		Suggestions  []data.SearchSuggestion
-		Location     data.Location
-		Artists      []data.ArtistAtLocation
-		PrevLocation *data.Location `json:"prevLocation,omitempty"`
-		NextLocation *data.Location `json:"nextLocation,omitempty"`
-	}{
-		Title:        fmt.Sprintf("%s - Location", location.Name),
-		ExtraCSS:     "location_detail.css",
-		ExtraJS:      "",
-		Suggestions:  suggestions,
-		Location:     location,
-		Artists:      location.Artists,
-		PrevLocation: nil, // Could be implemented later for location navigation
-		NextLocation: nil, // Could be implemented later for location navigation
-	}
-
-	app.render(w, r, "location_detail.tmpl", data)
+	page := view.NewLocationDetailPage(app.store, location, location.Artists)
+	app.render(w, r, "location_detail.tmpl", page)
 }
 
 // ============================================================================
@@ -331,6 +221,7 @@ func (app *App) Search(w http.ResponseWriter, r *http.Request) {
 	var searchQuery string
 	var appliedFilters data.ArtistFilterParams
 	var searchResults data.SearchResult
+	isSearch := false
 
 	// Handle search submission
 	if r.Method == http.MethodPost {
@@ -348,36 +239,12 @@ func (app *App) Search(w http.ResponseWriter, r *http.Request) {
 			Filters: appliedFilters,
 		}
 		searchResults = app.store.SearchArtists(searchParams)
+		isSearch = searchQuery != ""
 	}
 
 	filterOptions := app.store.GetArtistFilterOptions()
-
-	// Generate all search suggestions for datalist
-	allSuggestions := app.store.GenerateAllSearchSuggestions()
-
-	data := struct {
-		Title          string
-		ExtraCSS       string
-		ExtraJS        string
-		Suggestions    []data.SearchSuggestion
-		Query          string
-		Results        data.SearchResult
-		FilterOptions  data.ArtistFilterOptions
-		AppliedFilters data.ArtistFilterParams
-		IsSearch       bool
-	}{
-		Title:          "Search",
-		ExtraCSS:       "search.css",
-		ExtraJS:        "",
-		Suggestions:    allSuggestions, // Use cached suggestions
-		Query:          searchQuery,
-		Results:        searchResults,
-		FilterOptions:  filterOptions,
-		AppliedFilters: appliedFilters,
-		IsSearch:       r.Method == http.MethodPost && searchQuery != "",
-	}
-
-	app.render(w, r, "search.tmpl", data)
+	page := view.NewSearchPage(app.store, searchQuery, searchResults, filterOptions, appliedFilters, isSearch)
+	app.render(w, r, "search.tmpl", page)
 }
 
 // SuggestionsAPI provides search suggestions for autocomplete functionality.
@@ -398,11 +265,7 @@ func (app *App) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 
 // Health provides a health check endpoint.
 func (app *App) Health(w http.ResponseWriter, r *http.Request) {
-	response := map[string]any{
-		"status":    "healthy",
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-		"stats":     app.store.Stats(),
-	}
+	response := view.NewHealthResponse(app.store)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -414,31 +277,8 @@ func (app *App) Health(w http.ResponseWriter, r *http.Request) {
 
 // DevIndex renders a small developer page with quick links.
 func (app *App) DevIndex(w http.ResponseWriter, r *http.Request) {
-	links := []struct{ Href, Text string }{
-		{"/dev/panic", "Trigger Panic (/dev/panic)"},
-		{"/dev/404", "Simulate 404 (/dev/404)"},
-		{"/dev/500", "Simulate 500 (/dev/500)"},
-		{"/dev/tmpl-error", "Simulate Template Error (/dev/tmpl-error)"},
-		{"/health", "Health Check (/health)"},
-	}
-
-	suggestions := app.store.GenerateAllSearchSuggestions()
-
-	data := struct {
-		Title       string
-		ExtraCSS    string
-		ExtraJS     string
-		Suggestions []data.SearchSuggestion
-		Links       []struct{ Href, Text string }
-	}{
-		Title:       "Developer Tools",
-		ExtraCSS:    "dev.css",
-		ExtraJS:     "",
-		Suggestions: suggestions,
-		Links:       links,
-	}
-
-	app.render(w, r, "dev.tmpl", data)
+	page := view.NewDevPage(app.store)
+	app.render(w, r, "dev.tmpl", page)
 }
 
 // DevPanic is a development endpoint to test panic recovery.
@@ -480,27 +320,8 @@ func (app *App) Dev500Tmpl(w http.ResponseWriter, r *http.Request) {
 
 // Error handles all errors (4xx and 5xx) in a centralized way.
 func (app *App) Error(w http.ResponseWriter, r *http.Request, status int, message string) {
-	data := struct {
-		Title        string
-		ExtraCSS     string
-		ExtraJS      string
-		Suggestions  []data.SearchSuggestion
-		ErrorCode    int
-		RequestedURL string
-		Message      string
-		Timestamp    string
-	}{
-		Title:        fmt.Sprintf("%d %s", status, http.StatusText(status)),
-		ExtraCSS:     "errors.css",
-		ExtraJS:      "",
-		Suggestions:  nil, // Error pages don't need search suggestions
-		ErrorCode:    status,
-		RequestedURL: r.URL.Path,
-		Message:      message,
-		Timestamp:    time.Now().Format("2006-01-02 15:04:05"),
-	}
-
-	app.render(w, r, "error.tmpl", data, status)
+	page := view.NewErrorPage(status, r.URL.Path, message)
+	app.render(w, r, "error.tmpl", page, status)
 }
 
 // NotFoundError sends a 404 error response.

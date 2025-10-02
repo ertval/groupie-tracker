@@ -15,11 +15,33 @@ import (
 	"strings"
 )
 
-// --- Template Data Structures ---
-
-// --- Template Rendering System ---
+// ============================================================================
+// TEMPLATE RENDERING SYSTEM
+// ============================================================================
+//
+// Templates are compiled once at startup and cached in memory for performance.
+// All templates extend base.tmpl which provides the common layout structure.
+//
+// Template Functions:
+//   - add, sub: Arithmetic operations
+//   - join: Join string slices
+//   - upper: Convert to uppercase
+//   - title: Title-case conversion
+//   - contains: Check if item exists in slice
+//
+// Execution Flow:
+//   1. Lookup template in cache
+//   2. Execute to buffer (catch errors before sending)
+//   3. Send buffer to response writer
+//
+// Error Handling:
+//   - Missing templates: Return 500 error
+//   - Execution errors: Return 500 error (except for error.tmpl)
+//   - error.tmpl failures: Return plain text error
+// ============================================================================
 
 // render executes a template and sends the response.
+// Uses a buffer to catch template execution errors before sending the HTTP response.
 func (app *App) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
 	code := http.StatusOK
 	if len(status) > 0 {
@@ -57,47 +79,13 @@ func (app *App) render(w http.ResponseWriter, r *http.Request, name string, data
 	buf.WriteTo(w)
 }
 
-// loadTemplates compiles and caches all HTML templates.
+// loadTemplates compiles and caches all HTML templates once at startup.
+// Each template includes base.tmpl for layout inheritance.
 func (app *App) loadTemplates() {
 	app.templates = make(map[string]*template.Template)
 
-	// Custom template functions for common operations
-	funcMap := template.FuncMap{
-		"add":   func(a, b int) int { return a + b },
-		"sub":   func(a, b int) int { return a - b },
-		"join":  func(items []string, sep string) string { return strings.Join(items, sep) },
-		"upper": func(s string) string { return strings.ToUpper(s) },
-		"title": func(s string) string {
-			words := strings.Fields(strings.ReplaceAll(s, "-", " "))
-			for i, word := range words {
-				if len(word) > 0 {
-					words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
-				}
-			}
-			return strings.Join(words, " ")
-		},
-		"contains": func(slice interface{}, item interface{}) bool {
-			switch s := slice.(type) {
-			case []int:
-				if i, ok := item.(int); ok {
-					for _, v := range s {
-						if v == i {
-							return true
-						}
-					}
-				}
-			case []string:
-				if str, ok := item.(string); ok {
-					for _, v := range s {
-						if v == str {
-							return true
-						}
-					}
-				}
-			}
-			return false
-		},
-	}
+	// makeFuncMap creates template functions available in all templates
+	funcMap := makeFuncMap()
 
 	const templateDir = "templates"
 	baseTmplPath := filepath.Join(templateDir, "base.tmpl")
@@ -126,7 +114,66 @@ func (app *App) loadTemplates() {
 
 		app.templates[name] = ts
 	}
+
+	log.Printf("Loaded %d templates", len(app.templates))
 }
+
+// makeFuncMap creates the template function map with all available template functions.
+// These functions are available in all templates for common operations.
+func makeFuncMap() template.FuncMap {
+	return template.FuncMap{
+		// Arithmetic operations
+		"add": func(a, b int) int { return a + b },
+		"sub": func(a, b int) int { return a - b },
+
+		// String operations
+		"join":  func(items []string, sep string) string { return strings.Join(items, sep) },
+		"upper": func(s string) string { return strings.ToUpper(s) },
+		"lower": func(s string) string { return strings.ToLower(s) },
+		"title": titleCase,
+
+		// Collection operations
+		"contains": contains,
+	}
+}
+
+// titleCase converts a string to title case, handling hyphens and spaces.
+func titleCase(s string) string {
+	words := strings.Fields(strings.ReplaceAll(s, "-", " "))
+	for i, word := range words {
+		if len(word) > 0 {
+			words[i] = strings.ToUpper(string(word[0])) + strings.ToLower(word[1:])
+		}
+	}
+	return strings.Join(words, " ")
+}
+
+// contains checks if an item exists in a slice (supports int and string slices).
+func contains(slice interface{}, item interface{}) bool {
+	switch s := slice.(type) {
+	case []int:
+		if i, ok := item.(int); ok {
+			for _, v := range s {
+				if v == i {
+					return true
+				}
+			}
+		}
+	case []string:
+		if str, ok := item.(string); ok {
+			for _, v := range s {
+				if v == str {
+					return true
+				}
+			}
+		}
+	}
+	return false
+}
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
 // getPort determines HTTP server port from environment or config.
 func getPort() string {
@@ -143,7 +190,9 @@ func getPort() string {
 	return port
 }
 
-// --- Form Data Processing ---
+// ============================================================================
+// FORM DATA PROCESSING
+// ============================================================================
 
 // parseIntPtr parses integer form field and returns pointer.
 func parseIntPtr(r *http.Request, fieldName string) *int {
@@ -224,7 +273,9 @@ func extractSearchTerm(input string) string {
 	return input
 }
 
-// --- Data Manipulation Utilities ---
+// ============================================================================
+// DATA MANIPULATION UTILITIES
+// ============================================================================
 
 // getRandomArtists shuffles the provided artists slice and returns up to maxCount random artists.
 // This utility function encapsulates the randomization logic to keep handlers clean.

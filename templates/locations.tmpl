@@ -34,19 +34,19 @@
                                     From:
                                     <input type="number" 
                                            name="concertCountFrom" 
-                                           min="{{.LocationFilterOptions.ConcertCount.Min}}" 
-                                           max="{{.LocationFilterOptions.ConcertCount.Max}}"
+                                           min="{{.FilterOptions.ConcertCount.Min}}" 
+                                           max="{{.FilterOptions.ConcertCount.Max}}"
                                            value="{{if .AppliedFilters.ConcertCountFrom}}{{.AppliedFilters.ConcertCountFrom}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ConcertCount.Min}}">
+                                           placeholder="{{.FilterOptions.ConcertCount.Min}}">
                                 </label>
                                 <label>
                                     To:
                                     <input type="number" 
                                            name="concertCountTo" 
-                                           min="{{.LocationFilterOptions.ConcertCount.Min}}" 
-                                           max="{{.LocationFilterOptions.ConcertCount.Max}}"
+                                           min="{{.FilterOptions.ConcertCount.Min}}" 
+                                           max="{{.FilterOptions.ConcertCount.Max}}"
                                            value="{{if .AppliedFilters.ConcertCountTo}}{{.AppliedFilters.ConcertCountTo}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ConcertCount.Max}}">
+                                           placeholder="{{.FilterOptions.ConcertCount.Max}}">
                                 </label>
                             </div>
                         </div>
@@ -59,19 +59,19 @@
                                     From:
                                     <input type="number" 
                                            name="artistCountFrom" 
-                                           min="{{.LocationFilterOptions.ArtistCount.Min}}" 
-                                           max="{{.LocationFilterOptions.ArtistCount.Max}}"
+                                           min="{{.FilterOptions.ArtistCount.Min}}" 
+                                           max="{{.FilterOptions.ArtistCount.Max}}"
                                            value="{{if .AppliedFilters.ArtistCountFrom}}{{.AppliedFilters.ArtistCountFrom}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ArtistCount.Min}}">
+                                           placeholder="{{.FilterOptions.ArtistCount.Min}}">
                                 </label>
                                 <label>
                                     To:
                                     <input type="number" 
                                            name="artistCountTo" 
-                                           min="{{.LocationFilterOptions.ArtistCount.Min}}" 
-                                           max="{{.LocationFilterOptions.ArtistCount.Max}}"
+                                           min="{{.FilterOptions.ArtistCount.Min}}" 
+                                           max="{{.FilterOptions.ArtistCount.Max}}"
                                            value="{{if .AppliedFilters.ArtistCountTo}}{{.AppliedFilters.ArtistCountTo}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.ArtistCount.Max}}">
+                                           placeholder="{{.FilterOptions.ArtistCount.Max}}">
                                 </label>
                             </div>
                         </div>
@@ -84,19 +84,19 @@
                                     From:
                                     <input type="number" 
                                            name="concertYearFrom" 
-                                           min="{{.LocationFilterOptions.YearRange.Min}}" 
-                                           max="{{.LocationFilterOptions.YearRange.Max}}"
+                                           min="{{.FilterOptions.YearRange.Min}}" 
+                                           max="{{.FilterOptions.YearRange.Max}}"
                                            value="{{if .AppliedFilters.ConcertYearFrom}}{{.AppliedFilters.ConcertYearFrom}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.YearRange.Min}}">
+                                           placeholder="{{.FilterOptions.YearRange.Min}}">
                                 </label>
                                 <label>
                                     To:
                                     <input type="number" 
                                            name="concertYearTo" 
-                                           min="{{.LocationFilterOptions.YearRange.Min}}" 
-                                           max="{{.LocationFilterOptions.YearRange.Max}}"
+                                           min="{{.FilterOptions.YearRange.Min}}" 
+                                           max="{{.FilterOptions.YearRange.Max}}"
                                            value="{{if .AppliedFilters.ConcertYearTo}}{{.AppliedFilters.ConcertYearTo}}{{end}}"
-                                           placeholder="{{.LocationFilterOptions.YearRange.Max}}">
+                                           placeholder="{{.FilterOptions.YearRange.Max}}">
                                 </label>
                             </div>
                         </div>
@@ -105,7 +105,7 @@
                         <div class="filter-group">
                             <h4>Countries</h4>
                             <div class="checkbox-grid countries-grid">
-                                {{range .LocationFilterOptions.Countries}}
+                                {{range .FilterOptions.Countries}}
                                 <label class="checkbox-label">
                                     <input type="checkbox" 
                                            name="countries" 

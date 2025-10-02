@@ -7,6 +7,24 @@ import (
 	"time"
 )
 
+// ============================================================================
+// MIDDLEWARE CHAIN
+// ============================================================================
+//
+// Middleware execution order (from outermost to innermost):
+//   1. withLogging       - Logs request method, path, and duration
+//   2. withRecovery      - Catches panics and converts to 500 errors
+//   3. withSecureHeaders - Sets security headers on all responses
+//   4. handler           - Actual request handler
+//
+// This ordering ensures:
+//   - All requests are logged, even if they panic
+//   - Panics are caught and don't crash the server
+//   - Security headers are always set
+//
+// To add new middleware, insert it into the withMiddleware function chain.
+// ============================================================================
+
 // withMiddleware assembles the complete middleware chain for all HTTP requests.
 // Chain order (innermost to outermost): secureHeaders → recovery → logging
 // This order ensures security headers are set first, panics are caught, and all requests are logged.

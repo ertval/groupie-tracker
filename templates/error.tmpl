@@ -3,17 +3,17 @@
 {{define "body"}}
 <div class="page error">
     <main class="error-container">
-        {{if eq .ErrorCode 404}}
+        {{if eq .Error.Code 404}}
         <div class="error-404">
             <div class="error-icon">🔍</div>
             <h1>404 - Page Not Found</h1>
             <p class="error-message">The page you're looking for doesn't exist or has been moved.</p>
             <div class="error-details">
-                <p>Requested URL: <code>{{.RequestedURL}}</code></p>
-                {{if .Message}}
-                <p>Error details: <code>{{.Message}}</code></p>
+                <p>Requested URL: <code>{{.Error.RequestedURL}}</code></p>
+                {{if .Error.Message}}
+                <p>Error details: <code>{{.Error.Message}}</code></p>
                 {{end}}
-                <p>Time: {{.Timestamp}}</p>
+                <p>Time: {{.Error.Timestamp}}</p>
             </div>
             <div class="error-suggestions">
                 <h3>What you can do:</h3>
@@ -25,16 +25,16 @@
                 </ul>
             </div>
         </div>
-        {{else if eq .ErrorCode 500}}
+        {{else if eq .Error.Code 500}}
         <div class="error-500">
             <div class="error-icon">⚠️</div>
             <h1>500 - Internal Server Error</h1>
             <p class="error-message">Something went wrong on our end. We're working to fix it!</p>
             <div class="error-details">
-                {{if .Message}}
-                <p>Error details: <code>{{.Message}}</code></p>
+                {{if .Error.Message}}
+                <p>Error details: <code>{{.Error.Message}}</code></p>
                 {{end}}
-                <p>Time: {{.Timestamp}}</p>
+                <p>Time: {{.Error.Timestamp}}</p>
             </div>
             <div class="error-suggestions">
                 <h3>What you can do:</h3>
@@ -49,8 +49,8 @@
         {{else}}
         <div class="error-generic">
             <div class="error-icon">❌</div>
-            <h1>{{.ErrorCode}} - Error</h1>
-            <p class="error-message">{{.Message}}</p>
+            <h1>{{.Error.Code}} - Error</h1>
+            <p class="error-message">{{.Error.Message}}</p>
             <div class="error-suggestions">
                 <ul>
                     <li>Go back to the <a href="/">home page</a></li>
