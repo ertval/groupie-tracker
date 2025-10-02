@@ -19,6 +19,7 @@ func (app *App) createServeMux() *http.ServeMux {
 
 	// API endpoints
 	router.HandleFunc("/api/suggestions", app.get(app.SuggestionsAPI))
+	router.HandleFunc("/api/refresh", app.post(app.RefreshData))
 
 	// Search endpoints (supports both GET and POST)
 	router.HandleFunc("/search", app.getPost(app.Search))

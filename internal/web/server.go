@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"groupie-tracker/internal/api"
@@ -16,7 +17,8 @@ import (
 // App encapsulates the complete HTTP server with its data store, compiled templates, and HTTP server instance.
 // All dependencies are injected at initialization, and the app becomes fully operational after NewApp returns.
 type App struct {
-	store *data.Store // Data store with preloaded artists, locations, indexes, and search suggestions (immutable after Load)
+	store   *data.Store  // Data store with preloaded artists, locations, indexes, and search suggestions (immutable after Load)
+	storeMu sync.RWMutex // Protects store during refresh operations
 
 	templates map[string]*template.Template // Pre-compiled HTML templates mapped by name (e.g., "home.tmpl", "artists.tmpl")
 
@@ -25,6 +27,11 @@ type App struct {
 	// Handler exposes the complete middleware + routing chain for testing purposes.
 	// Tests can create httptest.Server using this handler without starting a real network listener.
 	Handler http.Handler
+
+	// Data refresh components
+	apiClient *api.Client   // API client for refreshing data
+	ticker    *time.Ticker  // Triggers hourly refresh
+	stopChan  chan struct{} // Signals shutdown to background goroutines
 }
 
 // NewApp creates and fully initializes the application with all dependencies injected.
@@ -51,6 +58,7 @@ func NewApp(apiClient *api.Client) (*App, error) {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
 	app.store = store
+	app.apiClient = apiClient
 
 	// Compile all HTML templates once at startup for performance (avoids parsing on every request)
 	app.loadTemplates()
@@ -59,6 +67,9 @@ func NewApp(apiClient *api.Client) (*App, error) {
 	stats := app.store.Stats()
 	log.Printf("Data loaded - %d artists (cached: %d images, downloaded: %d images)",
 		stats.TotalArtists, stats.CachedImages, stats.DownloadedImages)
+
+	// Start background data refresh
+	app.startDataRefresh()
 
 	// Assemble complete middleware chain and route handlers into a single http.Handler
 	serveMux := withMiddleware(app.createServeMux())
@@ -85,4 +96,74 @@ func NewApp(apiClient *api.Client) (*App, error) {
 // This is a blocking operation - it will run until interrupted (Ctrl+C) or an error occurs.
 func (s *App) StartApp() error {
 	return s.httpServer.ListenAndServe()
+}
+
+// getStore returns the current store with read lock for thread-safe access.
+// All handlers should use this method instead of accessing s.store directly.
+func (s *App) getStore() *data.Store {
+	s.storeMu.RLock()
+	defer s.storeMu.RUnlock()
+	return s.store
+}
+
+// startDataRefresh initializes and starts the background data refresh ticker.
+// Refreshes data every hour (configurable via conf.DataRefreshInterval).
+func (s *App) startDataRefresh() {
+	s.ticker = time.NewTicker(conf.DataRefreshInterval)
+	s.stopChan = make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case <-s.ticker.C:
+				s.refreshData()
+			case <-s.stopChan:
+				return
+			}
+		}
+	}()
+
+	log.Printf("Data refresh scheduled every %v", conf.DataRefreshInterval)
+}
+
+// refreshData performs the actual data refresh by creating a new store and loading fresh data.
+// On success, atomically swaps the old store with the new one.
+// On failure, keeps serving the old data and logs the error.
+func (s *App) refreshData() {
+	log.Println("Starting scheduled data refresh...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Create new store and load fresh data
+	newStore := data.NewStore(s.apiClient)
+	if err := newStore.Load(ctx); err != nil {
+		log.Printf("⚠️  Data refresh failed: %v (keeping old data)", err)
+		return
+	}
+
+	// Atomically swap stores
+	s.storeMu.Lock()
+	s.store = newStore
+	s.storeMu.Unlock()
+
+	stats := newStore.Stats()
+	log.Printf("✅ Data refresh complete - %d artists (cached: %d images, downloaded: %d images)",
+		stats.TotalArtists, stats.CachedImages, stats.DownloadedImages)
+}
+
+// Shutdown gracefully shuts down the server and stops background refresh.
+func (s *App) Shutdown(ctx context.Context) error {
+	log.Println("Shutting down server...")
+
+	// Stop refresh ticker and goroutine
+	if s.ticker != nil {
+		s.ticker.Stop()
+	}
+	if s.stopChan != nil {
+		close(s.stopChan)
+	}
+
+	// Shutdown HTTP server
+	return s.httpServer.Shutdown(ctx)
 }

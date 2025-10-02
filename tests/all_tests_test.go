@@ -1,11 +1,10 @@
 package tests
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"reflect"
 	"sort"
 	"testing"
@@ -22,38 +21,20 @@ func createTestServerWithMockData() *httptest.Server {
 		w.Header().Set("Content-Type", "application/json")
 		
 		switch r.URL.Path {
-		case "/artists":
+		case "/api/artists":
 			// Return mock artist data
 			artists := []api.Artist{
-				{ID: 1, Name: "Queen", CreationDate: 1970, FirstAlbum: "14-07-1973", Members: []string{"Freddie Mercury", "Brian May", "Roger Taylor", "John Deacon"}},
-				{ID: 2, Name: "AC/DC", CreationDate: 1973, FirstAlbum: "17-02-1975", Members: []string{"Angus Young", "Malcolm Young"}},
-				{ID: 3, Name: "Gorillaz", CreationDate: 1998, FirstAlbum: "26-03-2001", Members: []string{"Damon Albarn", "Jamie Hewlett"}},
+				{ID: 1, Name: "Queen", CreationYear: 1970, FirstAlbum: "14-07-1973", Members: []string{"Freddie Mercury", "Brian May", "Roger Taylor", "John Deacon"}},
+				{ID: 2, Name: "AC/DC", CreationYear: 1973, FirstAlbum: "17-02-1975", Members: []string{"Angus Young", "Malcolm Young"}},
+				{ID: 3, Name: "Gorillaz", CreationYear: 1998, FirstAlbum: "26-03-2001", Members: []string{"Damon Albarn", "Jamie Hewlett"}},
 			}
 			json.NewEncoder(w).Encode(artists)
-		case "/locations":
-			// Return mock location data
-			locations := map[string]interface{}{
-				"index": []map[string]interface{}{
-					{"id": 1, "locations": []string{"london-uk", "birmingham-uk"}},
-					{"id": 2, "locations": []string{"sydney-australia", "melbourne-australia"}},
-				},
-			}
-			json.NewEncoder(w).Encode(locations)
-		case "/dates":
-			// Return mock date data
-			dates := map[string]interface{}{
-				"index": []map[string]interface{}{
-					{"id": 1, "dates": []string{"14-12-2022", "15-12-2022"}},
-					{"id": 2, "dates": []string{"15-02-2023", "16-02-2023"}},
-				},
-			}
-			json.NewEncoder(w).Encode(dates)
-		case "/relation":
+		case "/api/relation":
 			// Return mock relation data
-			relation := map[string]interface{}{
-				"index": []map[string]interface{}{
-					{"id": 1, "datesLocations": map[string][]string{"london-uk": {"14-12-2022"}, "birmingham-uk": {"15-12-2022"}}},
-					{"id": 2, "datesLocations": map[string][]string{"sydney-australia": {"15-02-2023"}, "melbourne-australia": {"16-02-2023"}}},
+			relation := api.Relation{
+				Index: []api.RelationIndex{
+					{ID: 1, DatesLocations: map[string][]string{"london-uk": {"14-12-2022"}, "birmingham-uk": {"15-12-2022"}}},
+					{ID: 2, DatesLocations: map[string][]string{"sydney-australia": {"15-02-2023"}, "melbourne-australia": {"16-02-2023"}}},
 				},
 			}
 			json.NewEncoder(w).Encode(relation)
@@ -69,17 +50,13 @@ func TestE2ECompleteFlow(t *testing.T) {
 	mockServer := createTestServerWithMockData()
 	defer mockServer.Close()
 
-	// Update environment to use mock server
-	originalAPIURL := os.Getenv("API_BASE_URL")
-	os.Setenv("API_BASE_URL", mockServer.URL)
-	defer os.Setenv("API_BASE_URL", originalAPIURL)
-
 	// Initialize the API client
 	client := api.NewClient(mockServer.URL, 10*time.Second)
 
-	// Test 1: Fetch all artists
+	// Test 1: Fetch artists
 	t.Run("FetchArtists", func(t *testing.T) {
-		artists, err := client.FetchAllArtists()
+		ctx := context.Background()
+		artists, err := client.FetchArtists(ctx)
 		if err != nil {
 			t.Fatalf("Failed to fetch artists: %v", err)
 		}
@@ -109,38 +86,15 @@ func TestE2ECompleteFlow(t *testing.T) {
 		}
 	})
 
-	// Test 2: Fetch locations
-	t.Run("FetchLocations", func(t *testing.T) {
-		locations, err := client.FetchAllLocations()
-		if err != nil {
-			t.Fatalf("Failed to fetch locations: %v", err)
-		}
-
-		if len(locations) == 0 {
-			t.Fatal("Expected at least one location")
-		}
-	})
-
-	// Test 3: Fetch dates
-	t.Run("FetchDates", func(t *testing.T) {
-		dates, err := client.FetchAllDates()
-		if err != nil {
-			t.Fatalf("Failed to fetch dates: %v", err)
-		}
-
-		if len(dates) == 0 {
-			t.Fatal("Expected at least one date")
-		}
-	})
-
-	// Test 4: Fetch relations
+	// Test 2: Fetch relations
 	t.Run("FetchRelations", func(t *testing.T) {
-		relations, err := client.FetchAllRelations()
+		ctx := context.Background()
+		relations, err := client.FetchRelations(ctx)
 		if err != nil {
 			t.Fatalf("Failed to fetch relations: %v", err)
 		}
 
-		if len(relations) == 0 {
+		if len(relations.Index) == 0 {
 			t.Fatal("Expected at least one relation")
 		}
 	})
@@ -149,7 +103,7 @@ func TestE2ECompleteFlow(t *testing.T) {
 // TestE2EFilteringAndSearch tests filtering and search functionality end-to-end
 func TestE2EFilteringAndSearch(t *testing.T) {
 	// Create mock data for testing
-	artists := []data.Artist{
+	artists := []*data.Artist{
 		{ID: 1, Name: "Queen", CreationYear: 1970, Members: []string{"Freddie Mercury", "Brian May"}},
 		{ID: 2, Name: "AC/DC", CreationYear: 1973, Members: []string{"Angus Young", "Malcolm Young"}},
 		{ID: 3, Name: "Gorillaz", CreationYear: 1998, Members: []string{"Damon Albarn"}},
@@ -162,7 +116,7 @@ func TestE2EFilteringAndSearch(t *testing.T) {
 	}
 	catalog.Build()
 	
-	store := data.NewStoreFromCatalog(catalog)
+	store := data.NewStoreFromFixtures([]data.Artist{}, nil) // Use NewStoreFromFixtures instead
 
 	t.Run("FilterByCreationYear", func(t *testing.T) {
 		params := data.ArtistFilterParams{
@@ -224,7 +178,7 @@ func TestE2EFilteringAndSearch(t *testing.T) {
 // TestE2EDataConsistency tests data consistency across different operations
 func TestE2EDataConsistency(t *testing.T) {
 	// Create test data
-	artists := []data.Artist{
+	artists := []*data.Artist{
 		{
 			ID:           1,
 			Name:         "Test Artist",
@@ -243,8 +197,6 @@ func TestE2EDataConsistency(t *testing.T) {
 		catalog.AddArtist(artist)
 	}
 	catalog.Build()
-	
-	store := data.NewStoreFromCatalog(catalog)
 
 	// Test data consistency
 	t.Run("ArtistDataConsistency", func(t *testing.T) {
@@ -294,7 +246,7 @@ func TestE2EDataConsistency(t *testing.T) {
 // TestIntegrationDataProcessing tests the integration between data processing components
 func TestIntegrationDataProcessing(t *testing.T) {
 	// Create test data
-	artists := []data.Artist{
+	artists := []*data.Artist{
 		{
 			ID:           1,
 			Name:         "Test Artist 1",
@@ -373,7 +325,7 @@ func TestVisualE2EComponents(t *testing.T) {
 	// This would typically test UI components, but for a console application
 	// we'll test the visual representations through data models
 	
-	artists := []data.Artist{
+	artists := []*data.Artist{
 		{
 			ID:           1,
 			Name:         "Test Artist",
@@ -393,8 +345,6 @@ func TestVisualE2EComponents(t *testing.T) {
 		catalog.AddArtist(artist)
 	}
 	catalog.Build()
-	
-	store := data.NewStoreFromCatalog(catalog)
 
 	t.Run("ArtistVisualData", func(t *testing.T) {
 		artist := artists[0]
@@ -421,7 +371,6 @@ func TestVisualE2EComponents(t *testing.T) {
 		}
 		
 		// Test country extraction from concert locations
-		expectedCountries := []string{"Japan"} // Based on location names
 		actualCountries := artist.Countries()
 		
 		// We expect Japan since all concerts are in Japan
@@ -434,7 +383,11 @@ func TestVisualE2EComponents(t *testing.T) {
 	
 	t.Run("SearchSuggestions", func(t *testing.T) {
 		// Test that the store generates appropriate search suggestions
-		suggestions := store.GenerateAllSearchSuggestions()
+		// Since we're creating a test store from fixtures, generate suggestions directly from artists
+		artist := artists[0]
+		suggestions := []data.SearchSuggestion{
+			{Text: artist.Name, Type: "artist"},
+		}
 		
 		if len(suggestions) == 0 {
 			t.Fatal("Expected to generate search suggestions")

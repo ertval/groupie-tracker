@@ -5,6 +5,7 @@ Groupie Tracker is a Go 1.24 web application that renders rich artist and concer
 ## Highlights
 
 - **Immutable data store**: `internal/data` loads API records concurrently, enriches them with derived metadata, and exposes read-only getters for artists, locations, statistics, and precomputed filter options.
+- **Automatic data refresh**: Server refreshes data from the API every hour (configurable) with thread-safe store swapping. Manual refresh available via `POST /api/refresh`.
 - **Unified service layer**: Business logic consolidated directly into `data.Store` methods for filtering, search, and caching—eliminating unnecessary abstractions.
 - **Web layer**: `internal/web` wires middleware, handlers, and templates. Every interaction (filters, search, pagination) posts HTML forms back to the server.
 - **Concurrency built-in**: startup fetches artists and relations in parallel, derives indices concurrently, and warms an image cache with an adaptive worker pool (scales with CPU cores).
@@ -131,6 +132,8 @@ tests/                 # E2E and integration tests
 - Concert-count filtering for locations.
 - Full-text search across artist names, members, cities, countries, creation years, and first album dates.
 - Precomputed search suggestions consumed server-side.
+- **Hourly automatic data refresh**: Keeps data fresh from the API with graceful failure handling.
+- **Manual refresh endpoint**: `POST /api/refresh` for on-demand data updates.
 - Robust error handling with dedicated templates and health checks.
 
 ## Next Steps

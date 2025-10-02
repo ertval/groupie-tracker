@@ -40,6 +40,14 @@ func NewStore(apiClient *api.Client) *Store {
 	}
 }
 
+// Refresh reloads all data from the API and rebuilds the store with fresh data.
+// Unlike Load(), Refresh can be called multiple times and does not use sync.Once.
+// This is used for periodic data rehydration to keep the store up-to-date.
+// Returns error if any stage of the reload fails.
+func (s *Store) Refresh(ctx context.Context) error {
+	return s.loadData(ctx)
+}
+
 // Load orchestrates the entire data loading pipeline: fetch API data, process into domain models,
 // build indexes, compute metadata, and cache images if enabled. This method is thread-safe and
 // executes exactly once via sync.Once, even if called concurrently from multiple goroutines.

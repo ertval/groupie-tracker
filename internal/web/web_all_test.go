@@ -293,8 +293,7 @@ func TestServiceAccess(t *testing.T) {
 		t.Error("Service should return stats")
 	}
 
-	// Test service access for stats
-	stats := server.store.Stats()
+	// Test service access for stats again with different condition
 	if stats.TotalArtists <= 0 {
 		t.Error("Stats should report a valid number of artists")
 	}

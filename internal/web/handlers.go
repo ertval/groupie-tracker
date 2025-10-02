@@ -67,10 +67,11 @@ func (app *App) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists := app.store.Artists()
+	store := app.getStore()
+	artists := store.Artists()
 	featuredArtists := getRandomArtists(artists, 8)
 
-	page := view.NewHomePage(app.store, featuredArtists)
+	page := view.NewHomePage(store, featuredArtists)
 	app.render(w, r, "home.tmpl", page)
 }
 
@@ -85,8 +86,9 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	artists := app.store.Artists()
-	filterOptions := app.store.ArtistFilterOptions()
+	store := app.getStore()
+	artists := store.Artists()
+	filterOptions := store.ArtistFilterOptions()
 	var appliedFilters data.ArtistFilterParams
 	totalArtists := len(artists)
 	isFiltered := false
@@ -98,7 +100,7 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 		}
 
 		appliedFilters = parseArtistFilterParams(r)
-		artists = app.store.FilterArtists(appliedFilters)
+		artists = store.FilterArtists(appliedFilters)
 		isFiltered = true
 	}
 
@@ -107,7 +109,7 @@ func (app *App) Artists(w http.ResponseWriter, r *http.Request) {
 		return artists[i].ConcertCount() > artists[j].ConcertCount()
 	})
 
-	page := view.NewArtistListPage(app.store, artists, filterOptions, appliedFilters, isFiltered, totalArtists)
+	page := view.NewArtistListPage(store, artists, filterOptions, appliedFilters, isFiltered, totalArtists)
 	app.render(w, r, "artists.tmpl", page)
 }
 
@@ -120,11 +122,12 @@ func (app *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	store := app.getStore()
 	// Try slug first, then ID
-	artist, found := app.store.ArtistBySlug(path)
+	artist, found := store.ArtistBySlug(path)
 	if !found {
 		if id, err := strconv.Atoi(path); err == nil {
-			artist, found = app.store.ArtistByID(id)
+			artist, found = store.ArtistByID(id)
 		}
 		if !found {
 			app.NotFoundError(w, r, "Artist not found")
@@ -133,9 +136,9 @@ func (app *App) ArtistDetail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Get navigation artists using on-demand lookup
-	prevArtist, nextArtist := app.store.AdjacentArtists(artist.ID)
+	prevArtist, nextArtist := store.AdjacentArtists(artist.ID)
 
-	page := view.NewArtistDetailPage(app.store, artist, prevArtist, nextArtist)
+	page := view.NewArtistDetailPage(store, artist, prevArtist, nextArtist)
 	app.render(w, r, "artist_detail.tmpl", page)
 } // ============================================================================
 // LOCATIONS
@@ -148,8 +151,9 @@ func (app *App) Locations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	locations := app.store.Locations()
-	filterOptions := app.store.LocationFilterOptions()
+	store := app.getStore()
+	locations := store.Locations()
+	filterOptions := store.LocationFilterOptions()
 	var appliedFilters data.LocationFilterParams
 	totalLocations := len(locations)
 
@@ -160,7 +164,7 @@ func (app *App) Locations(w http.ResponseWriter, r *http.Request) {
 		}
 
 		appliedFilters = parseLocationFilterParams(r)
-		locations = app.store.FilterLocations(appliedFilters)
+		locations = store.FilterLocations(appliedFilters)
 	}
 
 	// Check if any filter is applied
@@ -183,7 +187,7 @@ func (app *App) Locations(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	page := view.NewLocationListPage(app.store, locations, filterOptions, appliedFilters, isFiltered, filterDescription, totalLocations)
+	page := view.NewLocationListPage(store, locations, filterOptions, appliedFilters, isFiltered, filterDescription, totalLocations)
 	app.render(w, r, "locations.tmpl", page)
 }
 
@@ -195,13 +199,14 @@ func (app *App) LocationDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	location, found := app.store.LocationBySlug(slug)
+	store := app.getStore()
+	location, found := store.LocationBySlug(slug)
 	if !found {
 		app.NotFoundError(w, r, "Location not found")
 		return
 	}
 
-	page := view.NewLocationDetailPage(app.store, location, location.Artists)
+	page := view.NewLocationDetailPage(store, location, location.Artists)
 	app.render(w, r, "location_detail.tmpl", page)
 }
 
@@ -216,6 +221,7 @@ func (app *App) Search(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	store := app.getStore()
 	var searchQuery string
 	var appliedFilters data.ArtistFilterParams
 	var searchResults data.SearchResult
@@ -236,20 +242,23 @@ func (app *App) Search(w http.ResponseWriter, r *http.Request) {
 			Query:   searchQuery,
 			Filters: appliedFilters,
 		}
-		searchResults = app.store.SearchArtists(searchParams)
+		searchResults = store.SearchArtists(searchParams)
 		isSearch = searchQuery != ""
 	}
 
-	filterOptions := app.store.ArtistFilterOptions()
-	page := view.NewSearchPage(app.store, searchQuery, searchResults, filterOptions, appliedFilters, isSearch)
+	filterOptions := store.ArtistFilterOptions()
+	page := view.NewSearchPage(store, searchQuery, searchResults, filterOptions, appliedFilters, isSearch)
 	app.render(w, r, "search.tmpl", page)
-} // SuggestionsAPI provides search suggestions for autocomplete functionality.
+}
+
+// SuggestionsAPI provides search suggestions for autocomplete functionality.
 func (app *App) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 	query := strings.TrimSpace(r.URL.Query().Get("q"))
 
+	store := app.getStore()
 	// Use optimized filtering with reasonable limits
 	const maxSuggestions = 15 // Limit to avoid overwhelming the UI
-	matchingSuggestions := app.store.FilterSearchSuggestions(query, maxSuggestions)
+	matchingSuggestions := store.FilterSearchSuggestions(query, maxSuggestions)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(matchingSuggestions)
@@ -261,7 +270,7 @@ func (app *App) SuggestionsAPI(w http.ResponseWriter, r *http.Request) {
 
 // Health provides a health check endpoint.
 func (app *App) Health(w http.ResponseWriter, r *http.Request) {
-	response := view.NewHealthResponse(app.store)
+	response := view.NewHealthResponse(app.getStore())
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -352,4 +361,34 @@ func (app *App) parseFormOrError(w http.ResponseWriter, r *http.Request) bool {
 		return false
 	}
 	return true
+}
+
+// ============================================================================
+// API - DATA REFRESH
+// ============================================================================
+
+// RefreshData handles manual data refresh requests via POST /api/refresh.
+// This endpoint triggers an immediate data refresh without waiting for the hourly ticker.
+// The refresh happens asynchronously to avoid blocking the HTTP response.
+func (app *App) RefreshData(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST requests
+	if r.Method != http.MethodPost {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusMethodNotAllowed)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "Method not allowed. Use POST to trigger refresh.",
+		})
+		return
+	}
+
+	// Trigger refresh asynchronously so we can respond immediately
+	go app.refreshData()
+
+	// Send success response
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "accepted",
+		"message": "Data refresh started. Check server logs for progress.",
+	})
 }

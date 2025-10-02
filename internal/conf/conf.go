@@ -15,4 +15,8 @@ var (
 	ReadTimeout  = 15 * time.Second
 	WriteTimeout = 15 * time.Second
 	IdleTimeout  = 60 * time.Second
+
+	// Data refresh interval (default: 1 hour)
+	// Set to a shorter duration for testing (e.g., 1 * time.Minute)
+	DataRefreshInterval = 1 * time.Hour
 )
