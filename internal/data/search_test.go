@@ -248,6 +248,46 @@ func TestSearchArtists(t *testing.T) {
 	}
 }
 
+func TestSearchArtistsCachesSimpleQueries(t *testing.T) {
+	repo := createTestSearchData()
+
+	params := SearchParams{Query: "queen"}
+	repo.svc.SearchArtists(params)
+
+	repo.svc.cacheMu.Lock()
+	if len(repo.svc.searchCache) != 1 {
+		repo.svc.cacheMu.Unlock()
+		t.Fatalf("expected cache size 1 after simple query, got %d", len(repo.svc.searchCache))
+	}
+	if _, ok := repo.svc.searchCache["queen"]; !ok {
+		repo.svc.cacheMu.Unlock()
+		t.Fatalf("expected cached entry for normalized query 'queen'")
+	}
+	repo.svc.cacheMu.Unlock()
+
+	// Second call should reuse cache without creating duplicate entries
+	repo.svc.SearchArtists(params)
+
+	repo.svc.cacheMu.Lock()
+	defer repo.svc.cacheMu.Unlock()
+	if len(repo.svc.searchOrder) != 1 {
+		t.Fatalf("expected search order to contain a single cached query, got %d", len(repo.svc.searchOrder))
+	}
+}
+
+func TestSearchArtistsDoesNotCacheWhenFiltersApplied(t *testing.T) {
+	repo := createTestSearchData()
+
+	filters := ArtistFilterParams{Countries: []string{"UK"}}
+	repo.svc.SearchArtists(SearchParams{Query: "queen", Filters: filters})
+
+	repo.svc.cacheMu.Lock()
+	defer repo.svc.cacheMu.Unlock()
+	if len(repo.svc.searchCache) != 0 {
+		t.Fatalf("expected filtered searches not to be cached, found %d entries", len(repo.svc.searchCache))
+	}
+}
+
 func TestSearchArtistsWithFilters(t *testing.T) {
 	repo := createTestSearchData()
 

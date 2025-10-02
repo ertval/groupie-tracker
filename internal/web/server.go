@@ -21,10 +21,6 @@ type Server struct {
 	// Pre-compiled templates for rendering
 	templates map[string]*template.Template
 
-	// Lightweight search query cache (for frequent searches)
-	searchCache map[string][]data.Artist // Key: normalized query, Value: search results
-	cacheSize   int                      // Maximum number of cached queries
-
 	// HTTP server instance
 	httpServer *http.Server
 	// Handler is the http.Handler used by the server. It is exported to allow
@@ -52,9 +48,6 @@ func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load data: %w", err)
 	}
-
-	// Initialize in-memory search cache
-	server.initializeSearchCache()
 
 	// Compile all HTML templates once at startup
 	server.loadTemplates()
@@ -91,38 +84,4 @@ func NewServer(apiClient *api.Client, withCache bool) (*Server, error) {
 // ListenAndServe starts the HTTP server (blocking operation)
 func (s *Server) ListenAndServe() error {
 	return s.httpServer.ListenAndServe()
-}
-
-// initializeSearchCache prepares the in-memory search cache.
-func (s *Server) initializeSearchCache() {
-	s.searchCache = make(map[string][]data.Artist)
-	s.cacheSize = 50 // Reasonable cache size for frequent searches
-}
-
-// getCachedSearchResults retrieves cached search results.
-func (s *Server) getCachedSearchResults(normalizedQuery string) ([]data.Artist, bool) {
-	if results, found := s.searchCache[normalizedQuery]; found {
-		return results, true
-	}
-	return nil, false
-}
-
-// setCachedSearchResults stores search results in cache.
-func (s *Server) setCachedSearchResults(normalizedQuery string, results []data.Artist) {
-	// Simple cache eviction: if at capacity, clear cache (could be more sophisticated)
-	if len(s.searchCache) >= s.cacheSize {
-		// Clear half the cache to make room (simple eviction strategy)
-		newCache := make(map[string][]data.Artist, s.cacheSize)
-		count := 0
-		for key, value := range s.searchCache {
-			if count >= s.cacheSize/2 {
-				break
-			}
-			newCache[key] = value
-			count++
-		}
-		s.searchCache = newCache
-	}
-
-	s.searchCache[normalizedQuery] = results
 }

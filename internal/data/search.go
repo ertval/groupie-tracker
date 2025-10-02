@@ -20,23 +20,36 @@ func newSearchSuggestion(text, suggestionType, description, url string, artistID
 // SearchArtists performs search across artist data with optional filtering.
 func (s *Service) SearchArtists(params SearchParams) SearchResult {
 	artists := s.store.Artists()
-	query := normalizeSearchQuery(params.Query)
+	normalizedQuery := normalizeSearchQuery(params.Query)
+	filtersEmpty := isEmptyFilter(params.Filters)
+	useCache := normalizedQuery != "" && filtersEmpty
+
+	if useCache {
+		if cached, ok := s.getCachedSearchResults(normalizedQuery); ok {
+			return SearchResult{
+				Artists:      cached,
+				Query:        params.Query,
+				TotalResults: len(cached),
+			}
+		}
+	}
+
 	var matchingArtists []Artist
 
 	// If no query provided, use all artists
-	if query == "" {
+	if normalizedQuery == "" {
 		matchingArtists = artists
 	} else {
 		// Filter artists by search query
 		for _, artist := range artists {
-			if matchesSearchQuery(artist, query) {
+			if matchesSearchQuery(artist, normalizedQuery) {
 				matchingArtists = append(matchingArtists, artist)
 			}
 		}
 	}
 
 	// Apply additional filters if provided
-	if !isEmptyFilter(params.Filters) {
+	if !filtersEmpty {
 		var filteredArtists []Artist
 		for _, artist := range matchingArtists {
 			if s.matchesArtistFilters(artist, params.Filters) {
@@ -44,6 +57,10 @@ func (s *Service) SearchArtists(params SearchParams) SearchResult {
 			}
 		}
 		matchingArtists = filteredArtists
+	}
+
+	if useCache {
+		s.setCachedSearchResults(normalizedQuery, matchingArtists)
 	}
 
 	return SearchResult{

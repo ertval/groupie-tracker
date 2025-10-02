@@ -96,12 +96,6 @@ func TestNewServer(t *testing.T) {
 	if server.svc == nil {
 		t.Error("Expected service to be initialized")
 	}
-	if server.searchCache == nil {
-		t.Error("Expected search cache map to be initialized")
-	}
-	if server.cacheSize == 0 {
-		t.Error("Expected search cache size to be configured")
-	}
 	if server.templates == nil {
 		t.Error("Expected templates to be initialized")
 	}
