@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"groupie-tracker/internal/conf"
 )
 
 // ============================================================================
@@ -32,7 +34,13 @@ import (
 // Chain order (innermost to outermost): secureHeaders → recovery → logging
 // This order ensures security headers are set first, panics are caught, and all requests are logged.
 func withMiddleware(next http.Handler) http.Handler {
-	return withLogging(withRecovery(withSecureHeaders(next)))
+	return withLogging(
+		withRecovery(
+			withSecureHeaders(
+				withDefaultRateLimit(next),
+			),
+		),
+	)
 }
 
 // withRecovery catches panics in handlers and converts them to 500 errors instead of crashing the server.
@@ -114,7 +122,7 @@ func (b *tokenBucket) allow() bool {
 	return false
 }
 
-var limiterStore sync.Map // map[string]*tokenBucket
+var globalLimiterStore sync.Map // map[string]*tokenBucket
 
 // getClientIP returns the client's IP using X-Forwarded-For or RemoteAddr.
 func getClientIP(r *http.Request) string {
@@ -136,9 +144,17 @@ func getClientIP(r *http.Request) string {
 // withRateLimit wraps handlers with a per-client token-bucket limiter.
 // If limit exceeded, returns 429 Too Many Requests with Retry-After header.
 func withRateLimit(next http.Handler, rate float64, burst float64) http.Handler {
+	return withRateLimitStore(&globalLimiterStore, next, rate, burst)
+}
+
+func withDefaultRateLimit(next http.Handler) http.Handler {
+	return withRateLimitStore(&globalLimiterStore, next, float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
+}
+
+func withRateLimitStore(store *sync.Map, next http.Handler, rate float64, burst float64) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		key := getClientIP(r)
-		v, _ := limiterStore.LoadOrStore(key, &tokenBucket{
+		v, _ := store.LoadOrStore(key, &tokenBucket{
 			tokens:   burst,
 			last:     time.Now(),
 			rate:     rate,
@@ -146,8 +162,8 @@ func withRateLimit(next http.Handler, rate float64, burst float64) http.Handler 
 		})
 		b := v.(*tokenBucket)
 		if !b.allow() {
-			// Too many requests
 			w.Header().Set("Retry-After", "1")
+			log.Printf("rate limit exceeded: ip=%s method=%s path=%s", key, r.Method, r.URL.Path)
 			http.Error(w, "429 Too Many Requests", http.StatusTooManyRequests)
 			return
 		}

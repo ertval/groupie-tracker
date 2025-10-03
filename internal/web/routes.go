@@ -2,8 +2,15 @@ package web
 
 import (
 	"net/http"
+	"sync"
 
 	"groupie-tracker/internal/conf"
+)
+
+var (
+	suggestionsLimiterStore sync.Map
+	searchLimiterStore      sync.Map
+	refreshLimiterStore     sync.Map
 )
 
 // createServeMux initializes and configures the HTTP router with all application routes.
@@ -21,15 +28,16 @@ func (a *App) createServeMux() *http.ServeMux {
 
 	// API endpoints
 	// Suggestions endpoint is rate-limited per-client to protect autocomplete from abuse
-	suggestionsHandler := withRateLimit(http.HandlerFunc(a.get(a.SuggestionsAPI)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
+	suggestionsHandler := withRateLimitStore(&suggestionsLimiterStore, http.HandlerFunc(a.get(a.SuggestionsAPI)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
 	mux.Handle("/api/suggestions", suggestionsHandler)
 
 	// Refresh endpoint - protect with rate limiting too (manual admin endpoint)
-	refreshHandler := withRateLimit(http.HandlerFunc(a.post(a.RefreshData)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
+	refreshHandler := withRateLimitStore(&refreshLimiterStore, http.HandlerFunc(a.post(a.RefreshData)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
 	mux.Handle("/api/refresh", refreshHandler)
 
 	// Search endpoints (supports both GET and POST)
-	mux.HandleFunc("/search", a.getPost(a.Search))
+	searchHandler := withRateLimitStore(&searchLimiterStore, http.HandlerFunc(a.getPost(a.Search)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
+	mux.Handle("/search", searchHandler)
 
 	// Development tools (only active in dev mode)
 	mux.HandleFunc("/dev", a.get(a.DevIndex))
