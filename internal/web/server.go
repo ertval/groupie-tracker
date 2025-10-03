@@ -94,30 +94,30 @@ func NewApp(apiClient *api.Client) (*App, error) {
 
 // StartApp starts the HTTP server and blocks until the server stops or encounters a fatal error.
 // This is a blocking operation - it will run until interrupted (Ctrl+C) or an error occurs.
-func (s *App) StartApp() error {
-	return s.httpServer.ListenAndServe()
+func (a *App) StartApp() error {
+	return a.httpServer.ListenAndServe()
 }
 
 // getStore returns the current store with read lock for thread-safe access.
 // All handlers should use this method instead of accessing s.store directly.
-func (s *App) getStore() *data.Store {
-	s.storeMu.RLock()
-	defer s.storeMu.RUnlock()
-	return s.store
+func (a *App) getStore() *data.Store {
+	a.storeMu.RLock()
+	defer a.storeMu.RUnlock()
+	return a.store
 }
 
 // startDataRefresh initializes and starts the background data refresh ticker.
 // Refreshes data every hour (configurable via conf.DataRefreshInterval).
-func (s *App) startDataRefresh() {
-	s.ticker = time.NewTicker(conf.DataRefreshInterval)
-	s.stopChan = make(chan struct{})
+func (a *App) startDataRefresh() {
+	a.ticker = time.NewTicker(conf.DataRefreshInterval)
+	a.stopChan = make(chan struct{})
 
 	go func() {
 		for {
 			select {
-			case <-s.ticker.C:
-				s.refreshData()
-			case <-s.stopChan:
+			case <-a.ticker.C:
+				a.refreshData()
+			case <-a.stopChan:
 				return
 			}
 		}
@@ -129,23 +129,23 @@ func (s *App) startDataRefresh() {
 // refreshData performs the actual data refresh by creating a new store and loading fresh data.
 // On success, atomically swaps the old store with the new one.
 // On failure, keeps serving the old data and logs the error.
-func (s *App) refreshData() {
+func (a *App) refreshData() {
 	log.Println("Starting scheduled data refresh...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
 	// Create new store and load fresh data
-	newStore := data.NewStore(s.apiClient)
+	newStore := data.NewStore(a.apiClient)
 	if err := newStore.Load(ctx); err != nil {
 		log.Printf("⚠️  Data refresh failed: %v (keeping old data)", err)
 		return
 	}
 
 	// Atomically swap stores
-	s.storeMu.Lock()
-	s.store = newStore
-	s.storeMu.Unlock()
+	a.storeMu.Lock()
+	a.store = newStore
+	a.storeMu.Unlock()
 
 	stats := newStore.Stats()
 	log.Printf("✅ Data refresh complete - %d artists (cached: %d images, downloaded: %d images)",
@@ -153,17 +153,17 @@ func (s *App) refreshData() {
 }
 
 // Shutdown gracefully shuts down the server and stops background refresh.
-func (s *App) Shutdown(ctx context.Context) error {
+func (a *App) Shutdown(ctx context.Context) error {
 	log.Println("Shutting down server...")
 
 	// Stop refresh ticker and goroutine
-	if s.ticker != nil {
-		s.ticker.Stop()
+	if a.ticker != nil {
+		a.ticker.Stop()
 	}
-	if s.stopChan != nil {
-		close(s.stopChan)
+	if a.stopChan != nil {
+		close(a.stopChan)
 	}
 
 	// Shutdown HTTP server
-	return s.httpServer.Shutdown(ctx)
+	return a.httpServer.Shutdown(ctx)
 }

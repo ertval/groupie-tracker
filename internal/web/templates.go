@@ -42,13 +42,13 @@ import (
 
 // render executes a template and sends the response.
 // Uses a buffer to catch template execution errors before sending the HTTP response.
-func (app *App) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
+func (a *App) render(w http.ResponseWriter, r *http.Request, name string, data any, status ...int) {
 	code := http.StatusOK
 	if len(status) > 0 {
 		code = status[0]
 	}
 
-	tmpl, ok := app.templates[name]
+	tmpl, ok := a.templates[name]
 	if !ok {
 		// Prevent infinite recursion if error template itself is missing
 		if name == "error.tmpl" {
@@ -56,7 +56,7 @@ func (app *App) render(w http.ResponseWriter, r *http.Request, name string, data
 			http.Error(w, "500 Internal Server Error - Error template not found", http.StatusInternalServerError)
 			return
 		}
-		app.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
+		a.Error(w, r, http.StatusInternalServerError, fmt.Sprintf("Template %s not found", name))
 		return
 	}
 
@@ -69,7 +69,7 @@ func (app *App) render(w http.ResponseWriter, r *http.Request, name string, data
 			http.Error(w, "500 Internal Server Error - Failed to execute error template", http.StatusInternalServerError)
 			return
 		}
-		app.Error(w, r, http.StatusInternalServerError, err.Error())
+		a.Error(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -81,8 +81,8 @@ func (app *App) render(w http.ResponseWriter, r *http.Request, name string, data
 
 // loadTemplates compiles and caches all HTML templates once at startup.
 // Each template includes base.tmpl for layout inheritance.
-func (app *App) loadTemplates() {
-	app.templates = make(map[string]*template.Template)
+func (a *App) loadTemplates() {
+	a.templates = make(map[string]*template.Template)
 
 	// makeFuncMap creates template functions available in all templates
 	funcMap := makeFuncMap()
@@ -112,10 +112,10 @@ func (app *App) loadTemplates() {
 			log.Fatalf("Failed to parse template %s: %v", name, err)
 		}
 
-		app.templates[name] = ts
+		a.templates[name] = ts
 	}
 
-	log.Printf("Loaded %d templates", len(app.templates))
+	log.Printf("Loaded %d templates", len(a.templates))
 }
 
 // makeFuncMap creates the template function map with all available template functions.

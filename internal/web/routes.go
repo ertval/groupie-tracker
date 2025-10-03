@@ -9,43 +9,43 @@ import (
 // createServeMux initializes and configures the HTTP router with all application routes.
 // Returns a configured *http.ServeMux with handlers for static files, API endpoints,
 // web pages, and development tools. Routes are organized by functionality for clarity.
-func (app *App) createServeMux() *http.ServeMux {
-	router := http.NewServeMux()
+func (a *App) createServeMux() *http.ServeMux {
+	mux := http.NewServeMux()
 
 	// Static assets: CSS, JS, images, and favicon
-	router.HandleFunc("/static/", app.getHead(app.StaticFiles))
-	router.HandleFunc("/favicon.ico", app.getHead(app.StaticFiles))
+	mux.HandleFunc("/static/", a.getHead(a.StaticFiles))
+	mux.HandleFunc("/favicon.ico", a.getHead(a.StaticFiles))
 
 	// Health check endpoint for monitoring
-	router.HandleFunc("/health", app.get(app.Health))
+	mux.HandleFunc("/health", a.get(a.Health))
 
 	// API endpoints
 	// Suggestions endpoint is rate-limited per-client to protect autocomplete from abuse
-	suggestionsHandler := withRateLimit(http.HandlerFunc(app.get(app.SuggestionsAPI)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
-	router.Handle("/api/suggestions", suggestionsHandler)
+	suggestionsHandler := withRateLimit(http.HandlerFunc(a.get(a.SuggestionsAPI)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
+	mux.Handle("/api/suggestions", suggestionsHandler)
 
 	// Refresh endpoint - protect with rate limiting too (manual admin endpoint)
-	refreshHandler := withRateLimit(http.HandlerFunc(app.post(app.RefreshData)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
-	router.Handle("/api/refresh", refreshHandler)
+	refreshHandler := withRateLimit(http.HandlerFunc(a.post(a.RefreshData)), float64(conf.RateLimitRequestsPerSecond), float64(conf.RateLimitBurst))
+	mux.Handle("/api/refresh", refreshHandler)
 
 	// Search endpoints (supports both GET and POST)
-	router.HandleFunc("/search", app.getPost(app.Search))
+	mux.HandleFunc("/search", a.getPost(a.Search))
 
 	// Development tools (only active in dev mode)
-	router.HandleFunc("/dev", app.get(app.DevIndex))
-	router.HandleFunc("/dev/panic", app.any(app.DevPanic)) // No method guard - allows any method for testing
-	router.HandleFunc("/dev/404", app.any(app.Dev404))
-	router.HandleFunc("/dev/500", app.any(app.Dev500))
-	router.HandleFunc("/dev/tmpl-error", app.any(app.Dev500Tmpl))
+	mux.HandleFunc("/dev", a.get(a.DevIndex))
+	mux.HandleFunc("/dev/panic", a.any(a.DevPanic)) // No method guard - allows any method for testing
+	mux.HandleFunc("/dev/404", a.any(a.Dev404))
+	mux.HandleFunc("/dev/500", a.any(a.Dev500))
+	mux.HandleFunc("/dev/tmpl-error", a.any(a.Dev500Tmpl))
 
 	// Main application pages with filter support
-	router.HandleFunc("/artists", app.getPost(app.Artists))
-	router.HandleFunc("/artists/", app.get(app.ArtistDetail))
-	router.HandleFunc("/locations", app.getPost(app.Locations))
-	router.HandleFunc("/locations/", app.get(app.LocationDetail))
+	mux.HandleFunc("/artists", a.getPost(a.Artists))
+	mux.HandleFunc("/artists/", a.get(a.ArtistDetail))
+	mux.HandleFunc("/locations", a.getPost(a.Locations))
+	mux.HandleFunc("/locations/", a.get(a.LocationDetail))
 
 	// Home page (catch-all root handler)
-	router.HandleFunc("/", app.get(app.Home))
+	mux.HandleFunc("/", a.get(a.Home))
 
-	return router
+	return mux
 }

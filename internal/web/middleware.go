@@ -158,7 +158,7 @@ func withRateLimit(next http.Handler, rate float64, burst float64) http.Handler 
 // restrictMethod validates that the incoming request uses one of the allowed HTTP methods.
 // Returns 405 Method Not Allowed with proper Allow header if method is not permitted.
 // This is a method on App to allow access to App.Error for consistent error responses.
-func (app *App) restrictMethod(handler http.HandlerFunc, allowedMethods ...string) http.HandlerFunc {
+func (a *App) restrictMethod(handler http.HandlerFunc, allowedMethods ...string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		allowed := slices.Contains(allowedMethods, r.Method) // Check if request method is in allowed list
 
@@ -172,7 +172,7 @@ func (app *App) restrictMethod(handler http.HandlerFunc, allowedMethods ...strin
 				allowHeader += method
 			}
 			w.Header().Set("Allow", allowHeader) // Set Allow header for 405 response
-			app.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
+			a.Error(w, r, http.StatusMethodNotAllowed, "Method not allowed")
 			return
 		}
 		handler(w, r) // Method is allowed, proceed with handler execution
@@ -180,26 +180,26 @@ func (app *App) restrictMethod(handler http.HandlerFunc, allowedMethods ...strin
 }
 
 // create a function post that allows only post requests
-func (app *App) post(handler http.HandlerFunc) http.HandlerFunc {
-	return app.restrictMethod(handler, http.MethodPost)
+func (a *App) post(handler http.HandlerFunc) http.HandlerFunc {
+	return a.restrictMethod(handler, http.MethodPost)
 }
 
 // create a function get that allows only get requests
-func (app *App) get(handler http.HandlerFunc) http.HandlerFunc {
-	return app.restrictMethod(handler, http.MethodGet)
+func (a *App) get(handler http.HandlerFunc) http.HandlerFunc {
+	return a.restrictMethod(handler, http.MethodGet)
 }
 
 // create a function getAndPost that allows only get and post requests
-func (app *App) getPost(handler http.HandlerFunc) http.HandlerFunc {
-	return app.restrictMethod(handler, http.MethodGet, http.MethodPost)
+func (a *App) getPost(handler http.HandlerFunc) http.HandlerFunc {
+	return a.restrictMethod(handler, http.MethodGet, http.MethodPost)
 }
 
 // create a function any that allows any request method
-func (app *App) any(handler http.HandlerFunc) http.HandlerFunc {
+func (a *App) any(handler http.HandlerFunc) http.HandlerFunc {
 	return handler // No method restriction, allow any HTTP method
 }
 
 // create a function getAndHead that allows only get and head requests
-func (app *App) getHead(handler http.HandlerFunc) http.HandlerFunc {
-	return app.restrictMethod(handler, http.MethodGet, http.MethodHead)
+func (a *App) getHead(handler http.HandlerFunc) http.HandlerFunc {
+	return a.restrictMethod(handler, http.MethodGet, http.MethodHead)
 }
