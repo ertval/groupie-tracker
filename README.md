@@ -1,6 +1,15 @@
 # Groupie Tracker
 
+[![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)](https://golang.org)
+[![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Glossary/HTML5)
+[![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/CSS)
+[![CI](https://img.shields.io/github/actions/workflow/status/ertval/groupie-tracker/go.yml?style=flat-square&logo=github&logoColor=white)](https://github.com/ertval/groupie-tracker/actions)
+
 A robust, modern web application that displays information about bands and artists by consuming data from the Groupie Trackers API. Built with idiomatic Go following clean architecture patterns and audit requirements.
+
+## ⚠️ Problem Statement
+
+The Groupie Trackers API returns inconsistent response formats (direct arrays vs. wrapped objects) across its endpoints. This app normalizes those responses into a unified data model and serves artist/concert information through SEO-friendly URLs — built entirely with Go stdlib, zero external dependencies.
 
 ## 🎯 Project Overview
 
@@ -52,6 +61,24 @@ The application handles the API's inconsistent response formats:
 - **Slug generation**: Creates URL-friendly identifiers from artist/location names
 
 ## 🏗️ Architecture & Data Flow
+
+```mermaid
+graph TD
+    Start[API Fetch] --> A1[GET /artists]
+    Start --> A2[GET /locations]
+    Start --> A3[GET /dates]
+    Start --> A4[GET /relation]
+    A1 --> B[processArtists]
+    A2 --> B
+    A3 --> B
+    A4 --> B
+    B --> C[Generate SEO Slugs]
+    C --> D[Cache Images]
+    D --> E[Create Location Index]
+    E --> F[Thread-safe Maps]
+    F --> G[HTTP Handlers]
+    G --> H[Templates]
+```
 
 ### Clean Architecture Structure
 ```
@@ -153,25 +180,14 @@ Example: GET /artists/queen
 
 ### Installation & Running
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd groupie-tracker
+# Clone and navigate to the project
+git clone <repository-url> && cd groupie-tracker
 
-# Run the server (starts on localhost:8080)
+# Run the server
 go run ./cmd/server/
 
-# Or build and run
-go build -o groupie-tracker ./cmd/server
-./groupie-tracker
-
-# Run internal tests (clean, all passing)
-go test ./internal/... -v
-
-# Run audit tests (may have package declaration issues)
-go test ./tests/... -v
-
-# Check test coverage
-go test -cover ./internal/...
+# Run tests
+go test -v ./...
 ```
 
 **Environment Variables:**
@@ -255,3 +271,7 @@ The application validates against specific audit requirements:
 The application integrates with the Groupie Trackers API which provides artist, location, date, and relation data. It handles the API's inconsistent response formats by normalizing data structures and building efficient search indexes for fast lookups by ID and slug. The repository loads all data once at startup, caches artist images if enabled, and provides thread-safe read operations for concurrent requests. Handlers extract URL parameters, fetch data from the repository, and render HTML templates using a base layout with inheritance.
 
 **Built with ❤️ using Go 1.24+ | Zero Dependencies | Test-Driven Development | Idiomatic GO | Claude 4 Sonnet**
+
+## Related
+- [CV / Portfolio](https://ertval.github.io)
+- [LinkedIn](https://linkedin.com/in/ertval)
