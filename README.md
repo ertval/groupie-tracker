@@ -1,9 +1,20 @@
-# Groupie Tracker
+# Groupie Tracker (Go Web App)
 
-[![Go](https://img.shields.io/badge/Go-00ADD8?style=flat-square&logo=go&logoColor=white)](https://golang.org)
-[![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)](https://developer.mozilla.org/en-US/docs/Glossary/HTML5)
-[![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/CSS)
-[![CI](https://img.shields.io/github/actions/workflow/status/ertval/groupie-tracker/go.yml?style=flat-square&logo=github&logoColor=white)](https://github.com/ertval/groupie-tracker/actions)
+[![Go](https://img.shields.io/badge/Go-1.24+-00ADD8?style=flat-square&logo=go&logoColor=white)](https://golang.org)
+[![HTML5](https://img.shields.io/badge/HTML5-E34F26?style=flat-square&logo=html5&logoColor=white)](https://w3.org)
+[![CSS3](https://img.shields.io/badge/CSS3-1572B6?style=flat-square&logo=css3&logoColor=white)](https://w3.org)
+[![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![Go CI](https://img.shields.io/github/actions/workflow/status/ertval/groupie-tracker/go.yml?style=flat-square&logo=github&logoColor=white)](https://github.com/ertval/groupie-tracker/actions)
+
+---
+
+**Problem:** Consuming and correlating multiple fragmented REST API datasets in real time can slow down client performance and make state synchronization difficult.
+
+**Solution:** A server-side Go template application that fetches, caches, and indexes artist profiles, locations, dates, and relation datasets concurrently using Goroutines, exposing them via unified UI interfaces.
+
+---
+
+A visual band-tracking interface consuming multiple remote JSON endpoints and displaying artists, concert dates, and locations. Fully responsive client with client-side maps integration and server-side templates.
 
 A robust, modern web application that displays information about bands and artists by consuming data from the Groupie Trackers API. Built with idiomatic Go following clean architecture patterns and audit requirements.
 
